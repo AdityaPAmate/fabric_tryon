@@ -1,0 +1,6 @@
+SECRET_KEY: "django_secret_key"
+DEBUG: "False"
+ALLOWED_HOSTS: "*"
+CLOUDFLARE_ACCOUNT_ID: "your-account-id"
+CLOUDFLARE_API_TOKEN: "your-api-token"
+CLOUDFLARE_MODEL: "@cf/black-forest-labs/flux-2-klein-4b"
