@@ -6,6 +6,8 @@ required, and which garment_type values are currently supported.
 
 from rest_framework import serializers
 
+from .ai.prompts import GARMENT_STYLE_OPTIONS
+
 GARMENT_TYPE_CHOICES = [
     ("kurta", "Kurta"),
     ("kurti_pant", "Kurti + Pant"),
@@ -13,11 +15,12 @@ GARMENT_TYPE_CHOICES = [
     ("saree", "Saree"),
     ("shirt", "Shirt"),
     ("frock", "Frock"),
+    ("blazer", "Blazer"),
 ]
 
 # Only these have a working, tested pipeline right now.
 # Others are listed above for API stability but are not built yet.
-IMPLEMENTED_GARMENT_TYPES = {"kurta", "kurti_pant", "saree", "shirt", "pant"}
+IMPLEMENTED_GARMENT_TYPES = {"kurta", "kurti_pant", "saree", "shirt", "pant", "blazer"}
 
 
 class FabricTryOnRequestSerializer(serializers.Serializer):
@@ -26,6 +29,11 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
     garment_type = serializers.ChoiceField(
         choices=GARMENT_TYPE_CHOICES, required=True
     )
+    # Only required for garment_types listed in GARMENT_STYLE_OPTIONS
+    # (currently just "blazer"). Left optional here at the field level
+    # because whether it's required depends on garment_type — that
+    # cross-field check happens in validate() below.
+    garment_style = serializers.CharField(required=False, allow_blank=False)
     options = serializers.JSONField(required=False, default=dict)
 
     def validate_garment_type(self, value):
@@ -36,6 +44,39 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         return value
 
     def validate(self, data):
-        # Garment-specific options validation can be added here later,
-        # once a garment_type actually needs extra options.
+        garment_type = data.get("garment_type")
+        garment_style = data.get("garment_style")
+        valid_styles = GARMENT_STYLE_OPTIONS.get(garment_type)
+
+        if valid_styles is not None:
+            # This garment_type requires a garment_style.
+            if not garment_style:
+                raise serializers.ValidationError(
+                    {
+                        "garment_style": (
+                            f"garment_style is required for garment_type "
+                            f"'{garment_type}'. Valid values: {valid_styles}."
+                        )
+                    }
+                )
+            if garment_style not in valid_styles:
+                raise serializers.ValidationError(
+                    {
+                        "garment_style": (
+                            f"'{garment_style}' is not valid for garment_type "
+                            f"'{garment_type}'. Valid values: {valid_styles}."
+                        )
+                    }
+                )
+        elif garment_style:
+            # garment_type doesn't use styles but one was sent anyway.
+            raise serializers.ValidationError(
+                {
+                    "garment_style": (
+                        f"garment_type '{garment_type}' does not accept a "
+                        f"garment_style value."
+                    )
+                }
+            )
+
         return data

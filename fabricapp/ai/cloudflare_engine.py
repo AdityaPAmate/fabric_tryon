@@ -15,7 +15,7 @@ import time
 import requests
 from django.conf import settings
 
-from .prompts import GARMENT_PROMPTS
+from .prompts import get_prompt_config
 from .image_utils import resize_to_fit, get_output_dimensions
 from .debug_utils import save_debug_copy, save_output_copy
 
@@ -31,22 +31,39 @@ class CloudflareGenerationError(Exception):
     pass
 
 
-def generate_tryon_image(person_image, fabric_image, garment_type, options=None):
+def generate_tryon_image(person_image, fabric_image, garment_type, garment_style=None, options=None):
     """
     Main entry point for the pipeline.
     person_image / fabric_image: Django uploaded file objects.
-    garment_type: must be a key in GARMENT_PROMPTS.
+    garment_type: must be a key in prompts.GARMENT_PROMPTS.
+    garment_style: required only for garment_types that have subtypes
+                   (see prompts.GARMENT_STYLE_OPTIONS, e.g. "blazer").
+                   None for garment_types that don't use styles.
     options: optional dict, currently supports "draft_mode" (bool)
              and "fabric_crop_box" (tuple), both optional.
     Returns: generated image as raw bytes.
     """
     options = options or {}
-    garment_config = GARMENT_PROMPTS[garment_type]
+
+    garment_config = get_prompt_config(garment_type, garment_style)
+    if garment_config is None:
+        logger.error(
+            "No prompt config found for garment_type=%s garment_style=%s",
+            garment_type, garment_style,
+        )
+        raise CloudflareGenerationError(
+            f"No prompt configuration for garment_type='{garment_type}' "
+            f"garment_style='{garment_style}'"
+        )
+
     draft_mode = options.get("draft_mode", True)
     max_output_side = 512 if draft_mode else 1024
 
     # Stage 1: resize both images to fit Cloudflare's input size limit
-    logger.info("Stage 1: resizing images for garment_type=%s", garment_type)
+    logger.info(
+        "Stage 1: resizing images for garment_type=%s garment_style=%s",
+        garment_type, garment_style,
+    )
     person_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
     fabric_buffer = resize_to_fit(
         fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box")

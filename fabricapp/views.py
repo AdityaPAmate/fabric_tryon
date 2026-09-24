@@ -33,6 +33,7 @@ class FabricTryOnView(APIView):
                 person_image=data["person_image"],
                 fabric_image=data["fabric_image"],
                 garment_type=data["garment_type"],
+                garment_style=data.get("garment_style"),
                 options=data.get("options", {}),
             )
         except CloudflareGenerationError as e:

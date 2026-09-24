@@ -325,141 +325,180 @@ GARMENT_PROMPTS = {
         },
     },
 
-    # ---- NEW: blazer, first garment_type to actually use garment_style ----
+    # ---- blazer: fixed this session — fabric color/pattern was being
+    # overridden by style-typical colors (e.g. tuxedo black). Each prompt
+    # now explicitly forbids defaulting to a "typical" color for the style
+    # and forces image 1's exact color/pattern onto the blazer regardless. ----
     "blazer": {
         "business": {
-            # DRAFT — not yet tested against the real API. Wording may
-            # need tuning after the first real output is seen.
             "prompt": (
                 "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
                 "hands, arms, background, and body pose from image 0 completely unchanged — "
                 "sharp, fully in focus, not altered in any way. "
 
                 "Regardless of what garment the person is currently wearing, replace it "
-                "entirely with a new formal business blazer — a structured, single-breasted, "
-                "notch-lapel jacket with clean, sharply tailored shoulders, hitting at roughly "
-                "hip length, worn open or with a single button closed at the waist, over a "
-                "plain white or light-colored collared shirt visible at the neckline and cuffs. "
+                "entirely with a new formal business suit blazer worn OVER a plain white "
+                "collared dress shirt, with a plain dark solid-color necktie visible at the "
+                "collar. The blazer is a structured, single-breasted jacket with a notch "
+                "lapel, sharply tailored shoulders, and buttoned closed with its single "
+                "front button fastened (not left open), hitting at roughly hip length. "
+                "The shirt collar points and a small triangle of shirt/tie must be visible "
+                "at the neckline exactly as in a buttoned suit jacket. "
 
-                "Use only the exact colors and pattern shown in image 1 for the blazer fabric — "
-                "same type (solid, pinstripe, check, herringbone, or plain), same scale and "
-                "proportions — do not invent, add, brighten, darken, or alter any color or "
-                "design element not visible in image 1. The pattern must repeat as densely and "
-                "closely spaced as it appears in image 1, with the same small amount of empty "
-                "space between elements — do not spread it further apart or enlarge the gaps. "
+                "The white shirt and the necktie are NEW elements you are adding — they are "
+                "plain white (shirt) and a plain dark solid color (tie), completely unrelated "
+                "to image 1's fabric; do not put image 1's pattern on the shirt or tie. "
+
+                "CRITICAL — fabric color rule: business suits are commonly navy, charcoal, or "
+                "black, but you must IGNORE that assumption completely. The blazer (including "
+                "its lapel) must use ONLY the exact colors and pattern shown in image 1 — same "
+                "type (solid, pinstripe, check, herringbone, or plain), same scale and "
+                "proportions — even if that color is unusual for a business suit (e.g. bright, "
+                "light, or colorful). Do not shift the blazer toward navy, charcoal, grey, or "
+                "black unless that is literally the color already present in image 1. Do not "
+                "invent, add, brighten, darken, or alter any color or design element not "
+                "visible in image 1. The pattern must repeat as densely and closely spaced as "
+                "it appears in image 1, with the same small amount of empty space between "
+                "elements — do not spread it further apart or enlarge the gaps. "
 
                 "Do not preserve the original garment's collar style, sleeve shape, length, "
                 "drape, folds, wrinkles, or shadows — discard them completely and generate a "
-                "brand-new business-blazer structure from scratch: correct notch lapel, correct "
-                "structured shoulder line, correct hip-length hem, and a fit that follows the "
-                "person's actual body shape in this pose — tailored and fitted, not loose or "
-                "baggy. "
+                "brand-new business-blazer structure from scratch: correct notch lapel, "
+                "correct structured shoulder line, correct hip-length hem, buttoned closed, "
+                "and a fit that follows the person's actual body shape in this pose — "
+                "tailored and fitted, not loose or baggy. "
 
                 "The new blazer's sleeves must be full-length and fully extended down to the "
-                "wrist in a natural, straight, unrolled state — never folded, cuffed, or rolled "
-                "up at the forearm or elbow. "
+                "wrist in a natural, straight, unrolled state — never folded, cuffed, or "
+                "rolled up at the forearm or elbow. "
 
                 "Generate new, realistic shading, folds, and shadows appropriate for this new "
-                "blazer on this body and pose — consistent with the lighting direction in the "
-                "rest of the photo. "
+                "blazer, shirt, and tie on this body and pose — consistent with the lighting "
+                "direction in the rest of the photo. "
 
-                "Result must look like one real, unedited photograph of the same person in the "
-                "same pose and background, now wearing a properly fitted new business blazer "
-                "made exactly from image 1's fabric."
+                "Result must look like one real, unedited photograph of the same person in "
+                "the same pose and background, now wearing a properly fitted new business "
+                "suit — blazer made exactly from image 1's fabric colors and pattern, "
+                "buttoned closed, over a white shirt and dark tie."
             ),
             "guidance": 7.0,
             "seed": 42,
         },
 
         "wedding": {
-            # DRAFT — not yet tested. Modeled on an Indian-wedding-style
-            # bandhgala/nehru-collar blazer look, since a plain Western
-            # business blazer is not typically what "wedding blazer"
-            # means in this context. Re-check wording with the user
-            # before trusting the output.
             "prompt": (
                 "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
                 "hands, arms, background, and body pose from image 0 completely unchanged — "
                 "sharp, fully in focus, not altered in any way. "
 
                 "Regardless of what garment the person is currently wearing, replace it "
-                "entirely with a new formal wedding-style blazer (bandhgala-inspired) — a "
-                "structured, single-breasted jacket with a stand-up mandarin/nehru collar "
-                "(no lapel), a full row of small decorative buttons down the front placket, "
-                "sharply tailored shoulders, and a hem reaching roughly mid-hip to upper-thigh "
-                "length. "
+                "entirely with a new formal tuxedo-style dinner jacket worn OVER a plain "
+                "white collared dress shirt, with a plain black bow tie visible at the "
+                "collar, and a plain white pocket square in the chest pocket. The jacket's "
+                "STRUCTURE (not color) is: single-breasted, with a smooth SHAWL lapel — a "
+                "single continuous rounded curve from the collar down to the button, with no "
+                "notch cut into it, and no separate collar piece — sharply tailored "
+                "shoulders, a single front button fastened (not left open), hitting at "
+                "roughly hip length. This is a Western-style tuxedo shawl lapel shape, NOT a "
+                "stand-up mandarin/nehru collar and NOT a bandhgala-style buttoned placket. "
 
-                "Use only the exact colors and pattern shown in image 1 for the blazer fabric — "
-                "same type (solid, brocade-style print, check, weave, or plain), same scale and "
-                "proportions — do not invent, add, brighten, darken, or alter any color or "
-                "design element not visible in image 1. The pattern must repeat as densely and "
+                "The white shirt, black bow tie, and white pocket square are NEW elements "
+                "you are adding — plain white (shirt), plain black (bow tie), plain white "
+                "(pocket square), completely unrelated to image 1's fabric; do not put "
+                "image 1's pattern on the shirt, bow tie, or pocket square. "
+
+                "CRITICAL — fabric color rule: tuxedo jackets are commonly plain black, but "
+                "you must IGNORE that assumption completely. The ENTIRE jacket, including "
+                "the shawl lapel itself, must use ONLY the exact colors and pattern shown in "
+                "image 1 — same type (solid, subtle weave, check, or plain), same scale and "
+                "proportions — even if that color is not black (e.g. it may be a light color, "
+                "a bright color, or a patterned fabric). Do NOT render the jacket or lapel in "
+                "plain black, navy, or any other color unless that is literally the color "
+                "already present in image 1 — do not treat 'tuxedo' as meaning 'must be "
+                "black'. Do not invent, add, brighten, darken, or alter any color or design "
+                "element not visible in image 1. The pattern must repeat as densely and "
                 "closely spaced as it appears in image 1, with the same small amount of empty "
                 "space between elements — do not spread it further apart or enlarge the gaps. "
 
                 "Do not preserve the original garment's collar style, sleeve shape, length, "
                 "drape, folds, wrinkles, or shadows — discard them completely and generate a "
-                "brand-new wedding-blazer structure from scratch: correct mandarin collar, "
-                "correct button placket, correct structured shoulder line, correct hem length, "
-                "and a fit that follows the person's actual body shape in this pose — tailored "
-                "and fitted, not loose or baggy. "
+                "brand-new tuxedo structure from scratch: correct shawl lapel shape, correct "
+                "structured shoulder line, correct hip-length hem, single button fastened, "
+                "and a fit that follows the person's actual body shape in this pose — "
+                "tailored and fitted, not loose or baggy. "
 
-                "The new blazer's sleeves must be full-length and fully extended down to the "
-                "wrist in a natural, straight, unrolled state — never folded, cuffed, or rolled "
-                "up at the forearm or elbow. "
+                "The new jacket's sleeves must be full-length and fully extended down to the "
+                "wrist in a natural, straight, unrolled state — never folded, cuffed, or "
+                "rolled up at the forearm or elbow. "
 
                 "Generate new, realistic shading, folds, and shadows appropriate for this new "
-                "blazer on this body and pose — consistent with the lighting direction in the "
-                "rest of the photo. "
+                "jacket, shirt, bow tie, and pocket square on this body and pose — consistent "
+                "with the lighting direction in the rest of the photo. "
 
-                "Result must look like one real, unedited photograph of the same person in the "
-                "same pose and background, now wearing a properly fitted new wedding blazer "
-                "made exactly from image 1's fabric."
+                "Result must look like one real, unedited photograph of the same person in "
+                "the same pose and background, now wearing a properly fitted new tuxedo-style "
+                "jacket with a shawl lapel, made exactly from image 1's fabric colors and "
+                "pattern, buttoned closed, over a white shirt with a black bow tie and pocket "
+                "square."
             ),
             "guidance": 7.0,
             "seed": 42,
         },
 
         "casual": {
-            # DRAFT — not yet tested.
             "prompt": (
                 "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
                 "hands, arms, background, and body pose from image 0 completely unchanged — "
                 "sharp, fully in focus, not altered in any way. "
 
                 "Regardless of what garment the person is currently wearing, replace it "
-                "entirely with a new casual unstructured blazer — soft, relaxed shoulders "
-                "(no sharp structured padding), a notch lapel, a relaxed fit that is not "
-                "tightly tailored, and a hem reaching roughly hip length, worn open over a "
-                "plain t-shirt or collared shirt visible at the neckline. "
+                "entirely with a new casual unstructured blazer worn OPEN and UNBUTTONED "
+                "(not fastened), over a plain white collared shirt with the top button "
+                "undone and no necktie. The blazer has soft, relaxed shoulders (no sharp "
+                "structured padding), a notch lapel, a relaxed comfortable fit that is not "
+                "tightly tailored, and a hem reaching roughly hip length. Because it is worn "
+                "open, both edges of the blazer hang naturally apart, clearly showing the "
+                "plain white shirt underneath the full length of the torso. "
 
-                "Use only the exact colors and pattern shown in image 1 for the blazer fabric — "
+                "The white shirt underneath is a NEW element you are adding — plain white, "
+                "completely unrelated to image 1's fabric; do not put image 1's pattern on "
+                "the shirt. Do not add any necktie or bow tie. "
+
+                "CRITICAL — fabric color rule: casual blazers are commonly grey, beige, or "
+                "navy, but you must IGNORE that assumption completely. The blazer (including "
+                "its lapel) must use ONLY the exact colors and pattern shown in image 1 — "
                 "same type (solid, check, textured weave, or plain), same scale and "
-                "proportions — do not invent, add, brighten, darken, or alter any color or "
-                "design element not visible in image 1. The pattern must repeat as densely and "
-                "closely spaced as it appears in image 1, with the same small amount of empty "
-                "space between elements — do not spread it further apart or enlarge the gaps. "
+                "proportions — even if that color is unusual for a casual blazer (e.g. "
+                "bright, light, or colorful). Do not shift the blazer toward grey, beige, "
+                "navy, or any other color unless that is literally the color already present "
+                "in image 1. Do not invent, add, brighten, darken, or alter any color or "
+                "design element not visible in image 1. The pattern must repeat as densely "
+                "and closely spaced as it appears in image 1, with the same small amount of "
+                "empty space between elements — do not spread it further apart or enlarge "
+                "the gaps. "
 
                 "Do not preserve the original garment's collar style, sleeve shape, length, "
                 "drape, folds, wrinkles, or shadows — discard them completely and generate a "
-                "brand-new casual-blazer structure from scratch: correct relaxed notch lapel, "
-                "correct soft shoulder line, correct hip-length hem, and a fit that follows the "
-                "person's actual body shape in this pose — relaxed, not stiffly tailored, but "
-                "not baggy either. "
+                "brand-new casual-blazer structure from scratch: correct relaxed notch "
+                "lapel, correct soft shoulder line, correct hip-length hem, worn open and "
+                "unbuttoned, and a fit that follows the person's actual body shape in this "
+                "pose — relaxed, not stiffly tailored, but not baggy either. "
 
                 "The new blazer's sleeves must be full-length and fully extended down to the "
-                "wrist in a natural, straight, unrolled state — never folded, cuffed, or rolled "
-                "up at the forearm or elbow. "
+                "wrist in a natural, straight, unrolled state — never folded, cuffed, or "
+                "rolled up at the forearm or elbow. "
 
                 "Generate new, realistic shading, folds, and shadows appropriate for this new "
-                "blazer on this body and pose — consistent with the lighting direction in the "
-                "rest of the photo. "
+                "open blazer and shirt on this body and pose — consistent with the lighting "
+                "direction in the rest of the photo. "
 
-                "Result must look like one real, unedited photograph of the same person in the "
-                "same pose and background, now wearing a properly fitted new casual blazer "
-                "made exactly from image 1's fabric."
+                "Result must look like one real, unedited photograph of the same person in "
+                "the same pose and background, now wearing a properly fitted new casual "
+                "blazer made exactly from image 1's fabric colors and pattern, worn open "
+                "over a plain white shirt with no tie."
             ),
             "guidance": 7.0,
             "seed": 42,
         },
-    },
+    }
 }
