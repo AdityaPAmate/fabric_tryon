@@ -362,387 +362,134 @@ GARMENT_PROMPTS = {
             "guidance": 7.0,
             "seed": 42,
         },
-    },
 
-    "kurti_pant": {
-        "default": {
-            # Women's kurti + matching pant, tested and working
-            "prompt": (
-                "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
-                "hands, arms, background, and body pose from image 0 completely unchanged — "
-                "sharp, fully in focus, not altered in any way. "
-
-                "Regardless of what garment the person is currently wearing (saree, salwar suit, "
-                "western dress, top, or anything else), replace it entirely with a new, "
-                "traditional Indian women's kurti paired with a matching straight-cut pant "
-                "(churidar or straight salwar-pant style). "
-
-                "The kurti must be a simple, modest, straight or A-line cut extending down to "
-                "roughly mid-thigh or knee length, with a plain round or V-neck neckline (no "
-                "deep or low-cut neckline), and sleeves that are either elbow-length or "
-                "full-length (choose whichever drapes more naturally given the person's current "
-                "arm position in image 0) — never sleeveless. "
-
-                "If any part of the person's legs is visible below the kurti hem in image 0 "
-                "(whether originally covered by a saree, jeans, a skirt, or anything else), do "
-                "NOT leave that area as bare, exposed, or nude skin under any circumstance. "
-                "Instead, generate a matching straight-cut pant (churidar/salwar style) covering "
-                "the legs down to the ankles, in a plain solid color that coordinates naturally "
-                "with the kurti — white, off-white, or a solid shade picked from the kurti's own "
-                "color palette — with a simple realistic fabric drape and natural folds, never "
-                "patterned or bright, and never the same check/stripe/print pattern as the "
-                "kurti fabric itself. "
-
-                "Do not add a dupatta, stole, or scarf unless one is already clearly present and "
-                "unchanged from image 0 — if there is no dupatta in image 0, do not invent one. "
-
-                "Use only the exact colors and pattern shown in image 1 for the kurti fabric — "
-                "same type (check, stripe, print, weave, or plain), same scale and proportions — "
-                "do not invent, add, brighten, darken, or alter any color or design element not "
-                "visible in image 1. The motifs must repeat as densely and closely spaced as "
-                "they appear in image 1, with the same small amount of empty space between "
-                "them — do not spread them further apart or enlarge the gaps between motifs. "
-
-                "First, examine image 1 carefully to see whether it contains a single uniform "
-                "repeating pattern across its whole surface, or whether it has two visually "
-                "distinct zones — a main body pattern plus a separate, denser decorative "
-                "border or accent strip (often in different colors or motifs, usually running "
-                "along one edge of the fabric). "
-                "If image 1 has only one uniform pattern, apply that same single pattern "
-                "evenly across the entire kurti, exactly as already described above, and "
-                "ignore the rest of this paragraph. "
-                "If image 1 does have a separate, more elaborate border design, you must "
-                "reproduce BOTH zones on the kurti, not just one: apply the main body pattern "
-                "across the bulk of the kurti (front, back, upper sleeves), and apply the "
-                "border design — using its own distinct colors and motifs exactly as shown in "
-                "image 1, not blended or simplified into the main pattern — as a clearly "
-                "visible accent band along the kurti's bottom hem, sleeve cuffs, and neckline "
-                "trim, matching how a real kurti made from this fabric would be tailored so "
-                "the border falls at the finished edges of the garment. "
-
-                "Do not preserve the original garment's neckline style, sleeve shape, length, "
-                "drape, folds, wrinkles, or shadows — discard them completely and generate a "
-                "brand-new kurti structure from scratch: correct kurti neckline, correct kurti "
-                "length, and a fit that follows the person's actual body shape in this pose — "
-                "straight or A-line and comfortably loose-fitting, not tailored tight like a "
-                "western top. "
-
-                "Generate new, realistic shading, folds, and shadows appropriate for this new "
-                "kurti and pant on this body and pose — consistent with the lighting direction "
-                "in the rest of the photo. "
-
-                "Result must look like one real, unedited photograph of the same person in the "
-                "same pose and background, fully and modestly clothed, now wearing a properly "
-                "fitted new kurti made exactly from image 1's fabric, paired with a plain "
-                "matching pant."
-            ),
-            "guidance": 7.0,
-            "seed": 42,
-        },
-    },
-
-    "shirt": {
-        "default": {
-            "prompt": (
-                "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
-                "hands, arms, background, and body pose from image 0 completely unchanged — "
-                "sharp, fully in focus, not altered in any way. "
-
-                "Regardless of what garment the person is currently wearing (shirt, t-shirt, "
-                "kurta, or anything else), replace it entirely with a new, properly fitted, "
-                "collared button-up shirt."
-
-                "Use only the exact colors and pattern shown in "
-                "image 1 — same type (check, stripe, print, weave, or plain), same scale and "
-                "proportions — do not invent, add, brighten, darken, or alter any color or "
-                "design element not visible in image 1. The motifs must repeat as densely "
-                "and closely spaced as they appear in image 1, with the same small amount "
-                "of empty space between them — do not spread them further apart or enlarge "
-                "the gaps between motifs. "
-
-                "Do not preserve the original garment's collar style, sleeve shape, drape, "
-                "folds, wrinkles, or shadows — discard them completely and generate a "
-                "brand-new shirt structure from scratch: proper collar, natural sleeve "
-                "length, and a fit that follows the person's actual body shape in this pose "
-                "— not too loose, not too tight. "
-
-                "The new shirt's sleeves must be full-length and fully extended down to "
-                "the wrist in a natural, straight, unrolled state — never folded, cuffed, "
-                "or rolled up at the forearm or elbow. "
-
-                "Generate new, realistic shading, folds, and shadows appropriate for this "
-                "new shirt on this body and pose — consistent with the lighting direction "
-                "in the rest of the photo. "
-
-                "Result must look like one real, unedited photograph of the same person in "
-                "the same pose and background, now wearing a properly fitted new shirt made "
-                "exactly from image 1's fabric."
-            ),
-            "guidance": 7.0,
-            "seed": 42,
-        },
-    },
-
-    "pant": {
-        "default": {
-            "prompt": (
-                "Edit image 0. Keep the person's face, skin tone, hairstyle, expression, "
-                "hands, arms, body pose, and the entire background from image 0 completely "
-                "unchanged — sharp, fully in focus, pixel-identical where possible. "
-
-                "Do NOT touch, alter, redesign, recolor, or regenerate the person's shirt, "
-                "top, kurta, or any upper-body garment in image 0 — keep it exactly as it "
-                "already appears, with its original color, pattern, fit, folds, and shadows "
-                "completely unchanged. "
-
-                "Regardless of what type of lower-body garment the person is currently "
-                "wearing in image 0 — half-pant, shorts, three-fourth pant, jeans, casual "
-                "trousers, or a full-length formal pant already — convert it into a proper "
-                "formal, full-length straight-cut trouser reaching all the way down to the "
-                "ankles. If the original lower-wear is short (half-pant, shorts, "
-                "three-fourth length) and leaves part of the legs bare below the hem, do "
-                "NOT leave that area as exposed or bare skin under any circumstance — "
-                "extend the new formal pant fully down to the ankles, following the "
-                "person's actual leg shape and pose, with a clean, pressed, straight-leg "
-                "formal cut (not skinny, not baggy, not cargo-style, no visible pockets "
-                "flaps or drawstrings) — never keep the original short length. If the "
-                "original lower-wear is already a full-length pant, keep its existing "
-                "length and fit as-is and only formalize the cut if it currently looks "
-                "casual (e.g. cargo, joggers, denim) into a plain straight-cut formal "
-                "trouser shape. "
-
-                "The ONLY visual element to change from image 0 is the pant's fabric "
-                "color and pattern (and, per the paragraph above, its length/style if it "
-                "was originally a short or casual lower-wear). Do not change where the "
-                "pant sits on the waist, and do not alter anything about the upper-body "
-                "garment, footwear, face, pose, or background. Replace the pant's fabric "
-                "look with the exact fabric shown in image 1. "
-
-                "Use only the exact colors and pattern shown in image 1 for the new pant "
-                "fabric — same type (check, stripe, print, weave, or plain), same scale "
-                "and proportions relative to the pant's size in image 0 — do not invent, "
-                "add, brighten, darken, or alter any color or design element not visible "
-                "in image 1. The motifs must repeat as densely and closely spaced as they "
-                "appear in image 1, with the same small amount of empty space between "
-                "them — do not spread them further apart or enlarge the gaps between "
-                "motifs. "
-
-                "The final pant color and pattern must match image 1 exactly, as-is — do "
-                "not shift the hue, saturation, or brightness compared to image 1. "
-
-                "Generate new, realistic folds, creases, and shadows for this new formal "
-                "pant on the body in this exact pose, so the fabric looks naturally "
-                "draped and worn — not flat or pasted on. Keep the same lighting "
-                "direction already present in image 0. "
-
-                "Do not change anything else in the image — not the shirt/top, not the "
-                "footwear, not the face, not the pose, not the background, not the "
-                "framing or crop of the photo. Result must look like one real, unedited "
-                "photograph of the same person in the exact same pose, shirt, and "
-                "background, now wearing a formal full-length pant made exactly from "
-                "image 1's fabric."
-            ),
-            "guidance": 7.0,
-            "seed": 42,
-        },
-    },
-
-    "saree": {
-        "default": {
-            "prompt": (
-                "Edit image 0. Keep the same woman, face, hairstyle, pose, and background from "
-                "image 0 unchanged. Render the face, eyes, hair strands, and skin texture sharp "
-                "and in full focus, matching the clarity and detail level of image 0 — do not "
-                "soften, smooth, or blur the face or any other part of the image. "
-                "Replace her saree fabric with the fabric from image 1 — same pink base color, "
-                "gold polka dots, and the parrot-and-floral artwork, rendered with sharp, crisp "
-                "detail, not soft or blurred. "
-                "Place the parrot-and-floral artwork only on the pallu end-piece, the part that "
-                "falls over the shoulder — do not repeat it along the main body's bottom hem. "
-                "Along the main body's bottom hem, use only a plain, narrow, evenly repeating gold "
-                "border, matching the border style and proportions shown in image 2 — not large "
-                "decorative artwork there. Do not generate a new person or new scene, and do not "
-                "reduce overall image sharpness."
-            ),
-            "guidance": 7.0,
-            "seed": 42,
-        },
-    },
-
-    # ---- blazer: fixed this session — fabric color/pattern was being
-    # overridden by style-typical colors (e.g. tuxedo black). Each prompt
-    # now explicitly forbids defaulting to a "typical" color for the style
-    # and forces image 1's exact color/pattern onto the blazer regardless. ----
-    "blazer": {
-        "business": {
-            "prompt": (
-                "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
-                "hands, arms, background, and body pose from image 0 completely unchanged — "
-                "sharp, fully in focus, not altered in any way. "
-
-                "Regardless of what garment the person is currently wearing, replace it "
-                "entirely with a new formal business suit blazer worn OVER a plain white "
-                "collared dress shirt, with a plain dark solid-color necktie visible at the "
-                "collar. The blazer is a structured, single-breasted jacket with a notch "
-                "lapel, sharply tailored shoulders, and buttoned closed with its single "
-                "front button fastened (not left open), hitting at roughly hip length. "
-                "The shirt collar points and a small triangle of shirt/tie must be visible "
-                "at the neckline exactly as in a buttoned suit jacket. "
-
-                "The white shirt and the necktie are NEW elements you are adding — they are "
-                "plain white (shirt) and a plain dark solid color (tie), completely unrelated "
-                "to image 1's fabric; do not put image 1's pattern on the shirt or tie. "
-
-                "CRITICAL — fabric color rule: business suits are commonly navy, charcoal, or "
-                "black, but you must IGNORE that assumption completely. The blazer (including "
-                "its lapel) must use ONLY the exact colors and pattern shown in image 1 — same "
-                "type (solid, pinstripe, check, herringbone, or plain), same scale and "
-                "proportions — even if that color is unusual for a business suit (e.g. bright, "
-                "light, or colorful). Do not shift the blazer toward navy, charcoal, grey, or "
-                "black unless that is literally the color already present in image 1. Do not "
-                "invent, add, brighten, darken, or alter any color or design element not "
-                "visible in image 1. The pattern must repeat as densely and closely spaced as "
-                "it appears in image 1, with the same small amount of empty space between "
-                "elements — do not spread it further apart or enlarge the gaps. "
-
-                "Do not preserve the original garment's collar style, sleeve shape, length, "
-                "drape, folds, wrinkles, or shadows — discard them completely and generate a "
-                "brand-new business-blazer structure from scratch: correct notch lapel, "
-                "correct structured shoulder line, correct hip-length hem, buttoned closed, "
-                "and a fit that follows the person's actual body shape in this pose — "
-                "tailored and fitted, not loose or baggy. "
-
-                "The new blazer's sleeves must be full-length and fully extended down to the "
-                "wrist in a natural, straight, unrolled state — never folded, cuffed, or "
-                "rolled up at the forearm or elbow. "
-
-                "Generate new, realistic shading, folds, and shadows appropriate for this new "
-                "blazer, shirt, and tie on this body and pose — consistent with the lighting "
-                "direction in the rest of the photo. "
-
-                "Result must look like one real, unedited photograph of the same person in "
-                "the same pose and background, now wearing a properly fitted new business "
-                "suit — blazer made exactly from image 1's fabric colors and pattern, "
-                "buttoned closed, over a white shirt and dark tie."
-            ),
-            "guidance": 7.0,
-            "seed": 42,
-        },
-
-        "wedding": {
-            "prompt": (
-                "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
-                "hands, arms, background, and body pose from image 0 completely unchanged — "
-                "sharp, fully in focus, not altered in any way. "
-
-                "Regardless of what garment the person is currently wearing, replace it "
-                "entirely with a new formal tuxedo-style dinner jacket worn OVER a plain "
-                "white collared dress shirt, with a plain black bow tie visible at the "
-                "collar, and a plain white pocket square in the chest pocket. The jacket's "
-                "STRUCTURE (not color) is: single-breasted, with a smooth SHAWL lapel — a "
-                "single continuous rounded curve from the collar down to the button, with no "
-                "notch cut into it, and no separate collar piece — sharply tailored "
-                "shoulders, a single front button fastened (not left open), hitting at "
-                "roughly hip length. This is a Western-style tuxedo shawl lapel shape, NOT a "
-                "stand-up mandarin/nehru collar and NOT a bandhgala-style buttoned placket. "
-
-                "The white shirt, black bow tie, and white pocket square are NEW elements "
-                "you are adding — plain white (shirt), plain black (bow tie), plain white "
-                "(pocket square), completely unrelated to image 1's fabric; do not put "
-                "image 1's pattern on the shirt, bow tie, or pocket square. "
-
-                "CRITICAL — fabric color rule: tuxedo jackets are commonly plain black, but "
-                "you must IGNORE that assumption completely. The ENTIRE jacket, including "
-                "the shawl lapel itself, must use ONLY the exact colors and pattern shown in "
-                "image 1 — same type (solid, subtle weave, check, or plain), same scale and "
-                "proportions — even if that color is not black (e.g. it may be a light color, "
-                "a bright color, or a patterned fabric). Do NOT render the jacket or lapel in "
-                "plain black, navy, or any other color unless that is literally the color "
-                "already present in image 1 — do not treat 'tuxedo' as meaning 'must be "
-                "black'. Do not invent, add, brighten, darken, or alter any color or design "
-                "element not visible in image 1. The pattern must repeat as densely and "
-                "closely spaced as it appears in image 1, with the same small amount of empty "
-                "space between elements — do not spread it further apart or enlarge the gaps. "
-
-                "Do not preserve the original garment's collar style, sleeve shape, length, "
-                "drape, folds, wrinkles, or shadows — discard them completely and generate a "
-                "brand-new tuxedo structure from scratch: correct shawl lapel shape, correct "
-                "structured shoulder line, correct hip-length hem, single button fastened, "
-                "and a fit that follows the person's actual body shape in this pose — "
-                "tailored and fitted, not loose or baggy. "
-
-                "The new jacket's sleeves must be full-length and fully extended down to the "
-                "wrist in a natural, straight, unrolled state — never folded, cuffed, or "
-                "rolled up at the forearm or elbow. "
-
-                "Generate new, realistic shading, folds, and shadows appropriate for this new "
-                "jacket, shirt, bow tie, and pocket square on this body and pose — consistent "
-                "with the lighting direction in the rest of the photo. "
-
-                "Result must look like one real, unedited photograph of the same person in "
-                "the same pose and background, now wearing a properly fitted new tuxedo-style "
-                "jacket with a shawl lapel, made exactly from image 1's fabric colors and "
-                "pattern, buttoned closed, over a white shirt with a black bow tie and pocket "
-                "square."
-            ),
-            "guidance": 7.0,
-            "seed": 42,
-        },
-
-        "casual": {
-            "prompt": (
-                "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
-                "hands, arms, background, and body pose from image 0 completely unchanged — "
-                "sharp, fully in focus, not altered in any way. "
-
-                "Regardless of what garment the person is currently wearing, replace it "
-                "entirely with a new casual unstructured blazer worn OPEN and UNBUTTONED "
-                "(not fastened), over a plain white collared shirt with the top button "
-                "undone and no necktie. The blazer has soft, relaxed shoulders (no sharp "
-                "structured padding), a notch lapel, a relaxed comfortable fit that is not "
-                "tightly tailored, and a hem reaching roughly hip length. Because it is worn "
-                "open, both edges of the blazer hang naturally apart, clearly showing the "
-                "plain white shirt underneath the full length of the torso. "
-
-                "The white shirt underneath is a NEW element you are adding — plain white, "
-                "completely unrelated to image 1's fabric; do not put image 1's pattern on "
-                "the shirt. Do not add any necktie or bow tie. "
-
-                "CRITICAL — fabric color rule: casual blazers are commonly grey, beige, or "
-                "navy, but you must IGNORE that assumption completely. The blazer (including "
-                "its lapel) must use ONLY the exact colors and pattern shown in image 1 — "
-                "same type (solid, check, textured weave, or plain), same scale and "
-                "proportions — even if that color is unusual for a casual blazer (e.g. "
-                "bright, light, or colorful). Do not shift the blazer toward grey, beige, "
-                "navy, or any other color unless that is literally the color already present "
-                "in image 1. Do not invent, add, brighten, darken, or alter any color or "
-                "design element not visible in image 1. The pattern must repeat as densely "
-                "and closely spaced as it appears in image 1, with the same small amount of "
-                "empty space between elements — do not spread it further apart or enlarge "
-                "the gaps. "
-
-                "Do not preserve the original garment's collar style, sleeve shape, length, "
-                "drape, folds, wrinkles, or shadows — discard them completely and generate a "
-                "brand-new casual-blazer structure from scratch: correct relaxed notch "
-                "lapel, correct soft shoulder line, correct hip-length hem, worn open and "
-                "unbuttoned, and a fit that follows the person's actual body shape in this "
-                "pose — relaxed, not stiffly tailored, but not baggy either. "
-
-                "The new blazer's sleeves must be full-length and fully extended down to the "
-                "wrist in a natural, straight, unrolled state — never folded, cuffed, or "
-                "rolled up at the forearm or elbow. "
-
-                "Generate new, realistic shading, folds, and shadows appropriate for this new "
-                "open blazer and shirt on this body and pose — consistent with the lighting "
-                "direction in the rest of the photo. "
-
-                "Result must look like one real, unedited photograph of the same person in "
-                "the same pose and background, now wearing a properly fitted new casual "
-                "blazer made exactly from image 1's fabric colors and pattern, worn open "
-                "over a plain white shirt with no tie."
-            ),
-            "guidance": 7.0,
-            "seed": 42,
-        },
     }
 }
+
+
+
+# ==========================================================================
+# NEW this session: camera_view (renamed from "pose") + background support.
+# These are ADDITIVE — no existing GARMENT_PROMPTS wording is touched.
+# The instructions below get appended to the already-tested base prompt at
+# generation time (see cloudflare_engine.py), so tested wording stays intact.
+# ==========================================================================
+
+# If camera_view is not provided, no instruction is added — the original
+# pose/framing already present in image 0 is kept, exactly like today.
+CAMERA_VIEW_OPTIONS = ["front", "side", "close_up"]
+
+CAMERA_VIEW_INSTRUCTIONS = {
+    "front": (
+        "CAMERA VIEW OVERRIDE: regardless of the camera angle or body "
+        "orientation already present in image 0, render the final output as "
+        "a front-facing, full-body shot — the person must be shown from "
+        "head to feet, facing the camera directly (or nearly directly), "
+        "with the entire body and the full length of the new garment "
+        "clearly visible in frame."
+    ),
+    "side": (
+        "CAMERA VIEW OVERRIDE: regardless of the camera angle or body "
+        "orientation already present in image 0, render the final output "
+        "as a side-profile, full-body shot — the person's body must be "
+        "turned to show a clear side or three-quarter side angle relative "
+        "to the camera, with the entire body and the full length of the "
+        "new garment clearly visible in frame, including the side "
+        "silhouette and drape of the garment."
+    ),
+    "close_up": (
+        "CAMERA VIEW OVERRIDE: regardless of the camera angle or framing "
+        "already present in image 0, render the final output as a tight "
+        "close-up shot showing only the head, shoulders, and upper chest "
+        "area down to roughly mid-chest. Crop the frame so that the waist, "
+        "legs, and any lower-body garment (pant, salwar, churidar, "
+        "trouser) are NOT visible at all in this shot — only the upper "
+        "portion of the new garment (collar, upper chest, shoulders, "
+        "visible upper sleeves) should be shown."
+    ),
+}
+
+
+def get_camera_view_instruction(camera_view):
+    """
+    Returns the camera-view override instruction text to append to the
+    base prompt, or None if camera_view is not provided / not recognized
+    (in which case the original pose in image 0 is left as-is).
+    """
+    if not camera_view:
+        return None
+    return CAMERA_VIEW_INSTRUCTIONS.get(camera_view)
+
+
+# If background is not provided, no instruction is added — the base
+# prompt's own "keep background unchanged" line (already present in every
+# GARMENT_PROMPTS entry) governs, exactly like today.
+BACKGROUND_OPTIONS = [
+    "white_marble_terrace",
+    "festive_street",
+    "royal_courtyard",
+    "riverside_ghat",
+]
+
+BACKGROUND_DESCRIPTIONS = {
+    "white_marble_terrace": (
+        "a bright, sunlit white marble terrace overlooking a calm lake, "
+        "with an ornately carved white marble balustrade railing in the "
+        "foreground, hazy green hills in the distance, soft warm "
+        "daylight, clear pale blue sky"
+    ),
+    "festive_street": (
+        "a festively decorated Indian heritage street at dusk, with "
+        "strings of orange and yellow marigold flower garlands hanging "
+        "overhead between old carved-balcony buildings, warm glowing "
+        "lanterns and string lights, a wet reflective stone-paved street "
+        "lined with potted marigold plants, a lit decorated archway gate "
+        "visible in the distance"
+    ),
+    "royal_courtyard": (
+        "a grand palace courtyard at sunset, framed by an ornately carved "
+        "scalloped stone archway in the foreground, a symmetrical "
+        "colonnaded courtyard beyond it, a small domed pavilion and "
+        "fountain at the center, tall palm trees, warm orange-pink sunset "
+        "sky with soft clouds"
+    ),
+    "riverside_ghat": (
+        "a calm riverside ghat at dawn or dusk, stone steps leading down "
+        "to a still river, small floating oil lamps glowing on the "
+        "water's surface, distant temple spires and silhouetted buildings "
+        "across a misty river, soft pastel sky"
+    ),
+}
+
+
+def get_background_instruction(background):
+    """
+    Returns the background-override instruction text to append to the
+    base prompt, or None if background is not provided / not recognized
+    (in which case the original background in image 0 is kept unchanged,
+    exactly like today).
+
+    NOT YET TESTED against the real API — the base prompts already say
+    "keep background unchanged", so this override explicitly tells the
+    model to prioritize the new instruction. May need wording iteration
+    once real output is reviewed, same as every other prompt in this file.
+    """
+    if not background:
+        return None
+    description = BACKGROUND_DESCRIPTIONS.get(background)
+    if description is None:
+        return None
+    return (
+        "BACKGROUND OVERRIDE: this instruction takes priority over any "
+        "earlier instruction in this prompt to keep the background "
+        "unchanged. Replace the entire area behind the person with the "
+        "following scene: " + description + ". Keep the person, face, "
+        "pose, and the newly generated garment exactly as already "
+        "specified — only the background area changes. Subtly adjust the "
+        "lighting and color tone on the person so it looks naturally lit "
+        "by this new background environment, without changing the "
+        "garment's actual fabric color or pattern."
+    )
+
+
+

@@ -1,7 +1,8 @@
 """
 Stage: Core engine that talks to Cloudflare Workers AI.
-Flow: pick prompt -> resize images -> compute output size -> call
-Cloudflare (with retry) -> parse response -> return image bytes.
+Flow: pick prompt -> apply camera_view/background overrides -> resize
+images -> compute output size -> call Cloudflare (with retry) -> parse
+response -> return image bytes.
 This module knows nothing about Django views/HTTP — that stays in
 views.py. Retry/backoff/parsing logic is unchanged from the tested
 scripts, only restructured and logged in English.
@@ -15,7 +16,11 @@ import time
 import requests
 from django.conf import settings
 
-from .prompts import get_prompt_config
+from .prompts import (
+    get_prompt_config,
+    get_camera_view_instruction,
+    get_background_instruction,
+)
 from .image_utils import resize_to_fit, get_output_dimensions
 from .debug_utils import save_debug_copy, save_output_copy
 
@@ -31,17 +36,30 @@ class CloudflareGenerationError(Exception):
     pass
 
 
-def generate_tryon_image(person_image, fabric_image, garment_type, garment_style=None, options=None):
+def generate_tryon_image(
+    person_image,
+    fabric_image,
+    garment_type,
+    garment_style=None,
+    camera_view=None,
+    background=None,
+    options=None,
+):
     """
     Main entry point for the pipeline.
     person_image / fabric_image: Django uploaded file objects.
     garment_type: must be a key in prompts.GARMENT_PROMPTS.
     garment_style: required only for garment_types that have subtypes
-                   (see prompts.GARMENT_STYLE_OPTIONS, e.g. "blazer").
-                   None for garment_types that don't use styles.
+                   (see prompts.GARMENT_STYLE_OPTIONS, e.g. "blazer",
+                   "kurta"). None for garment_types that don't use styles.
+    camera_view: optional (see prompts.CAMERA_VIEW_OPTIONS). None keeps
+                 the original pose/framing already present in the photo.
+    background: optional (see prompts.BACKGROUND_OPTIONS). None keeps
+                the original background already present in the photo.
     options: optional dict, currently supports "draft_mode" (bool)
              and "fabric_crop_box" (tuple), both optional.
-    Returns: generated image as raw bytes.
+    Returns: generated image as raw bytes. Always exactly ONE image per
+             call, regardless of whether camera_view/background is given.
     """
     options = options or {}
 
@@ -56,18 +74,38 @@ def generate_tryon_image(person_image, fabric_image, garment_type, garment_style
             f"garment_style='{garment_style}'"
         )
 
+    # Stage 0: build the final prompt — start from the tested base prompt,
+    # append camera_view / background overrides only if provided. The
+    # base prompt text itself is never modified.
+    final_prompt = garment_config["prompt"]
+
+    camera_instruction = get_camera_view_instruction(camera_view)
+    if camera_instruction:
+        final_prompt = final_prompt + " " + camera_instruction
+        logger.info("Applied camera_view override: %s", camera_view)
+
+    background_instruction = get_background_instruction(background)
+    if background_instruction:
+        final_prompt = final_prompt + " " + background_instruction
+        logger.info("Applied background override: %s", background)
+
     draft_mode = options.get("draft_mode", True)
     max_output_side = 512 if draft_mode else 1024
 
     # Stage 1: resize both images to fit Cloudflare's input size limit
     logger.info(
-        "Stage 1: resizing images for garment_type=%s garment_style=%s",
-        garment_type, garment_style,
+        "Stage 1: resizing images for garment_type=%s garment_style=%s "
+        "camera_view=%s background=%s",
+        garment_type, garment_style, camera_view, background,
     )
     person_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
     fabric_buffer = resize_to_fit(
         fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box")
     )
+    # NOTE: debug filenames still don't include camera_view/background —
+    # this is the same known open item as before (§4 of the project doc),
+    # now also affecting camera_view/background combos, not just
+    # garment_style. Left as-is until you decide how to fix it.
     save_debug_copy(person_buffer, f"sent_person_{garment_type}.jpg")
     save_debug_copy(fabric_buffer, f"sent_fabric_{garment_type}.jpg")
 
@@ -90,7 +128,7 @@ def generate_tryon_image(person_image, fabric_image, garment_type, garment_style
         "input_image_1": ("fabric.jpg", fabric_buffer, "image/jpeg"),
     }
     data = {
-        "prompt": garment_config["prompt"],
+        "prompt": final_prompt,
         "width": out_w,
         "height": out_h,
         "guidance": garment_config["guidance"],

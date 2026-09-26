@@ -6,7 +6,11 @@ required, and which garment_type values are currently supported.
 
 from rest_framework import serializers
 
-from .ai.prompts import GARMENT_STYLE_OPTIONS
+from .ai.prompts import (
+    GARMENT_STYLE_OPTIONS,
+    CAMERA_VIEW_OPTIONS,
+    BACKGROUND_OPTIONS,
+)
 
 GARMENT_TYPE_CHOICES = [
     ("kurta", "Kurta"),
@@ -30,16 +34,43 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         choices=GARMENT_TYPE_CHOICES, required=True
     )
     # Only required for garment_types listed in GARMENT_STYLE_OPTIONS
-    # (currently just "blazer"). Left optional here at the field level
+    # (currently blazer and kurta). Left optional here at the field level
     # because whether it's required depends on garment_type — that
     # cross-field check happens in validate() below.
     garment_style = serializers.CharField(required=False, allow_blank=False)
+
+    # NEW this session — renamed from "pose". Optional for every
+    # garment_type. Not given => original pose/framing in the uploaded
+    # person photo is kept unchanged (today's behavior).
+    camera_view = serializers.CharField(required=False, allow_blank=False)
+
+    # NEW this session. Optional for every garment_type. Not given =>
+    # original background in the uploaded person photo is kept unchanged
+    # (today's behavior).
+    background = serializers.CharField(required=False, allow_blank=False)
+
     options = serializers.JSONField(required=False, default=dict)
 
     def validate_garment_type(self, value):
         if value not in IMPLEMENTED_GARMENT_TYPES:
             raise serializers.ValidationError(
                 f"garment_type '{value}' is not implemented yet."
+            )
+        return value
+
+    def validate_camera_view(self, value):
+        if value not in CAMERA_VIEW_OPTIONS:
+            raise serializers.ValidationError(
+                f"'{value}' is not a valid camera_view. "
+                f"Valid values: {CAMERA_VIEW_OPTIONS}."
+            )
+        return value
+
+    def validate_background(self, value):
+        if value not in BACKGROUND_OPTIONS:
+            raise serializers.ValidationError(
+                f"'{value}' is not a valid background. "
+                f"Valid values: {BACKGROUND_OPTIONS}."
             )
         return value
 
