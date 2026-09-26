@@ -47,9 +47,9 @@ def get_prompt_config(garment_type, garment_style=None):
 GARMENT_PROMPTS = {
     "kurta": {
         "plain": {
-            # CORRECTED this session — length was ambiguous ("mid-thigh
-            # or knee"), which let the model drift too long. Now pinned
-            # to just above the knee only.
+            # CORRECTED — length was ambiguous ("mid-thigh or knee"),
+            # which let the model drift too long. Now pinned to just
+            # above the knee only.
             "prompt": (
                 "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
                 "hands, arms, background, and body pose from image 0 completely unchanged — "
@@ -125,9 +125,9 @@ GARMENT_PROMPTS = {
         },
 
         "sherwani": {
-            # CORRECTED this session — length made much more explicit
-            # (was drifting too short/kurta-like). Length is the single
-            # biggest defining feature vs. a plain kurta.
+            # CORRECTED — length made much more explicit (was drifting
+            # too short/kurta-like). Length is the single biggest
+            # defining feature vs. a plain kurta.
             "prompt": (
                 "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
                 "hands, arms, background, and body pose from image 0 completely unchanged — "
@@ -194,10 +194,10 @@ GARMENT_PROMPTS = {
         },
 
         "pathani": {
-            # CORRECTED this session — collar was wrongly written as
-            # "round/band" (that's a different kurta style); a real
-            # Pathani kurta has a classic SHIRT collar. Pockets now
-            # specify flaps. Salwar width made much more explicit.
+            # CORRECTED — collar was wrongly written as "round/band"
+            # (that's a different kurta style); a real Pathani kurta
+            # has a classic SHIRT collar. Pockets now specify flaps.
+            # Salwar width made much more explicit.
             "prompt": (
                 "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
                 "hands, arms, background, and body pose from image 0 completely unchanged — "
@@ -263,14 +263,13 @@ GARMENT_PROMPTS = {
         },
 
         "jodhpuri": {
-            # CORRECTED again this session, based on a real reference
-            # photo: (1) explicitly forbids any extra kurta/tunic-like
-            # layer visible below the jacket hem — jacket must transition
-            # directly to the trouser at the waist; (2) trouser is now
-            # plain/solid, matching the jacket's COLOR ONLY, no pattern
-            # or texture; (3) wrinkle rule made per-garment and specific
-            # (elbow crease on jacket, knee crease on trouser, crisp
-            # everywhere else on both).
+            # CORRECTED, based on a real reference photo: (1) explicitly
+            # forbids any extra kurta/tunic-like layer visible below the
+            # jacket hem — jacket must transition directly to the trouser
+            # at the waist; (2) trouser is now plain/solid, matching the
+            # jacket's COLOR ONLY, no pattern or texture; (3) wrinkle
+            # rule made per-garment and specific (elbow crease on jacket,
+            # knee crease on trouser, crisp everywhere else on both).
             "prompt": (
                 "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
                 "hands, arms, background, and body pose from image 0 completely unchanged — "
@@ -367,12 +366,12 @@ GARMENT_PROMPTS = {
 }
 
 
-
 # ==========================================================================
-# NEW this session: camera_view (renamed from "pose") + background support.
-# These are ADDITIVE — no existing GARMENT_PROMPTS wording is touched.
-# The instructions below get appended to the already-tested base prompt at
-# generation time (see cloudflare_engine.py), so tested wording stays intact.
+# camera_view (renamed from "pose") + background support. These are
+# ADDITIVE — no existing GARMENT_PROMPTS wording is touched. The
+# instructions below get appended to the already-tested base prompt at
+# generation time (see cloudflare_engine.py), so tested wording stays
+# intact.
 # ==========================================================================
 
 # If camera_view is not provided, no instruction is added — the original
@@ -492,4 +491,80 @@ def get_background_instruction(background):
     )
 
 
+# ==========================================================================
+# NEW this session: face images for the own-model path (no person_image
+# uploaded). Predefined only — no custom face upload. Gender-scoped:
+# a men's face can never be paired with gender="women" or vice versa —
+# enforced in serializers.py's validate(), not here (this file is data-only).
+# ==========================================================================
 
+FACE_IMAGE_DIR = "fabricapp/ai/faces"
+FACE_IMAGE_EXTENSION = ".jpg"
+
+FACE_OPTIONS = {
+    "men": ["raghav", "vihan"],
+    "women": ["anaya", "poonam"],
+}
+
+
+def get_face_image_path(face_choice):
+    """
+    Returns the full file path for a given face_choice, or None if the
+    name isn't recognized. Gender-correctness is NOT checked here —
+    that cross-field check already happened in the serializer before
+    this function is ever called.
+    """
+    all_faces = FACE_OPTIONS["men"] + FACE_OPTIONS["women"]
+    if face_choice not in all_faces:
+        return None
+    return f"{FACE_IMAGE_DIR}/{face_choice}{FACE_IMAGE_EXTENSION}"
+
+
+# ==========================================================================
+# NEW this session: own-model instruction. image_0 is a FACE-ONLY photo
+# on this path (not a full body template) — this sentence tells the
+# model to extend that face into a full body BEFORE the (unmodified)
+# garment prompt applies. Prepended, never edits GARMENT_PROMPTS text.
+# NOT YET TESTED against the real API — first attempt.
+# ==========================================================================
+
+def get_own_model_instruction(gender, body_type=None):
+    gender_word = "woman" if gender == "women" else "man"
+    build_word = {
+        "slim": "slim",
+        "trim": "athletic, toned",
+        "plus": "plus-size",
+    }.get(body_type, "slim")
+
+    return (
+        f"SUBJECT SETUP: image 0 shows only a face. Keep this exact face, "
+        f"skin tone, and expression completely unchanged. Generate a full "
+        f"body extending naturally from this face, belonging to a young, "
+        f"{build_word} Indian {gender_word}, standing in a natural, "
+        f"relaxed pose facing the camera, on a plain neutral background. "
+        f"Do this BEFORE applying the garment instructions below."
+    )
+
+
+# ==========================================================================
+# NEW this session: garment_image path prompt — alternative to the
+# tested GARMENT_PROMPTS above (which are fabric-swatch-based). Used
+# when the user uploads a ready-made garment photo instead of a fabric
+# swatch. NOT YET TESTED against the real API — first draft, generic
+# across all garment_image uploads.
+# ==========================================================================
+
+GARMENT_IMAGE_PROMPT = (
+    "Edit image 0. Keep the same person/subject, face, skin tone, hairstyle, "
+    "expression, hands, arms, background, and body pose from image 0 "
+    "completely unchanged — sharp, fully in focus, not altered in any way. "
+    "Replace whatever garment the subject in image 0 is currently wearing "
+    "with the exact garment shown in image 1 — same cut, style, color, "
+    "pattern, and length as image 1, fitted naturally to the subject's body "
+    "and pose in image 0. Do not invent or alter any design element not "
+    "visible in image 1. Generate realistic new shading, folds, and shadows "
+    "consistent with the lighting in image 0. Result must look like one "
+    "real, unedited photograph."
+)
+GARMENT_IMAGE_GUIDANCE = 7.0
+GARMENT_IMAGE_SEED = 42

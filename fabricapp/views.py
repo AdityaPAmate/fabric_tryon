@@ -1,8 +1,6 @@
 """
 Stage: API view. Validates the request, calls the engine, returns the
-image as a JSON response (base64-encoded), not raw binary — see project
-notes on why (frontend-usable format, and it's a prerequisite for future
-multi-view responses).
+image as a JSON response (base64-encoded), not raw binary.
 This file knows nothing about Cloudflare or image resizing internals —
 that all lives in ai/cloudflare_engine.py.
 """
@@ -36,12 +34,17 @@ class FabricTryOnView(APIView):
 
         try:
             image_bytes = generate_tryon_image(
-                person_image=data["person_image"],
-                fabric_image=data["fabric_image"],
-                garment_type=data["garment_type"],
+                person_image=data.get("person_image"),
+                fabric_image=data.get("fabric_image"),
+                garment_image=data.get("garment_image"),
+                garment_type=data.get("garment_type"),
                 garment_style=data.get("garment_style"),
+                gender=data.get("gender"),
+                body_type=data.get("body_type"),
+                face_choice=data.get("face_choice"),
                 camera_view=camera_view,
                 background=background,
+                additional_style_note=data.get("additional_style_note"),
                 options=data.get("options", {}),
             )
         except CloudflareGenerationError as e:
@@ -53,15 +56,15 @@ class FabricTryOnView(APIView):
 
         encoded_image = base64.b64encode(image_bytes).decode("utf-8")
 
-        # "images" is kept as an array (even though exactly one image is
-        # generated per call today) so the response shape doesn't need to
-        # change later when a collage/multi-view feature is added.
         response_data = {
             "success": True,
-            "garment_type": data["garment_type"],
+            "garment_type": data.get("garment_type"),
             "garment_style": data.get("garment_style"),
             "camera_view": camera_view or "default",
             "background": background or "default",
+            "gender": data.get("gender"),
+            "body_type": data.get("body_type") or "default",
+            "face_choice": data.get("face_choice"),
             "images": [
                 {
                     "view": camera_view or "default",
