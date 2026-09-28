@@ -37,7 +37,7 @@ from .prompts import (
     GARMENT_IMAGE_GUIDANCE,
     GARMENT_IMAGE_SEED,
 )
-from .image_utils import resize_to_fit, get_output_dimensions
+from .image_utils import resize_to_fit, get_output_dimensions, get_portrait_dimensions
 from .debug_utils import save_debug_copy, save_output_copy
 
 logger = logging.getLogger("fabricapp")
@@ -94,9 +94,11 @@ def generate_tryon_image(
     if is_own_model_path:
         logger.info("Own-model path: gender=%s body_type=%s face_choice=%s", gender, body_type, face_choice)
         subject_buffer = _load_face_buffer(face_choice)
-        subject_buffer.seek(0)
-        out_w, out_h = get_output_dimensions(subject_buffer, max_side=max_output_side)
-        subject_buffer.seek(0)
+        # Face photo's own aspect ratio (usually square) does not
+        # represent the desired full-body portrait output — force a
+        # standard 3:4 portrait shape instead of deriving it from the
+        # face image.
+        out_w, out_h = get_portrait_dimensions(max_side=max_output_side)
     else:
         subject_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
         out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
