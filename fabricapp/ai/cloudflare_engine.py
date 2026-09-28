@@ -1,11 +1,13 @@
 """
 Stage: Core engine that talks to Cloudflare Workers AI.
 
-Image-slot convention (same on every path, so every prompt's
-"image 0 / image 1" wording stays correct):
-    input_image_0 = SUBJECT — person_image, or the chosen face photo,
-                    or (no person and no face) a blank neutral canvas
+Image-slot convention:
+    input_image_0 = SUBJECT
+                    - person_photo     : the uploaded person photo
+                    - face_photo       : a blank neutral canvas
+                    - generated_person : a blank neutral canvas
     input_image_1 = GARMENT SOURCE — fabric_image or garment_image
+    input_image_2 = FACE REFERENCE (only in the face_photo scenario)
 
 Which prompt is used is decided entirely by prompt_builder.py — this
 module only sends images + the prompt and returns the result.
@@ -59,22 +61,27 @@ def _load_face_buffer(face_choice):
 
 def _build_subject(scenario, person_image, face_choice, max_output_side):
     """
-    Prepares image_0 (subject) and the output size for the scenario.
-    Returns (subject_buffer, out_w, out_h).
+    Prepares image_0 (subject), the optional face reference (image_2)
+    and the output size for the scenario.
+    Returns (subject_buffer, face_buffer_or_None, out_w, out_h).
     """
     if scenario == SCENARIO_PERSON_PHOTO:
         subject_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
         out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
-        return subject_buffer, out_w, out_h
+        return subject_buffer, None, out_w, out_h
 
-    # Own-model scenarios always output a portrait shape.
+    # Own-model scenarios always output a portrait shape, and always
+    # use a blank canvas as image_0.
     out_w, out_h = get_portrait_dimensions(max_side=max_output_side)
+    canvas_w, canvas_h = get_portrait_dimensions(max_side=MAX_INPUT_DIM)
+    subject_buffer = make_blank_canvas(canvas_w, canvas_h)
+
+    face_buffer = None
     if face_choice:
-        subject_buffer = _load_face_buffer(face_choice)
-    else:
-        canvas_w, canvas_h = get_portrait_dimensions(max_side=MAX_INPUT_DIM)
-        subject_buffer = make_blank_canvas(canvas_w, canvas_h)
-    return subject_buffer, out_w, out_h
+        # The chosen face goes in as a REFERENCE image (image_2),
+        # not as image_0, so the model builds a full-body photo.
+        face_buffer = _load_face_buffer(face_choice)
+    return subject_buffer, face_buffer, out_w, out_h
 
 
 def generate_tryon_image(
@@ -105,7 +112,7 @@ def generate_tryon_image(
         "Scenario=%s gender=%s body_type=%s face_choice=%s",
         scenario, gender, body_type, face_choice,
     )
-    subject_buffer, out_w, out_h = _build_subject(
+    subject_buffer, face_buffer, out_w, out_h = _build_subject(
         scenario, person_image, face_choice, max_output_side
     )
 
@@ -138,15 +145,20 @@ def generate_tryon_image(
     debug_tag = garment_type or "garment_image"
     save_debug_copy(subject_buffer, f"sent_subject_{debug_tag}.jpg")
     save_debug_copy(garment_source_buffer, f"sent_garment_source_{debug_tag}.jpg")
+    if face_buffer is not None:
+        save_debug_copy(face_buffer, f"sent_face_{debug_tag}.jpg")
 
     # Stage 3: call Cloudflare, retrying on transient errors
     files = {
         "input_image_0": ("subject.jpg", subject_buffer, "image/jpeg"),
         "input_image_1": ("garment_source.jpg", garment_source_buffer, "image/jpeg"),
     }
+    if face_buffer is not None:
+        files["input_image_2"] = ("face.jpg", face_buffer, "image/jpeg")
+
     logger.info(
-        "Stage 3: calling Cloudflare model=%s size=%sx%s",
-        settings.CLOUDFLARE_MODEL, out_w, out_h,
+        "Stage 3: calling Cloudflare model=%s size=%sx%s images=%s",
+        settings.CLOUDFLARE_MODEL, out_w, out_h, len(files),
     )
     url = (
         f"https://api.cloudflare.com/client/v4/accounts/"
@@ -229,7 +241,7 @@ def generate_tryon_image(
     save_output_copy(image_bytes, f"output_{debug_tag}.png")
 
     # Stage 5: free memory
-    del subject_buffer, garment_source_buffer, response
+    del subject_buffer, garment_source_buffer, face_buffer, files, response
     gc.collect()
     logger.info("Stage 5: request finished, memory released")
 
