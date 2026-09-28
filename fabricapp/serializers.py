@@ -23,8 +23,10 @@ GARMENT_TYPE_CHOICES = [
     ("blazer", "Blazer"),
 ]
 
+# Only these have a working pipeline right now.
 IMPLEMENTED_GARMENT_TYPES = {"kurta", "kurti_pant", "saree", "shirt", "pant", "blazer"}
 
+# Used only when no person_image is given (the model generates the person).
 GENDER_CHOICES = [
     ("men", "Men"),
     ("women", "Women"),
@@ -38,29 +40,49 @@ BODY_TYPE_CHOICES = [
     ("plus", "Plus"),
 ]
 
+# Flat list of every predefined face name (both genders). Which face
+# is allowed with which gender is checked in validate() below.
 FACE_CHOICES = [
     (name, name.capitalize())
     for names in FACE_OPTIONS.values()
     for name in names
 ]
 
+# Optional keys that Postman/forms sometimes send with an empty value.
+# An empty value is treated exactly like "not sent".
+BLANK_TOLERANT_KEYS = ("face_choice", "body_type")
+
 
 class FabricTryOnRequestSerializer(serializers.Serializer):
+    # Optional: if not given, the model generates its own person.
     person_image = serializers.ImageField(required=False)
+
+    # Exactly one of fabric_image / garment_image is required
+    # (checked in validate()).
     fabric_image = serializers.ImageField(required=False)
     garment_image = serializers.ImageField(required=False)
 
+    # Only used with fabric_image (checked in validate()).
     garment_type = serializers.ChoiceField(
         choices=GARMENT_TYPE_CHOICES, required=False
     )
     garment_style = serializers.CharField(required=False, allow_blank=False)
 
+    # Prompt-text overrides. Not sent => original photo's pose /
+    # background is kept.
     camera_view = serializers.CharField(required=False, allow_blank=False)
     background = serializers.CharField(required=False, allow_blank=False)
 
+    # Used only when no person_image is given.
     gender = serializers.ChoiceField(choices=GENDER_CHOICES, required=False)
-    body_type = serializers.ChoiceField(choices=BODY_TYPE_CHOICES, required=False)
-    face_choice = serializers.ChoiceField(choices=FACE_CHOICES, required=False)
+    body_type = serializers.ChoiceField(
+        choices=BODY_TYPE_CHOICES, required=False, allow_blank=True
+    )
+
+    # OPTIONAL. Not sent => the model generates its own face.
+    face_choice = serializers.ChoiceField(
+        choices=FACE_CHOICES, required=False, allow_blank=True
+    )
 
     additional_style_note = serializers.CharField(
         required=False, allow_blank=False, max_length=300
@@ -89,71 +111,87 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
             )
         return value
 
-    def validate(self, data):
-        person_image = data.get("person_image")
+    def _drop_blank_optional_keys(self, data):
+        """Treat an empty face_choice / body_type as 'not sent'."""
+        for key in BLANK_TOLERANT_KEYS:
+            if data.get(key) == "":
+                data.pop(key)
+
+    def _check_garment_source(self, data):
+        """Rules for fabric_image / garment_image / garment_type / garment_style."""
         fabric_image = data.get("fabric_image")
         garment_image = data.get("garment_image")
         garment_type = data.get("garment_type")
         garment_style = data.get("garment_style")
-        gender = data.get("gender")
-        body_type = data.get("body_type")
-        face_choice = data.get("face_choice")
 
         if bool(fabric_image) == bool(garment_image):
             raise serializers.ValidationError(
                 {"fabric_image": "Provide exactly one of fabric_image or garment_image — not both, and not neither."}
             )
 
-        if fabric_image:
-            if not garment_type:
-                raise serializers.ValidationError(
-                    {"garment_type": "garment_type is required when fabric_image is used."}
-                )
-            valid_styles = GARMENT_STYLE_OPTIONS.get(garment_type)
-            if valid_styles is not None:
-                if not garment_style:
-                    raise serializers.ValidationError(
-                        {"garment_style": f"garment_style is required for garment_type '{garment_type}'. Valid values: {valid_styles}."}
-                    )
-                if garment_style not in valid_styles:
-                    raise serializers.ValidationError(
-                        {"garment_style": f"'{garment_style}' is not valid for garment_type '{garment_type}'. Valid values: {valid_styles}."}
-                    )
-            elif garment_style:
-                raise serializers.ValidationError(
-                    {"garment_style": f"garment_type '{garment_type}' does not accept a garment_style value."}
-                )
-        else:
+        if garment_image:
             if garment_type or garment_style:
                 raise serializers.ValidationError(
                     {"garment_type": "garment_type/garment_style are not used when garment_image is provided."}
                 )
+            return
+
+        # fabric_image path
+        if not garment_type:
+            raise serializers.ValidationError(
+                {"garment_type": "garment_type is required when fabric_image is used."}
+            )
+        valid_styles = GARMENT_STYLE_OPTIONS.get(garment_type)
+        if valid_styles is not None:
+            if not garment_style:
+                raise serializers.ValidationError(
+                    {"garment_style": f"garment_style is required for garment_type '{garment_type}'. Valid values: {valid_styles}."}
+                )
+            if garment_style not in valid_styles:
+                raise serializers.ValidationError(
+                    {"garment_style": f"'{garment_style}' is not valid for garment_type '{garment_type}'. Valid values: {valid_styles}."}
+                )
+        elif garment_style:
+            raise serializers.ValidationError(
+                {"garment_style": f"garment_type '{garment_type}' does not accept a garment_style value."}
+            )
+
+    def _check_person_source(self, data):
+        """Rules for person_image / gender / body_type / face_choice."""
+        person_image = data.get("person_image")
+        gender = data.get("gender")
+        body_type = data.get("body_type")
+        face_choice = data.get("face_choice")
 
         if person_image:
+            # A real person photo is given: the person's own body and
+            # face must not be changed, so these must not be sent.
             if gender or body_type or face_choice:
                 raise serializers.ValidationError(
-                    {"gender": "gender/body_type/face_choice are not applicable when person_image is uploaded — the uploaded person's own body and face must not be changed."}
+                    {"gender": "gender/body_type/face_choice are not applicable when person_image is uploaded."}
                 )
-        else:
-            if not gender:
+            return
+
+        # No person photo: the model generates the person.
+        if not gender:
+            raise serializers.ValidationError(
+                {"gender": "gender is required when no person_image is uploaded, so a model can be AI-generated."}
+            )
+
+        # face_choice is OPTIONAL. Only if it IS sent, it must match the gender.
+        if face_choice:
+            valid_faces = FACE_OPTIONS.get(gender)
+            if valid_faces is None:
                 raise serializers.ValidationError(
-                    {"gender": "gender is required when no person_image is uploaded, so a model can be AI-generated."}
+                    {"face_choice": f"No predefined faces exist for gender '{gender}'. Do not send face_choice — the model will generate its own face."}
+                )
+            if face_choice not in valid_faces:
+                raise serializers.ValidationError(
+                    {"face_choice": f"'{face_choice}' is not a valid face for gender '{gender}'. Valid faces for '{gender}': {valid_faces}."}
                 )
 
-            valid_faces_for_gender = FACE_OPTIONS.get(gender)
-            if valid_faces_for_gender is None:
-                raise serializers.ValidationError(
-                    {"gender": f"Face images are not available yet for gender '{gender}'. Currently supported: {list(FACE_OPTIONS.keys())}."}
-                )
-
-            if not face_choice:
-                raise serializers.ValidationError(
-                    {"face_choice": "face_choice is required when no person_image is uploaded, so a face can be attached for the AI-generated model."}
-                )
-
-            if face_choice not in valid_faces_for_gender:
-                raise serializers.ValidationError(
-                    {"face_choice": f"'{face_choice}' is not a valid face for gender '{gender}'. Valid faces for '{gender}': {valid_faces_for_gender}."}
-                )
-
+    def validate(self, data):
+        self._drop_blank_optional_keys(data)
+        self._check_garment_source(data)
+        self._check_person_source(data)
         return data

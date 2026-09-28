@@ -883,7 +883,7 @@ FACE_IMAGE_DIR = "fabricapp/ai/faces"
 FACE_IMAGE_EXTENSION = ".png"
 
 FACE_OPTIONS = {
-    "men": ["raghav", "vihan"],
+    "men": ["raghav", "vihaan"],
     "women": ["anaya", "poonam"],
 }
 

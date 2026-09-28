@@ -1,21 +1,14 @@
 """
 Stage: Core engine that talks to Cloudflare Workers AI.
 
-Unified image-slot convention (both paths use the SAME two slots, so
-every existing tested prompt's "image 0 / image 1" wording stays
-literally correct on both paths):
-    input_image_0 = SUBJECT — person_image if given, otherwise the
-                    selected face photo (face_choice)
+Image-slot convention (same on every path, so every prompt's
+"image 0 / image 1" wording stays correct):
+    input_image_0 = SUBJECT — person_image, or the chosen face photo,
+                    or (no person and no face) a blank neutral canvas
     input_image_1 = GARMENT SOURCE — fabric_image or garment_image
 
-When no person_image is given, an own-model addendum sentence is
-prepended to the (unmodified) garment prompt, telling the model to
-extend the face in image 0 into a full body first — see
-prompts.get_own_model_instruction(). No existing GARMENT_PROMPTS /
-GARMENT_IMAGE_PROMPT text is ever changed.
-
-This module knows nothing about Django views/HTTP — that stays in
-views.py.
+Which prompt is used is decided entirely by prompt_builder.py — this
+module only sends images + the prompt and returns the result.
 """
 
 import base64
@@ -27,17 +20,18 @@ import time
 import requests
 from django.conf import settings
 
-from .prompts import (
-    get_prompt_config,
-    get_camera_view_instruction,
-    get_background_instruction,
-    get_face_image_path,
-    get_own_model_instruction,
-    GARMENT_IMAGE_PROMPT,
-    GARMENT_IMAGE_GUIDANCE,
-    GARMENT_IMAGE_SEED,
+from .prompts import get_face_image_path
+from .prompt_builder import (
+    SCENARIO_PERSON_PHOTO,
+    detect_scenario,
+    build_prompt,
 )
-from .image_utils import resize_to_fit, get_output_dimensions, get_portrait_dimensions
+from .image_utils import (
+    resize_to_fit,
+    get_output_dimensions,
+    get_portrait_dimensions,
+    make_blank_canvas,
+)
 from .debug_utils import save_debug_copy, save_output_copy
 
 logger = logging.getLogger("fabricapp")
@@ -63,6 +57,26 @@ def _load_face_buffer(face_choice):
         raise CloudflareGenerationError(f"Face image file not found on disk: {path}")
 
 
+def _build_subject(scenario, person_image, face_choice, max_output_side):
+    """
+    Prepares image_0 (subject) and the output size for the scenario.
+    Returns (subject_buffer, out_w, out_h).
+    """
+    if scenario == SCENARIO_PERSON_PHOTO:
+        subject_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
+        out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
+        return subject_buffer, out_w, out_h
+
+    # Own-model scenarios always output a portrait shape.
+    out_w, out_h = get_portrait_dimensions(max_side=max_output_side)
+    if face_choice:
+        subject_buffer = _load_face_buffer(face_choice)
+    else:
+        canvas_w, canvas_h = get_portrait_dimensions(max_side=MAX_INPUT_DIM)
+        subject_buffer = make_blank_canvas(canvas_w, canvas_h)
+    return subject_buffer, out_w, out_h
+
+
 def generate_tryon_image(
     person_image=None,
     fabric_image=None,
@@ -78,98 +92,61 @@ def generate_tryon_image(
     options=None,
 ):
     """
-    Main entry point. See module docstring for the unified image-slot
-    convention. Exactly one of fabric_image/garment_image, and either
-    person_image OR (gender+face_choice), are already enforced by the
-    serializer before this is called — not re-checked here.
+    Main entry point. The serializer has already validated the
+    combination of inputs, so it is not re-checked here.
     """
     options = options or {}
     draft_mode = options.get("draft_mode", True)
     max_output_side = 512 if draft_mode else 1024
-    is_own_model_path = person_image is None
 
-    # ---------------------------------------------------------
-    # Stage 0a: SUBJECT slot (image_0) — person photo or face photo
-    # ---------------------------------------------------------
-    if is_own_model_path:
-        logger.info("Own-model path: gender=%s body_type=%s face_choice=%s", gender, body_type, face_choice)
-        subject_buffer = _load_face_buffer(face_choice)
-        # Face photo's own aspect ratio (usually square) does not
-        # represent the desired full-body portrait output — force a
-        # standard 3:4 portrait shape instead of deriving it from the
-        # face image.
-        out_w, out_h = get_portrait_dimensions(max_side=max_output_side)
-    else:
-        subject_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
-        out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
+    # Stage 0: decide the scenario and prepare the subject image (image_0)
+    scenario = detect_scenario(person_image is not None, face_choice)
+    logger.info(
+        "Scenario=%s gender=%s body_type=%s face_choice=%s",
+        scenario, gender, body_type, face_choice,
+    )
+    subject_buffer, out_w, out_h = _build_subject(
+        scenario, person_image, face_choice, max_output_side
+    )
 
-    # ---------------------------------------------------------
-    # Stage 0b: GARMENT SOURCE slot (image_1) — fabric or garment photo
-    # ---------------------------------------------------------
-    if garment_image is not None:
-        logger.info("garment_image path (NOT yet tested against real API)")
+    # Stage 1: prepare the garment source image (image_1)
+    use_garment_image = garment_image is not None
+    if use_garment_image:
         garment_source_buffer = resize_to_fit(garment_image, max_dim=MAX_INPUT_DIM)
-        final_prompt = GARMENT_IMAGE_PROMPT
-        guidance = GARMENT_IMAGE_GUIDANCE
-        seed = GARMENT_IMAGE_SEED
     else:
-        garment_config = get_prompt_config(garment_type, garment_style)
-        if garment_config is None:
-            raise CloudflareGenerationError(
-                f"No prompt configuration for garment_type='{garment_type}' garment_style='{garment_style}'"
-            )
         garment_source_buffer = resize_to_fit(
             fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box")
         )
-        final_prompt = garment_config["prompt"]
-        guidance = garment_config["guidance"]
-        seed = garment_config["seed"]
 
-    # ---------------------------------------------------------
-    # Stage 0c: own-model addendum — prepended, never edits the base prompt
-    # ---------------------------------------------------------
-    if is_own_model_path:
-        addendum = get_own_model_instruction(gender, body_type)
-        final_prompt = addendum + " " + final_prompt
-        logger.info("Prepended own-model addendum (NOT yet tested against real API)")
-
-    # ---------------------------------------------------------
-    # Stage 0d: camera_view / background / style-note overrides (unchanged logic)
-    # ---------------------------------------------------------
-    camera_instruction = get_camera_view_instruction(camera_view)
-    if camera_instruction:
-        final_prompt = final_prompt + " " + camera_instruction
-        logger.info("Applied camera_view override: %s", camera_view)
-
-    background_instruction = get_background_instruction(background)
-    if background_instruction:
-        final_prompt = final_prompt + " " + background_instruction
-        logger.info("Applied background override: %s", background)
-
-    if additional_style_note:
-        final_prompt = final_prompt + (
-            " ADDITIONAL USER INSTRUCTION (apply only if it does not "
-            "contradict the rules above): " + additional_style_note
+    # Stage 2: build the prompt (all prompt logic lives in prompt_builder.py)
+    prompt_config = build_prompt(
+        scenario=scenario,
+        garment_type=garment_type,
+        garment_style=garment_style,
+        use_garment_image=use_garment_image,
+        gender=gender,
+        body_type=body_type,
+        camera_view=camera_view,
+        background=background,
+        additional_style_note=additional_style_note,
+    )
+    if prompt_config is None:
+        raise CloudflareGenerationError(
+            f"No prompt available for garment_type='{garment_type}' garment_style='{garment_style}'"
         )
-        logger.info("Applied additional_style_note")
 
-    # ---------------------------------------------------------
-    # Stage 1: debug copies
-    # ---------------------------------------------------------
     debug_tag = garment_type or "garment_image"
     save_debug_copy(subject_buffer, f"sent_subject_{debug_tag}.jpg")
     save_debug_copy(garment_source_buffer, f"sent_garment_source_{debug_tag}.jpg")
 
-    # ---------------------------------------------------------
-    # Stage 2: call Cloudflare, retry on transient errors
-    # ---------------------------------------------------------
+    # Stage 3: call Cloudflare, retrying on transient errors
     files = {
         "input_image_0": ("subject.jpg", subject_buffer, "image/jpeg"),
         "input_image_1": ("garment_source.jpg", garment_source_buffer, "image/jpeg"),
     }
     logger.info(
-        "Stage 2: calling Cloudflare model=%s size=%sx%s own_model_path=%s",
-        settings.CLOUDFLARE_MODEL, out_w, out_h, is_own_model_path,
+        "Stage 3: calling Cloudflare model=%s size=%sx%s",
+        settings.CLOUDFLARE_MODEL, out_w, out_h,
     )
     url = (
         f"https://api.cloudflare.com/client/v4/accounts/"
@@ -177,11 +154,11 @@ def generate_tryon_image(
     )
     headers = {"Authorization": f"Bearer {settings.CLOUDFLARE_API_TOKEN}"}
     data = {
-        "prompt": final_prompt,
+        "prompt": prompt_config["prompt"],
         "width": out_w,
         "height": out_h,
-        "guidance": guidance,
-        "seed": seed,
+        "guidance": prompt_config["guidance"],
+        "seed": prompt_config["seed"],
     }
 
     response = None
@@ -193,8 +170,6 @@ def generate_tryon_image(
             )
         except requests.exceptions.RequestException as e:
             # Network-level failure (connection dropped, timeout, DNS, etc.)
-            # — no response was received at all, so retry the same way we
-            # already retry on a 500/429 status code.
             if attempt < MAX_ATTEMPTS:
                 wait_seconds = 2 ** attempt
                 logger.warning(
@@ -202,6 +177,8 @@ def generate_tryon_image(
                     e, wait_seconds,
                 )
                 time.sleep(wait_seconds)
+                for _, file_tuple in files.items():
+                    file_tuple[1].seek(0)  # rewind so the retry sends full images
                 continue
             logger.error("Cloudflare request failed after network error: %s", e)
             raise CloudflareGenerationError(f"Network error calling Cloudflare: {e}")
@@ -222,6 +199,8 @@ def generate_tryon_image(
                 response.status_code, internal_code, wait_seconds,
             )
             time.sleep(wait_seconds)
+            for _, file_tuple in files.items():
+                file_tuple[1].seek(0)
             continue
 
         logger.error(
@@ -230,10 +209,8 @@ def generate_tryon_image(
         )
         raise CloudflareGenerationError(f"Cloudflare request failed with status {response.status_code}")
 
-    # ---------------------------------------------------------
-    # Stage 3: parse response
-    # ---------------------------------------------------------
-    logger.info("Stage 3: parsing Cloudflare response")
+    # Stage 4: parse the response into raw image bytes
+    logger.info("Stage 4: parsing Cloudflare response")
     content_type = response.headers.get("Content-Type", "")
 
     if "application/json" in content_type:
@@ -251,11 +228,9 @@ def generate_tryon_image(
 
     save_output_copy(image_bytes, f"output_{debug_tag}.png")
 
-    # ---------------------------------------------------------
-    # Stage 4: free memory
-    # ---------------------------------------------------------
+    # Stage 5: free memory
     del subject_buffer, garment_source_buffer, response
     gc.collect()
-    logger.info("Stage 4: request finished, memory released")
+    logger.info("Stage 5: request finished, memory released")
 
     return image_bytes

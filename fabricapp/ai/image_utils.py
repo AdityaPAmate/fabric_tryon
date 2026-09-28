@@ -55,14 +55,11 @@ def get_output_dimensions(image_file, max_side):
 def get_portrait_dimensions(max_side, aspect_ratio=3 / 4):
     """
     Returns fixed portrait width/height (independent of any input
-    image's own aspect ratio). Used on the own-model path, where the
-    subject image is only a face photo — its own (usually square)
-    aspect ratio does not represent the desired full-body portrait
-    output shape, so a standard portrait ratio is forced instead.
-
-    aspect_ratio is width/height — 3/4 (0.75) is a standard portrait
-    photo ratio. Clamped to Cloudflare's allowed range (256-1920) and
-    rounded to the nearest multiple of 8, same as get_output_dimensions().
+    image's own aspect ratio). Used on the own-model paths, where the
+    output must always be a portrait shape.
+    aspect_ratio is width/height — 3/4 is a standard portrait ratio.
+    Clamped to Cloudflare's allowed range (256-1920) and rounded to a
+    multiple of 8.
     """
     out_h = max_side
     out_w = round(max_side * aspect_ratio)
@@ -70,3 +67,16 @@ def get_portrait_dimensions(max_side, aspect_ratio=3 / 4):
     out_w = max(256, min(1920, (out_w // 8) * 8))
     out_h = max(256, min(1920, (out_h // 8) * 8))
     return out_w, out_h
+
+
+def make_blank_canvas(width, height):
+    """
+    Creates a plain neutral-grey JPEG canvas in memory (no file on
+    disk). Used as image_0 when no person photo and no face is given,
+    so the prompt still has an image_0 to refer to.
+    """
+    img = Image.new("RGB", (width, height), (200, 200, 200))
+    buffer = io.BytesIO()
+    img.save(buffer, format="JPEG", quality=95)
+    buffer.seek(0)
+    return buffer
