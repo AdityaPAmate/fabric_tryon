@@ -45,6 +45,7 @@ logger = logging.getLogger("fabricapp")
 MAX_INPUT_DIM = 511
 MAX_ATTEMPTS = 2
 REQUEST_TIMEOUT_SECONDS = 180
+FINAL_OUTPUT_SIDE = 1536  # draft_mode=false साठी output ची मोठी बाजू (पूर्वी 1024)
 
 
 
@@ -114,7 +115,7 @@ def generate_tryon_image(
     """
     options = options or {}
     draft_mode = options.get("draft_mode", True)
-    max_output_side = 512 if draft_mode else 1024
+    max_output_side = 512 if draft_mode else FINAL_OUTPUT_SIDE
 
     # Stage 0: decide the scenario and prepare the subject image (image_0)
     scenario = detect_scenario(person_image is not None, face_choice, pose)
