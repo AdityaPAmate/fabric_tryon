@@ -4,10 +4,13 @@ Stage: Core engine that talks to Cloudflare Workers AI.
 Image-slot convention:
     input_image_0 = SUBJECT
                     - person_photo     : the uploaded person photo
+                    - person_pose      : a blank neutral canvas
                     - face_photo       : a blank neutral canvas
                     - generated_person : a blank neutral canvas
     input_image_1 = GARMENT SOURCE — fabric_image or garment_image
-    input_image_2 = FACE REFERENCE (only in the face_photo scenario)
+    input_image_2 = REFERENCE (only when there is one)
+                    - face_photo  : the chosen face photo
+                    - person_pose : the uploaded person photo
 
 Which prompt is used is decided entirely by prompt_builder.py — this
 module only sends images + the prompt and returns the result.
@@ -25,6 +28,7 @@ from django.conf import settings
 from .prompts import get_face_image_path
 from .prompt_builder import (
     SCENARIO_PERSON_PHOTO,
+    SCENARIO_PERSON_POSE,
     detect_scenario,
     build_prompt,
 )
@@ -41,6 +45,7 @@ logger = logging.getLogger("fabricapp")
 MAX_INPUT_DIM = 511
 MAX_ATTEMPTS = 2
 REQUEST_TIMEOUT_SECONDS = 180
+
 
 
 class CloudflareGenerationError(Exception):
@@ -61,9 +66,9 @@ def _load_face_buffer(face_choice):
 
 def _build_subject(scenario, person_image, face_choice, max_output_side):
     """
-    Prepares image_0 (subject), the optional face reference (image_2)
+    Prepares image_0 (subject), the optional reference image (image_2)
     and the output size for the scenario.
-    Returns (subject_buffer, face_buffer_or_None, out_w, out_h).
+    Returns (subject_buffer, reference_buffer_or_None, out_w, out_h).
     """
     if scenario == SCENARIO_PERSON_PHOTO:
         subject_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
@@ -76,12 +81,16 @@ def _build_subject(scenario, person_image, face_choice, max_output_side):
     canvas_w, canvas_h = get_portrait_dimensions(max_side=MAX_INPUT_DIM)
     subject_buffer = make_blank_canvas(canvas_w, canvas_h)
 
-    face_buffer = None
-    if face_choice:
+    reference_buffer = None
+    if scenario == SCENARIO_PERSON_POSE:
+        # The uploaded person photo goes in as a REFERENCE (image_2):
+        # editing it directly would keep its original pose.
+        reference_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
+    elif face_choice:
         # The chosen face goes in as a REFERENCE image (image_2),
         # not as image_0, so the model builds a full-body photo.
-        face_buffer = _load_face_buffer(face_choice)
-    return subject_buffer, face_buffer, out_w, out_h
+        reference_buffer = _load_face_buffer(face_choice)
+    return subject_buffer, reference_buffer, out_w, out_h
 
 
 def generate_tryon_image(
@@ -96,6 +105,7 @@ def generate_tryon_image(
     camera_view=None,
     background=None,
     additional_style_note=None,
+    pose=None,
     options=None,
 ):
     """
@@ -107,12 +117,12 @@ def generate_tryon_image(
     max_output_side = 512 if draft_mode else 1024
 
     # Stage 0: decide the scenario and prepare the subject image (image_0)
-    scenario = detect_scenario(person_image is not None, face_choice)
+    scenario = detect_scenario(person_image is not None, face_choice, pose)
     logger.info(
-        "Scenario=%s gender=%s body_type=%s face_choice=%s",
-        scenario, gender, body_type, face_choice,
+        "Scenario=%s gender=%s body_type=%s face_choice=%s pose=%s",
+        scenario, gender, body_type, face_choice, pose,
     )
-    subject_buffer, face_buffer, out_w, out_h = _build_subject(
+    subject_buffer, reference_buffer, out_w, out_h = _build_subject(
         scenario, person_image, face_choice, max_output_side
     )
 
@@ -136,25 +146,29 @@ def generate_tryon_image(
         camera_view=camera_view,
         background=background,
         additional_style_note=additional_style_note,
+        pose=pose,
     )
     if prompt_config is None:
         raise CloudflareGenerationError(
             f"No prompt available for garment_type='{garment_type}' garment_style='{garment_style}'"
         )
 
+    # Debug file names include the pose so different poses do not overwrite each other.
     debug_tag = garment_type or "garment_image"
+    if pose:
+        debug_tag = f"{debug_tag}_{pose}"
     save_debug_copy(subject_buffer, f"sent_subject_{debug_tag}.jpg")
     save_debug_copy(garment_source_buffer, f"sent_garment_source_{debug_tag}.jpg")
-    if face_buffer is not None:
-        save_debug_copy(face_buffer, f"sent_face_{debug_tag}.jpg")
+    if reference_buffer is not None:
+        save_debug_copy(reference_buffer, f"sent_reference_{debug_tag}.jpg")
 
     # Stage 3: call Cloudflare, retrying on transient errors
     files = {
         "input_image_0": ("subject.jpg", subject_buffer, "image/jpeg"),
         "input_image_1": ("garment_source.jpg", garment_source_buffer, "image/jpeg"),
     }
-    if face_buffer is not None:
-        files["input_image_2"] = ("face.jpg", face_buffer, "image/jpeg")
+    if reference_buffer is not None:
+        files["input_image_2"] = ("reference.jpg", reference_buffer, "image/jpeg")
 
     logger.info(
         "Stage 3: calling Cloudflare model=%s size=%sx%s images=%s",
@@ -241,7 +255,7 @@ def generate_tryon_image(
     save_output_copy(image_bytes, f"output_{debug_tag}.png")
 
     # Stage 5: free memory
-    del subject_buffer, garment_source_buffer, face_buffer, files, response
+    del subject_buffer, garment_source_buffer, reference_buffer, files, response
     gc.collect()
     logger.info("Stage 5: request finished, memory released")
 

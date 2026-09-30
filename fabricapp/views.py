@@ -31,6 +31,7 @@ class FabricTryOnView(APIView):
         data = serializer.validated_data
         camera_view = data.get("camera_view")
         background = data.get("background")
+        pose = data.get("pose")
 
         try:
             image_bytes = generate_tryon_image(
@@ -45,6 +46,7 @@ class FabricTryOnView(APIView):
                 camera_view=camera_view,
                 background=background,
                 additional_style_note=data.get("additional_style_note"),
+                pose=pose,
                 options=data.get("options", {}),
             )
         except CloudflareGenerationError as e:
@@ -61,13 +63,14 @@ class FabricTryOnView(APIView):
             "garment_type": data.get("garment_type"),
             "garment_style": data.get("garment_style"),
             "camera_view": camera_view or "default",
+            "pose": pose or "default",
             "background": background or "default",
             "gender": data.get("gender"),
             "body_type": data.get("body_type") or "default",
             "face_choice": data.get("face_choice"),
             "images": [
                 {
-                    "view": camera_view or "default",
+                    "view": camera_view or pose or "default",
                     "format": "png",
                     "data": encoded_image,
                 }

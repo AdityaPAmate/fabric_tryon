@@ -5,10 +5,16 @@ the situation (scenario). The engine only calls build_prompt() and
 never needs to know how prompts are made.
 
 Scenarios:
-    person_photo      -> user uploaded a person photo. The tested
-                         GARMENT_PROMPTS are used exactly as they are
-                         (they already contain the no-bare-legs rule),
-                         plus ONE short preserve line at the end.
+    person_photo      -> user uploaded a person photo and NO pose. The
+                         tested GARMENT_PROMPTS are used exactly as they
+                         are (they already contain the no-bare-legs
+                         rule), plus ONE short preserve line at the end.
+    person_pose       -> user uploaded a person photo AND a pose.
+                         image 0 = blank canvas, image 2 = the person
+                         photo as a REFERENCE. Uses the own-model prompt
+                         (built from GARMENT_SPECS) with the new pose.
+                         (The plain edit-mode keeps the original pose,
+                         so it cannot be used for a new pose.)
     face_photo        -> no person photo, but a predefined face was
                          chosen. image 0 = blank canvas, image 2 = face
                          reference. Uses the dedicated own-model prompt.
@@ -34,12 +40,25 @@ from .prompts import (
     get_prompt_config,
     get_camera_view_instruction,
 )
+from .pose_data import (
+    DEFAULT_OWN_MODEL_POSE,
+    POSE_PHRASE_REPLACEMENTS,
+    get_pose_sentence,
+)
 
 logger = logging.getLogger("fabricapp")
 
 SCENARIO_PERSON_PHOTO = "person_photo"
+SCENARIO_PERSON_POSE = "person_pose"
 SCENARIO_FACE_PHOTO = "face_photo"
 SCENARIO_GENERATED_PERSON = "generated_person"
+
+# Scenarios that start from a blank canvas and build a brand-new photo.
+OWN_MODEL_SCENARIOS = (
+    SCENARIO_GENERATED_PERSON,
+    SCENARIO_FACE_PHOTO,
+    SCENARIO_PERSON_POSE,
+)
 
 GENERATED_GUIDANCE = 7.0
 GENERATED_SEED = 42
@@ -47,9 +66,13 @@ GENERATED_SEED = 42
 CHILD_AGE = 12  # boy / girl are generated as 12-year-old children
 
 
-def detect_scenario(has_person_image, face_choice):
+def detect_scenario(has_person_image, face_choice, pose=None):
     """Decides which scenario applies for this request."""
     if has_person_image:
+        # A new pose cannot be made by editing the photo (the model keeps
+        # the original pose), so the photo is used as a reference instead.
+        if pose:
+            return SCENARIO_PERSON_POSE
         return SCENARIO_PERSON_PHOTO
     if face_choice:
         return SCENARIO_FACE_PHOTO
@@ -94,6 +117,53 @@ FACE_KEEP_LINE = (
     "(never lighter or browner), sharp and clearly visible, with no warm, "
     "orange or dark colour cast. "
 )
+
+# Added at the end of the person_pose prompt (short reminder).
+PERSON_REFERENCE_LINE = (
+    "FINAL CHECK: the face, skin tone, hair colour and accessories must be "
+    "identical to the person in image 2, with no warm, orange or dark "
+    "colour cast — and the pose must be the NEW pose described at the "
+    "start, not the pose shown in image 2. "
+)
+
+
+# ----------------------------------------------------------------------
+# Pose handling
+# ----------------------------------------------------------------------
+
+def _own_model_pose_text(pose):
+    """Pose wording for the own-model prompts (default = old wording)."""
+    return get_pose_sentence(pose) or DEFAULT_OWN_MODEL_POSE
+
+
+def _apply_pose_to_tested_prompt(prompt, pose):
+    """
+    Old edit-mode path (person_photo + pose). No longer used by the
+    engine (person_photo + pose now goes to person_pose), kept so the
+    offline check script and any later experiment still work.
+    Works on the in-memory string; prompts.py is never modified.
+    Returns (new_prompt, number_of_phrases_replaced).
+    """
+    pose_sentence = get_pose_sentence(pose)
+    if pose_sentence is None:
+        return prompt, 0
+
+    replaced = 0
+    for old_text, new_text in POSE_PHRASE_REPLACEMENTS:
+        if old_text in prompt:
+            prompt = prompt.replace(old_text, new_text)
+            replaced += 1
+
+    intro = (
+        "NEW POSE (this overrides any instruction to keep the original "
+        "pose): the person is " + pose_sentence + ". "
+    )
+    start = "Edit image 0. "
+    if prompt.startswith(start):
+        prompt = start + intro + prompt[len(start):]
+    else:
+        prompt = intro + prompt
+    return prompt, replaced
 
 
 # ----------------------------------------------------------------------
@@ -147,30 +217,30 @@ def _person_description(gender, body_type):
     return f"a young, {_build_word(body_type)} Indian {_gender_word(gender)}"
 
 
-def _subject_block(gender, body_type):
-    """Describes the new person the model must generate (no face reference)."""
+def _subject_block(gender, body_type, pose=None):
+    """Describes the new person the model must generate (no reference)."""
     return (
         "SUBJECT SETUP: image 0 is only a blank, plain neutral canvas that "
         "sets the frame size — there is no person on it. Generate a "
         "brand-new, realistic, full-body photograph of "
         f"{_person_description(gender, body_type)}, with a natural, "
-        "realistic, sharp face with clearly visible eyes, standing in a "
-        "natural, relaxed pose facing the camera, on a plain neutral studio "
+        "realistic, sharp face with clearly visible eyes, "
+        f"{_own_model_pose_text(pose)}, on a plain neutral studio "
         "background (unless a different background is requested at the end "
         "of this prompt), shown fully from head to feet and filling the "
         "frame. "
     )
 
 
-def _subject_block_with_face(gender, body_type):
+def _subject_block_with_face(gender, body_type, pose=None):
     """Same as _subject_block, but image 2 is a reference photo of the face."""
     return (
         "SUBJECT SETUP: image 0 is only a blank, plain neutral canvas that "
         "sets the frame size — there is no person on it. Image 2 is a "
         "reference photo of a real person's face. Generate a brand-new, "
         "realistic, FULL-BODY photograph of this SAME person, "
-        f"{_person_description(gender, body_type)}, standing in a natural, "
-        "relaxed pose facing the camera, on a plain neutral studio "
+        f"{_person_description(gender, body_type)}, "
+        f"{_own_model_pose_text(pose)}, on a plain neutral studio "
         "background (unless a different background is requested at the end "
         "of this prompt), shown fully from head to feet. "
         "FACE AND HAIR MUST BE COPIED EXACTLY FROM IMAGE 2: same facial "
@@ -182,6 +252,34 @@ def _subject_block_with_face(gender, body_type):
         "cast, no dark shadow — sharp, with clearly visible eyes. Do NOT "
         "output only a face or a close-up, and do not copy the crop of "
         "image 2: the output must be a complete head-to-feet photograph. "
+    )
+
+
+def _subject_block_with_person(pose):
+    """
+    person_pose scenario: image 2 is the user's own person photo, used
+    only as a reference for WHO the person is (not for pose, clothes or
+    background).
+    """
+    return (
+        "SUBJECT SETUP: image 0 is only a blank, plain neutral canvas that "
+        "sets the frame size — there is no person on it. Image 2 is a "
+        "photo of a real person. Generate a brand-new, realistic, "
+        "FULL-BODY photograph of this SAME person, "
+        f"{_own_model_pose_text(pose)}, on a plain neutral studio "
+        "background (unless a different background is requested at the end "
+        "of this prompt), shown fully from head to feet. "
+        "THE PERSON MUST BE COPIED EXACTLY FROM IMAGE 2: same face, "
+        "eyes, eyebrows, nose, lips, same skin tone and brightness, same "
+        "hair colour, hair length and hairstyle, same age, same body build "
+        "and proportions, the same facial hair if any, and every "
+        "accessory worn in image 2 (watch, bangles, rings, earrings, "
+        "necklace, spectacles) in the same place. Ignore the clothes, the "
+        "pose and the background of image 2 completely — the new pose "
+        "described above is required, do not repeat the pose of image 2. "
+        "The face must be evenly lit with soft, neutral white light, "
+        "sharp, with clearly visible eyes. Do NOT output only a face or a "
+        "close-up: the output must be a complete head-to-feet photograph. "
     )
 
 
@@ -415,16 +513,19 @@ def _get_garment_spec(garment_type, garment_style):
 
 
 def _build_own_model_prompt(
-    garment_type, garment_style, use_garment_image, gender, body_type, has_face_reference
+    scenario, garment_type, garment_style, use_garment_image, gender,
+    body_type, pose=None,
 ):
     """
-    Builds the dedicated prompt used by generated_person and face_photo.
-    has_face_reference=True means image 2 is a face photo (face_photo).
+    Builds the dedicated prompt used by generated_person, face_photo and
+    person_pose.
     """
-    if has_face_reference:
-        subject = _subject_block_with_face(gender, body_type)
+    if scenario == SCENARIO_FACE_PHOTO:
+        subject = _subject_block_with_face(gender, body_type, pose)
+    elif scenario == SCENARIO_PERSON_POSE:
+        subject = _subject_block_with_person(pose)
     else:
-        subject = _subject_block(gender, body_type)
+        subject = _subject_block(gender, body_type, pose)
 
     if use_garment_image:
         prompt = subject + GENERATED_GARMENT_IMAGE_BODY
@@ -441,6 +542,7 @@ def _build_own_model_prompt(
             prompt += BORDER_RULES.format(target=target)
         prompt += CLOSING
 
+    # person_pose has no gender field (the person comes from the photo).
     if _is_child(gender):
         prompt += CHILD_GARMENT_LINE
     return prompt
@@ -450,16 +552,20 @@ def _build_own_model_prompt(
 # Public entry point
 # ----------------------------------------------------------------------
 
-def _build_base(scenario, garment_type, garment_style, use_garment_image, gender, body_type):
+def _build_base(
+    scenario, garment_type, garment_style, use_garment_image, gender,
+    body_type, pose=None,
+):
     """Returns {"prompt","guidance","seed"} for the scenario, or None."""
-    if scenario in (SCENARIO_GENERATED_PERSON, SCENARIO_FACE_PHOTO):
+    if scenario in OWN_MODEL_SCENARIOS:
         prompt = _build_own_model_prompt(
+            scenario,
             garment_type,
             garment_style,
             use_garment_image,
             gender,
             body_type,
-            has_face_reference=(scenario == SCENARIO_FACE_PHOTO),
+            pose=pose,
         )
         if prompt is None:
             return None
@@ -507,19 +613,29 @@ def build_prompt(
     camera_view=None,
     background=None,
     additional_style_note=None,
+    pose=None,
 ):
     """
     Main function used by the engine. Returns
     {"prompt", "guidance", "seed"}, or None if no prompt exists for the
     given garment_type / garment_style.
+    pose=None gives exactly the same prompt as before the pose feature.
     """
     base = _build_base(
-        scenario, garment_type, garment_style, use_garment_image, gender, body_type
+        scenario, garment_type, garment_style, use_garment_image, gender,
+        body_type, pose,
     )
     if base is None:
         return None
 
-    prompt = base["prompt"].rstrip() + " "
+    prompt = base["prompt"]
+    replaced = 0
+    # Old edit-mode pose path (only if someone calls person_photo + pose
+    # directly; the engine routes that case to person_pose instead).
+    if scenario == SCENARIO_PERSON_PHOTO and pose:
+        prompt, replaced = _apply_pose_to_tested_prompt(prompt, pose)
+
+    prompt = prompt.rstrip() + " "
 
     if scenario == SCENARIO_PERSON_PHOTO:
         # Tested prompts already forbid bare legs. Only one short line added.
@@ -532,13 +648,15 @@ def build_prompt(
         prompt += MODESTY_RULE
         if scenario == SCENARIO_FACE_PHOTO:
             prompt += FACE_KEEP_LINE
+        elif scenario == SCENARIO_PERSON_POSE:
+            prompt += PERSON_REFERENCE_LINE
 
     base["prompt"] = _append_overrides(
         prompt, camera_view, background, additional_style_note
     )
 
     logger.info(
-        "Prompt built: scenario=%s words=%s",
-        scenario, len(base["prompt"].split()),
+        "Prompt built: scenario=%s pose=%s pose_phrases_replaced=%s words=%s",
+        scenario, pose, replaced, len(base["prompt"].split()),
     )
     return base

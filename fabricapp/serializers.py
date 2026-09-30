@@ -12,6 +12,7 @@ from .ai.prompts import (
     BACKGROUND_OPTIONS,
     FACE_OPTIONS,
 )
+from .ai.pose_data import POSE_OPTIONS, POSES_HIDING_FACE
 
 GARMENT_TYPE_CHOICES = [
     ("kurta", "Kurta"),
@@ -48,9 +49,13 @@ FACE_CHOICES = [
     for name in names
 ]
 
+# Built from pose_data.py — adding a new pose there automatically makes
+# it a valid choice here, no other change needed.
+POSE_CHOICES = [(p, p) for p in POSE_OPTIONS]
+
 # Optional keys that Postman/forms sometimes send with an empty value.
 # An empty value is treated exactly like "not sent".
-BLANK_TOLERANT_KEYS = ("face_choice", "body_type")
+BLANK_TOLERANT_KEYS = ("face_choice", "body_type", "pose")
 
 
 class FabricTryOnRequestSerializer(serializers.Serializer):
@@ -72,6 +77,15 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
     # background is kept.
     camera_view = serializers.CharField(required=False, allow_blank=False)
     background = serializers.CharField(required=False, allow_blank=False)
+
+    # NEW — this field was missing entirely, which was the root cause
+    # of "pose is ignored, original pose stays": DRF silently drops any
+    # field that is not declared here, so pose never reached the engine.
+    # Not sent => original pose (person_photo) / default own-model pose
+    # is kept, exactly like before this feature existed.
+    pose = serializers.ChoiceField(
+        choices=POSE_CHOICES, required=False, allow_blank=True
+    )
 
     # Used only when no person_image is given.
     gender = serializers.ChoiceField(choices=GENDER_CHOICES, required=False)
@@ -112,7 +126,7 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         return value
 
     def _drop_blank_optional_keys(self, data):
-        """Treat an empty face_choice / body_type as 'not sent'."""
+        """Treat an empty face_choice / body_type / pose as 'not sent'."""
         for key in BLANK_TOLERANT_KEYS:
             if data.get(key) == "":
                 data.pop(key)
@@ -190,8 +204,22 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
                     {"face_choice": f"'{face_choice}' is not a valid face for gender '{gender}'. Valid faces for '{gender}': {valid_faces}."}
                 )
 
+    def _check_pose(self, data):
+        """
+        A pose that hides the face (see pose_data.POSES_HIDING_FACE)
+        cannot be combined with face_choice — the generated face would
+        never be visible, so there would be nothing to verify it against.
+        """
+        pose = data.get("pose")
+        face_choice = data.get("face_choice")
+        if pose in POSES_HIDING_FACE and face_choice:
+            raise serializers.ValidationError(
+                {"pose": f"pose '{pose}' hides the face and cannot be combined with face_choice."}
+            )
+
     def validate(self, data):
         self._drop_blank_optional_keys(data)
         self._check_garment_source(data)
         self._check_person_source(data)
+        self._check_pose(data)
         return data
