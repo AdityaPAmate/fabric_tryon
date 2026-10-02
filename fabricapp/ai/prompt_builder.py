@@ -138,11 +138,14 @@ PERSON_REFERENCE_LINE = (
 # NEW (untested): added to the person_pose subject sentence only. Stops
 # extra limbs and stops a pallu/dupatta of image 2 from being copied.
 PERSON_POSE_EXTRA = (
-    "The person must have exactly two arms, two hands and two legs — no "
-    "extra, duplicated or merged limbs. Do not copy any pallu, dupatta, "
-    "stole or loose cloth hanging over the shoulder, arm or hand in "
-    "image 2: any such cloth must come only from the garment described "
-    "below and must follow the new pose. "
+    "Image 2 shows the OLD pose only. No arm, hand, leg or cloth position "
+    "from image 2 may appear in the output: draw every arm and hand fresh, "
+    "exactly as described in the new pose above, so the person has exactly "
+    "two arms, two hands and two legs — no extra, duplicated, merged or "
+    "leftover limbs. Do not copy any pallu, dupatta, stole or loose cloth "
+    "hanging over the shoulder, arm or hand in image 2: any such cloth must "
+    "come only from the garment described below and must follow the new "
+    "pose. "
 )
 
 
@@ -490,9 +493,15 @@ GARMENT_SPECS = {
         "border": False,
         "garment": (
             "an elegant Indian saree draped in the traditional Nivi style, "
-            "with the pallu (end-piece) falling over the shoulder, worn "
-            "with a well-fitted short-sleeved blouse in a solid color "
-            "picked from image 1's palette. If image 1 has a special "
+            "with the pallu (end-piece) arranged exactly as described in the "
+            "pose above, or, if the pose does not describe it, falling over "
+            "the left shoulder; worn with a well-fitted, short, normal-length "
+            "blouse (never long or tunic-like) in a solid color picked from "
+            "image 1's palette, with a modest neckline and a fully covered "
+            "back (a closed round back neck, never an open or deep back), "
+            "and the waist covered neatly by the saree drape. The whole look "
+            "must be graceful, dignified and modest — nothing revealing or "
+            "suggestive. If image 1 has a special "
             "decorative artwork, place it on the pallu only; along the "
             "main body's bottom hem use only a plain, narrow, evenly "
             "repeating border in colors taken from image 1. "

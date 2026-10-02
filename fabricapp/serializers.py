@@ -12,7 +12,7 @@ from .ai.prompts import (
     BACKGROUND_OPTIONS,
     FACE_OPTIONS,
 )
-from .ai.pose_data import POSE_OPTIONS, POSES_HIDING_FACE
+from .ai.pose_data import POSE_OPTIONS, POSES_HIDING_FACE, POSE_ONLY_FOR
 from .ai.garment_details import validate_detail_keys
 
 GARMENT_TYPE_CHOICES = [
@@ -233,6 +233,11 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         if pose in POSES_HIDING_FACE and face_choice:
             raise serializers.ValidationError(
                 {"pose": f"pose '{pose}' hides the face and cannot be combined with face_choice."}
+            )
+        allowed_garments = POSE_ONLY_FOR.get(pose)
+        if allowed_garments is not None and data.get("garment_type") not in allowed_garments:
+            raise serializers.ValidationError(
+                {"pose": f"pose '{pose}' is only available for garment_type {allowed_garments}."}
             )
 
     def _check_garment_details(self, data):
