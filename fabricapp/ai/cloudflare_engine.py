@@ -107,6 +107,7 @@ def generate_tryon_image(
     background=None,
     additional_style_note=None,
     pose=None,
+    garment_details=None,
     options=None,
 ):
     """
@@ -118,7 +119,7 @@ def generate_tryon_image(
     max_output_side = 512 if draft_mode else FINAL_OUTPUT_SIDE
 
     # Stage 0: decide the scenario and prepare the subject image (image_0)
-    scenario = detect_scenario(person_image is not None, face_choice, pose)
+    scenario = detect_scenario(person_image is not None, face_choice, pose, camera_view)
     logger.info(
         "Scenario=%s gender=%s body_type=%s face_choice=%s pose=%s",
         scenario, gender, body_type, face_choice, pose,
@@ -148,6 +149,7 @@ def generate_tryon_image(
         background=background,
         additional_style_note=additional_style_note,
         pose=pose,
+        garment_details=garment_details,
     )
     if prompt_config is None:
         raise CloudflareGenerationError(
@@ -158,6 +160,8 @@ def generate_tryon_image(
     debug_tag = garment_type or "garment_image"
     if pose:
         debug_tag = f"{debug_tag}_{pose}"
+    if camera_view:
+        debug_tag = f"{debug_tag}_{camera_view}"
     save_debug_copy(subject_buffer, f"sent_subject_{debug_tag}.jpg")
     save_debug_copy(garment_source_buffer, f"sent_garment_source_{debug_tag}.jpg")
     if reference_buffer is not None:

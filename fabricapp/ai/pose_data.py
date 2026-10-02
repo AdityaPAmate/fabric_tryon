@@ -21,10 +21,12 @@ DEFAULT_OWN_MODEL_POSE = "standing in a natural, relaxed pose facing the camera"
 
 POSE_INSTRUCTIONS = {
     "three_quarter_hand_adjust": (
-        "standing in a three-quarter stance turned slightly toward the viewer's left, with the head tilted down toward the hands,"
-        " the right arm bent and its hand raised before the chest with loosely curled fingers,"
-        " the left arm bent across the torso with its hand touching the right wrist, and"
-        " the legs nearly straight with the feet slightly apart and the left foot slightly forward"
+        "standing nearly front-facing with the torso turned slightly toward the model's right,"
+        " head tilted down and turned slightly toward the raised right hand,"
+        " right elbow bent with the forearm raised in front of the upper body and fingers loosely curled,"
+        " left elbow bent with the left forearm crossing the abdomen and the left hand gently holding the right wrist,"
+        " legs naturally separated, with the right leg nearly straight and the left leg slightly relaxed,"
+        " both feet flat on the ground, with the left foot slightly forward"
     ),
     "low_hand_clasp_front": (
         "standing facing the camera with the head upright and directed forward,"
@@ -41,12 +43,13 @@ POSE_INSTRUCTIONS = {
         " weight settled evenly against the ledge"
     ),
     "back_turn_hair_touch": (
-        "standing with the back turned to the camera and the body angled in a three-quarter view away from it,"
-        " head turned so the face points away and slightly to the right,"
-        " one arm raised with the hand touching the hair at the back of the head,"
-        " the other arm hanging down at the side with the hand resting near the hip,"
-        " weight on the slightly forward right leg while the left leg is crossed behind with the foot resting on its toe"
-    ),
+        "standing with the back toward the camera, body turned slightly toward the model's right,"
+        " head turned over the right shoulder with the front view of the face is visible,"
+        " exactly two arms and two hands,"
+        " the left arm raised with the elbow bent and the left hand gently touching the hair from  backside of the head,"
+        " the right arm hanging naturally down with the rights hand near the hip,"
+        " one leg straight while the other leg crosses slightly behind it with the foot resting lightly on the toe"
+),
     "pocket_walk": (
         "walking toward the camera in a relaxed mid-stride with the body facing forward"
         " and the head upright looking straight ahead,"
@@ -82,6 +85,23 @@ POSE_OPTIONS = list(POSE_INSTRUCTIONS.keys())
 # Poses where the face is not visible: not allowed together with
 # face_choice (checked in serializers.py).
 POSES_HIDING_FACE = ["back_turn_hair_touch"]
+
+
+# Garment-specific pose wording.
+# Key: (garment_type, variant, pose_name). variant = garment_style, or a
+# garment_details key (e.g. "with_dupatta"), or None for "any style".
+# Lookup order: style -> each selected detail -> None -> generic POSE_INSTRUCTIONS.
+POSE_OVERRIDES = {
+    # ("saree", None, "low_hand_clasp_front"): "standing facing the camera ... pallu ...",
+    # ("kurti_pant", "with_dupatta", "low_hand_clasp_front"): "...",
+    # ("kurta", "sherwani", "pocket_walk"): "...",
+}
+
+# Catches a typo in a pose name as soon as Django starts.
+for _garment, _variant, _pose_name in POSE_OVERRIDES:
+    if _pose_name not in POSE_INSTRUCTIONS:
+        raise ValueError(f"POSE_OVERRIDES has unknown pose '{_pose_name}'")
+
 
 # (old phrase in the tested prompts, replacement used only when a pose
 # is requested). Each old phrase is copied exactly from prompts.py.
@@ -127,10 +147,14 @@ POSE_LEFTOVER_FRAGMENTS = [
 ]
 
 
-def get_pose_sentence(pose):
-    """Returns the pose sentence, or None if pose is empty / unknown."""
+def get_pose_sentence(pose, garment_type=None, garment_style=None, detail_keys=None):
+    """Garment-specific pose sentence first, then the generic one."""
     if not pose:
         return None
+    for variant in [garment_style] + list(detail_keys or []) + [None]:
+        key = (garment_type, variant, pose)
+        if key in POSE_OVERRIDES:
+            return POSE_OVERRIDES[key]
     return POSE_INSTRUCTIONS.get(pose)
 
 

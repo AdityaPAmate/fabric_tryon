@@ -47,6 +47,7 @@ class FabricTryOnView(APIView):
                 background=background,
                 additional_style_note=data.get("additional_style_note"),
                 pose=pose,
+                garment_details=data.get("garment_details", []),
                 options=data.get("options", {}),
             )
         except CloudflareGenerationError as e:
@@ -64,6 +65,7 @@ class FabricTryOnView(APIView):
             "garment_style": data.get("garment_style"),
             "camera_view": camera_view or "default",
             "pose": pose or "default",
+            "garment_details": data.get("garment_details", []),
             "background": background or "default",
             "gender": data.get("gender"),
             "body_type": data.get("body_type") or "default",

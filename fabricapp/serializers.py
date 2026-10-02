@@ -13,6 +13,7 @@ from .ai.prompts import (
     FACE_OPTIONS,
 )
 from .ai.pose_data import POSE_OPTIONS, POSES_HIDING_FACE
+from .ai.garment_details import validate_detail_keys
 
 GARMENT_TYPE_CHOICES = [
     ("kurta", "Kurta"),
@@ -73,6 +74,12 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
     )
     garment_style = serializers.CharField(required=False, allow_blank=False)
 
+    # Movable parts (sleeves, tuck, dupatta). Send the key repeatedly
+    # (garment_details=folded_sleeves & garment_details=tucked) or comma-separated.
+    garment_details = serializers.ListField(
+        child=serializers.CharField(allow_blank=True), required=False
+    )
+
     # Prompt-text overrides. Not sent => original photo's pose /
     # background is kept.
     camera_view = serializers.CharField(required=False, allow_blank=False)
@@ -110,6 +117,17 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
                 f"garment_type '{value}' is not implemented yet."
             )
         return value
+
+    def validate_garment_details(self, value):
+        """Flattens comma-separated values, drops blanks and duplicates."""
+        keys = []
+        for item in value:
+            for part in str(item).split(","):
+                part = part.strip()
+                if part and part not in keys:
+                    keys.append(part)
+        return keys
+
 
     def validate_camera_view(self, value):
         if value not in CAMERA_VIEW_OPTIONS:
@@ -217,9 +235,25 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
                 {"pose": f"pose '{pose}' hides the face and cannot be combined with face_choice."}
             )
 
+    def _check_garment_details(self, data):
+        keys = data.get("garment_details") or []
+        if not keys:
+            return
+        if data.get("garment_image"):
+            raise serializers.ValidationError(
+                {"garment_details": "garment_details are not used when garment_image is provided."}
+            )
+        error = validate_detail_keys(
+            data.get("garment_type"), data.get("garment_style"), keys
+        )
+        if error:
+            raise serializers.ValidationError({"garment_details": error})
+
+
     def validate(self, data):
         self._drop_blank_optional_keys(data)
         self._check_garment_source(data)
+        self._check_garment_details(data)
         self._check_person_source(data)
         self._check_pose(data)
         return data
