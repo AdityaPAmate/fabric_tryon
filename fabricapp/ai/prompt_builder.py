@@ -6,8 +6,8 @@ never needs to know how prompts are made.
 
 Scenarios:
     person_photo      -> user uploaded a person photo and NO pose and NO
-                         camera_view. The tested GARMENT_PROMPTS are used
-                         as they are, plus the movable parts (garment
+                         camera_view. The GARMENT_PROMPTS from prompts.py
+                         are used, plus the movable parts (garment
                          details) and ONE short preserve line at the end.
     person_pose       -> user uploaded a person photo AND a pose and/or a
                          camera_view. image 0 = blank canvas, image 2 =
@@ -29,8 +29,30 @@ Movable parts (variables):
     background      -> BACKGROUND_DESCRIPTIONS in prompts.py
     style note      -> additional_style_note
 
+CONSISTENCY RULES kept in this file (do not break them when editing):
+    1. One instruction = one place. A pose, a pallu arrangement, a
+       lighting rule or a background rule is stated once, and no other
+       sentence may contradict it.
+    2. Lighting: when the background of image 2 is kept, the face follows
+       the lighting of image 2; only when a new background or a studio
+       background is used, the face gets neutral white light.
+    3. The garment and the role of every image are named FIRST (TASK line).
+       The role of image 2 in the TASK line must match what the subject
+       block copies from image 2.
+    4. MODESTY_FINAL is always the LAST sentence of every prompt, after the
+       style note, so no note can override it.
+    5. The saree has its own modesty wording, its own closing (no trouser
+       words, no "sleeves down to the wrist") and its own border rule
+       (special artwork on the pallu only).
+    6. "The pose described above" is used (never "the NEW pose"), because
+       when only camera_view is sent, the pose is the camera_view default.
+
+    7. The pose has its own "POSE (...)" sentence right after the TASK line;
+       the subject sentence only points to it ("the pose given in the POSE
+       line above") and never repeats the pose wording.
+
 IMPORTANT: keep prompts SHORT. Very long prompts make the model ignore
-parts of them. Do not append long text to the tested prompts.
+parts of them. Do not append long text to the prompts.
 
 The background text is built HERE (not in prompts.py) so that the
 lighting rule can protect the face, hair and skin tone from getting a
@@ -97,14 +119,48 @@ def _is_child(gender):
 # ----------------------------------------------------------------------
 
 # Used on own-model scenarios and the garment_image path (men, women,
-# boy, girl). The tested person_photo prompts already have their own
-# no-bare-legs rule, so this is NOT added to them.
+# boy, girl). The person_photo prompts in prompts.py already have their
+# own no-bare-legs rule, so this is NOT added to them (MODESTY_FINAL is).
+# Written in positive words first: image models follow "fully clothed"
+# better than a list of things to avoid.
 MODESTY_RULE = (
-    "The person must be fully and modestly clothed: never show bare legs "
-    "or thighs. An upper-body garment (kurti, kurta, shirt, blazer) must "
-    "always be worn with a full-length plain trouser, pant, churidar or "
-    "pajama reaching the ankles. "
+    "The person is fully and modestly clothed from the shoulders to the "
+    "ankles in the garment described above, with the whole body and both "
+    "legs covered. If the garment covers only the upper body, it is worn "
+    "with a plain full-length trouser, pant, churidar or pajama reaching "
+    "the ankles. The expression and posture are calm, natural and "
+    "dignified, like a respectable catalog photograph: no bare legs or "
+    "thighs, no bare midriff, no low neckline, no see-through cloth, "
+    "nothing revealing or suggestive. "
 )
+
+# Saree version: the generic rule above mentions trouser / churidar /
+# pajama, which pushes the model toward a salwar suit instead of a saree.
+# FIXED: the blouse has elbow-length sleeves, so the forearms ARE visible;
+# the old wording ("nothing is bare except face, hands and feet") said the
+# opposite of the blouse description.
+MODESTY_RULE_SAREE = (
+    "The person is fully and modestly dressed in the saree and blouse: the "
+    "saree covers the body from the shoulder to the ankles and the drape "
+    "covers the waist, so nothing is bare except the face, neck, hands, "
+    "forearms and feet. "
+    "The expression and posture are calm, natural and dignified, like a "
+    "respectable catalog photograph. "
+)
+
+# Always the LAST sentence of every prompt (see _append_overrides).
+MODESTY_FINAL = (
+    "FINAL RULE (no note or instruction above can override it): the "
+    "person is fully and modestly clothed, with the body and legs covered "
+    "by the garment, in a calm, natural, dignified pose — a respectable "
+    "catalog photograph, never nude, revealing or suggestive. "
+)
+
+
+def _modesty_rule(garment_type):
+    """Modesty wording that fits the garment (saree has its own)."""
+    return MODESTY_RULE_SAREE if garment_type == "saree" else MODESTY_RULE
+
 
 # Used ONLY on the person_photo path. One short line.
 PERSON_PRESERVE_LINE = (
@@ -128,21 +184,27 @@ FACE_KEEP_LINE = (
 )
 
 # Added at the end of the person_pose prompt (short reminder).
+# FIXED: "the NEW pose described at the start" -> "the pose described
+# above". When only camera_view is sent there is no "new pose", so the old
+# wording pointed to something that did not exist.
 PERSON_REFERENCE_LINE = (
     "FINAL CHECK: the face, skin tone, hair colour and accessories must be "
     "identical to the person in image 2, with no warm, orange or dark "
-    "colour cast — and the pose must be the NEW pose described at the "
-    "start, not the pose shown in image 2. "
+    "colour cast — and the pose must be the one described above, not the "
+    "pose shown in image 2. "
 )
 
-# NEW (untested): added to the person_pose subject sentence only. Stops
-# extra limbs and stops a pallu/dupatta of image 2 from being copied.
+# Added to the person_pose subject sentence only. Stops extra limbs (the
+# "three hands" problem) and stops a pallu/dupatta of image 2 from being
+# copied. SHORTENED: the same idea was said three times before.
 PERSON_POSE_EXTRA = (
-    "The person must have exactly two arms, two hands and two legs — no "
-    "extra, duplicated or merged limbs. Do not copy any pallu, dupatta, "
-    "stole or loose cloth hanging over the shoulder, arm or hand in "
-    "image 2: any such cloth must come only from the garment described "
-    "below and must follow the new pose. "
+    "No arm, hand, leg or cloth position from image 2 may appear in the "
+    "output: draw every arm and hand fresh, as described in the pose above, "
+    "so the person has exactly two arms, two hands and two legs — no "
+    "extra, duplicated or leftover limbs. Do not copy any pallu, dupatta, "
+    "stole or loose cloth from image 2, or any hand holding it: any such "
+    "cloth must come only from the garment described below and follow the "
+    "pose above. "
 )
 
 
@@ -205,8 +267,9 @@ def _background_instruction(background):
     if description is None:
         return None
     return (
-        "BACKGROUND OVERRIDE: this takes priority over any earlier "
-        "instruction to keep the background unchanged. Replace the entire "
+        "BACKGROUND OVERRIDE: this replaces any earlier background "
+        "instruction (keep the original background, or a plain studio "
+        "background). Replace the entire "
         "area behind the person with this scene: " + description + ". "
         "Keep the person, face, pose and garment exactly as specified. "
         "LIGHTING RULE: any warm sunset, dusk, lantern or golden colours "
@@ -252,7 +315,7 @@ def _subject_block(gender, body_type, pose_text, framing):
         f"brand-new, realistic, {framing['shot']} photograph of "
         f"{_person_description(gender, body_type)}, with a natural, "
         "realistic, sharp face with clearly visible eyes, "
-        f"{pose_text}, on a plain neutral studio "
+        "in the exact pose given in the POSE line above, on a plain neutral studio "
         "background (unless a different background is requested at the end "
         "of this prompt), "
         f"{framing['shown']}{framing['fill']}. "
@@ -267,7 +330,7 @@ def _subject_block_with_face(gender, body_type, pose_text, framing):
         "reference photo of a real person's face. Generate a brand-new, "
         f"realistic, {framing['shot'].upper()} photograph of this SAME person, "
         f"{_person_description(gender, body_type)}, "
-        f"{pose_text}, on a plain neutral studio "
+        "in the exact pose given in the POSE line above, on a plain neutral studio "
         "background (unless a different background is requested at the end "
         "of this prompt), "
         f"{framing['shown']}. "
@@ -286,25 +349,45 @@ def _subject_block_with_person(pose_text, framing, keep_background=True):
     """
     person_pose scenario: image 2 is the user's own person photo, used as
     a reference for WHO the person is and WHERE the person is.
-    keep_background=True  -> the background of image 2 is kept (default).
+    keep_background=True  -> the background of image 2 is kept (default);
+                             the face follows the lighting of image 2.
     keep_background=False -> a plain studio background is used here, and
-                             the BACKGROUND OVERRIDE at the end replaces it.
+                             the BACKGROUND OVERRIDE at the end replaces it;
+                             the face gets neutral white light.
+
+    What is copied from image 2 (must match the TASK line in _task_line):
+        face, hair, skin tone, age, body build, accessories,
+        and (only when keep_background) the background.
+    What is NOT copied: clothes, loose cloth, pose.
     """
     if keep_background:
         background_text = (
             "in the SAME place as image 2: keep the original background of "
             "image 2 — same location, objects, colours, lighting and depth "
-            "of field — continued naturally to fill the new frame"
+            "of field — continued naturally to fill the new frame (a wall, "
+            "ledge or chair that the pose above needs may be added)"
         )
-        ignore_text = "Ignore the clothes and the pose of image 2 completely"
+        ignore_text = (
+            "Copy nothing else from image 2: its clothes, any loose cloth "
+            "and its pose are NOT copied"
+        )
+        face_light_text = (
+            "The face is sharp, with clearly visible eyes, lit to match "
+            "the natural lighting of image 2. "
+        )
     else:
         background_text = (
             "on a plain neutral studio background (unless a different "
-            "background is requested at the end of this prompt)"
+            "background is requested at the end of this prompt; a wall, "
+            "ledge or chair that the pose above needs may be added)"
         )
         ignore_text = (
-            "Ignore the clothes, the pose and the background of image 2 "
-            "completely"
+            "Copy nothing else from image 2: its clothes, any loose cloth, "
+            "its pose and its background are NOT copied"
+        )
+        face_light_text = (
+            "The face must be evenly lit with soft, neutral white light, "
+            "sharp, with clearly visible eyes. "
         )
 
     return (
@@ -312,7 +395,7 @@ def _subject_block_with_person(pose_text, framing, keep_background=True):
         "sets the frame size — there is no person on it. Image 2 is a "
         "photo of a real person. Generate a brand-new, realistic, "
         f"{framing['shot'].upper()} photograph of this SAME person, "
-        f"{pose_text}, {background_text}, "
+        f"in the exact pose given in the POSE line above, {background_text}, "
         f"{framing['shown']}. "
         "THE PERSON MUST BE COPIED EXACTLY FROM IMAGE 2: same face, "
         "eyes, eyebrows, nose, lips, same skin tone and brightness, same "
@@ -320,11 +403,10 @@ def _subject_block_with_person(pose_text, framing, keep_background=True):
         "and proportions, the same facial hair if any, and every "
         "accessory worn in image 2 (watch, bangles, rings, earrings, "
         "necklace, spectacles) in the same place. "
-        f"{ignore_text} — the new pose "
+        f"{ignore_text} — the pose "
         "described above is required, do not repeat the pose of image 2. "
         + PERSON_POSE_EXTRA
-        + "The face must be evenly lit with soft, neutral white light, "
-        "sharp, with clearly visible eyes. "
+        + face_light_text
         + framing["output_rule_person"]
     )
 
@@ -349,11 +431,34 @@ BORDER_RULES = (
     "real garment made from this fabric would be tailored. "
 )
 
+# Saree border rule. The generic BORDER_RULES above puts the border band on
+# the hem and sleeve cuffs, which is wrong for a saree (special artwork goes
+# on the pallu only). This is the ONLY place the saree border / artwork rule
+# is stated; the saree description in GARMENT_SPECS no longer repeats it.
+SAREE_BORDER_RULES = (
+    "First examine image 1: if it has one uniform pattern, apply it evenly "
+    "over the whole saree, pallu included. If it has two distinct zones — "
+    "a main body pattern plus a special decorative artwork or denser strip "
+    "— put the main pattern on the body of the saree and put that artwork "
+    "ONLY on the pallu, with its own colors and motifs exactly as in "
+    "image 1; along the bottom hem use only a plain, narrow border that "
+    "follows the border shown in image 1 (a plain hem if image 1 has no "
+    "border), and do not repeat the large artwork there. "
+)
+
 CLOSING = (
     "Sleeves, where the garment has them, must be full-length down to the "
     "wrist, straight and unrolled, unless the garment description above "
     "says otherwise. Generate realistic shading, folds, and shadows. The "
     "result must look like one real, unedited photograph. "
+)
+
+# Saree: the blouse sleeves are set in the saree description, so the
+# "full-length down to the wrist" sentence is left out (it made the model
+# draw a full-sleeve top instead of a saree blouse).
+CLOSING_SAREE = (
+    "Generate realistic shading, folds, and shadows. The result must look "
+    "like one real, unedited photograph. "
 )
 
 GENERATED_GARMENT_IMAGE_BODY = (
@@ -485,17 +590,27 @@ GARMENT_SPECS = {
             "image 1's fabric, only the trouser is. "
         ),
     },
+    # SAREE — FIXED: the border / artwork rule is no longer repeated here
+    # (it lives only in SAREE_BORDER_RULES), and "border_rules" tells the
+    # builder to use it. The pallu default below is used only when the pose
+    # sentence does not describe the pallu.
     ("saree", "default"): {
         "fabric_target": "saree",
         "border": False,
+        "border_rules": SAREE_BORDER_RULES,
         "garment": (
             "an elegant Indian saree draped in the traditional Nivi style, "
-            "with the pallu (end-piece) falling over the shoulder, worn "
-            "with a well-fitted short-sleeved blouse in a solid color "
-            "picked from image 1's palette. If image 1 has a special "
-            "decorative artwork, place it on the pallu only; along the "
-            "main body's bottom hem use only a plain, narrow, evenly "
-            "repeating border in colors taken from image 1. "
+            "with the front pleats falling neatly to the ankles and the "
+            "pallu (end-piece) arranged as described in the pose above, or, "
+            "if the pose does not describe it, falling over the left "
+            "shoulder in soft pleats to the knee or below; worn with a "
+            "well-fitted, short, normal-length blouse with elbow-length "
+            "sleeves (never long or tunic-like) in a solid color picked "
+            "from image 1's palette, with a modest neckline and a fully "
+            "covered back (a closed round back neck, never open or deep), "
+            "and the waist covered neatly by the saree drape. The whole "
+            "look must be graceful, dignified and modest — nothing "
+            "revealing or suggestive. "
         ),
     },
     ("blazer", "business"): {
@@ -558,6 +673,71 @@ def _get_garment_spec(garment_type, garment_style):
     return GARMENT_SPECS.get((garment_type, style_key))
 
 
+_GARMENT_NOUN = {
+    "saree": "saree",
+    "kurta": "kurta",
+    "kurti_pant": "kurti with a matching pant",
+    "shirt": "shirt",
+    "pant": "pant",
+    "blazer": "blazer",
+}
+
+
+def _pose_line(pose_text):
+    """
+    The pose gets its OWN short sentence right after the TASK line, so it
+    is not buried inside the long subject sentence (the face / background
+    / lighting rules). The pose wording itself comes from pose_data.py.
+    """
+    return (
+        "POSE (follow it exactly; after the garment it is the most "
+        "important instruction): the person is " + pose_text + ". "
+    )
+
+
+def _task_line(scenario, garment_type, use_garment_image, keep_background=True):
+    """
+    First sentence of every own-model prompt: says WHAT garment is wanted
+    and WHAT each image is, so the garment is not buried after hundreds of
+    words about the person and the pose, and image 1 (a fabric swatch) is
+    never mistaken for a garment or a person.
+
+    FIXED: image 2 used to be called "identity only" here, while the
+    subject block copies body build, accessories and the background from
+    it too. The role now says exactly what is taken and what is not.
+    """
+    if use_garment_image:
+        what = "the garment shown in image 1"
+        image_1 = "image 1 = the garment to copy"
+    else:
+        noun = _GARMENT_NOUN.get(garment_type, "garment")
+        what = f"a {noun} made from the fabric in image 1"
+        image_1 = (
+            "image 1 = the FABRIC swatch (only its colors and pattern are "
+            "used; it is not a garment shape)"
+        )
+    roles = ["image 0 = blank canvas (frame size only)", image_1]
+    if scenario == SCENARIO_PERSON_POSE:
+        if keep_background:
+            roles.append(
+                "image 2 = photo of the person (take the face, hair, skin "
+                "tone, body build, accessories and the background; do NOT "
+                "take the clothes or the pose)"
+            )
+        else:
+            roles.append(
+                "image 2 = photo of the person (take the face, hair, skin "
+                "tone, body build and accessories; do NOT take the "
+                "clothes, the pose or the background)"
+            )
+    elif scenario == SCENARIO_FACE_PHOTO:
+        roles.append("image 2 = face reference")
+    return (
+        f"TASK: generate one realistic photograph of a person wearing {what}. "
+        "IMAGES: " + "; ".join(roles) + ". "
+    )
+
+
 def _build_own_model_prompt(
     scenario, garment_type, garment_style, use_garment_image, gender,
     body_type, pose=None, camera_view=None, garment_details=None, background=None,
@@ -571,14 +751,23 @@ def _build_own_model_prompt(
     )
     framing = get_framing(camera_view)
 
+    keep_background = not background
+
     if scenario == SCENARIO_FACE_PHOTO:
         subject = _subject_block_with_face(gender, body_type, pose_text, framing)
     elif scenario == SCENARIO_PERSON_POSE:
         subject = _subject_block_with_person(
-            pose_text, framing, keep_background=not background
+            pose_text, framing, keep_background=keep_background
         )
     else:
         subject = _subject_block(gender, body_type, pose_text, framing)
+
+    # The garment and the role of every image come FIRST.
+    subject = (
+        _task_line(scenario, garment_type, use_garment_image, keep_background)
+        + _pose_line(pose_text)
+        + subject
+    )
 
     if use_garment_image:
         prompt = subject + GENERATED_GARMENT_IMAGE_BODY
@@ -593,7 +782,9 @@ def _build_own_model_prompt(
         prompt += FABRIC_RULES.format(target=target)
         if spec["border"]:
             prompt += BORDER_RULES.format(target=target)
-        prompt += CLOSING
+        elif spec.get("border_rules"):
+            prompt += spec["border_rules"]
+        prompt += CLOSING_SAREE if garment_type == "saree" else CLOSING
 
     # person_pose has no gender field (the person comes from the photo).
     if _is_child(gender):
@@ -627,7 +818,7 @@ def _build_base(
             return None
         return {"prompt": prompt, "guidance": GENERATED_GUIDANCE, "seed": GENERATED_SEED}
 
-    # person_photo: start from the tested prompts (never modified).
+    # person_photo: start from the prompts in prompts.py (never modified here).
     if use_garment_image:
         return {
             "prompt": GARMENT_IMAGE_PROMPT,
@@ -638,14 +829,15 @@ def _build_base(
     base = get_prompt_config(garment_type, garment_style)
     if base is None:
         return None
-    return dict(base)  # copy — never modify the tested data
+    return dict(base)  # copy — never modify the stored data
 
 
 def _append_overrides(prompt, background, additional_style_note):
     """
-    Adds background / style-note text at the very end.
-    (camera_view is NOT added here any more: it is part of the subject
-    sentence, see camera_data.py.)
+    Adds background / style-note text at the very end, and then the final
+    modesty rule as the LAST sentence, so no note can override it.
+    (camera_view is NOT added here: it is part of the subject sentence,
+    see camera_data.py.)
     """
     background_text = _background_instruction(background)
     if background_text:
@@ -654,11 +846,14 @@ def _append_overrides(prompt, background, additional_style_note):
     if additional_style_note:
         note = additional_style_note.strip().rstrip(".")
         prompt += (
-            " USER STYLE NOTE (highest priority — apply it): " + note + ". "
+            " USER STYLE NOTE (highest priority for style, color and fit "
+            "details — apply it): " + note + ". "
             "Where this note differs from any garment or style wording "
-            "above, follow the note. It never changes the person's face, "
-            "skin tone or body shape."
+            "above, follow the note, except for the person's face, skin "
+            "tone, body shape and the final modesty rule. "
         )
+
+    prompt += " " + MODESTY_FINAL
     return prompt
 
 
@@ -682,7 +877,7 @@ def build_prompt(
     """
     base = _build_base(
         scenario, garment_type, garment_style, use_garment_image, gender,
-        body_type, pose, camera_view, garment_details,background
+        body_type, pose, camera_view, garment_details, background,
     )
     if base is None:
         return None
@@ -704,19 +899,20 @@ def build_prompt(
     prompt = prompt.rstrip() + " "
 
     if scenario == SCENARIO_PERSON_PHOTO:
-        # Tested prompts already forbid bare legs. Only one short line added.
+        # The prompts in prompts.py already forbid bare legs. Only one short line added.
         prompt += PERSON_PRESERVE_LINE
         if use_garment_image:
-            # GARMENT_IMAGE_PROMPT has no leg rule, so add the short one.
-            prompt += MODESTY_RULE
+            # GARMENT_IMAGE_PROMPT has no leg rule, so add the modesty rule.
+            prompt += _modesty_rule(garment_type)
     else:
-        # Own-model scenarios: short modesty rule for every gender.
-        prompt += MODESTY_RULE
+        # Own-model scenarios: modesty rule that fits the garment.
+        prompt += _modesty_rule(garment_type)
         if scenario == SCENARIO_FACE_PHOTO:
             prompt += FACE_KEEP_LINE
         elif scenario == SCENARIO_PERSON_POSE:
             prompt += PERSON_REFERENCE_LINE
 
+    # Background, style note, then MODESTY_FINAL as the last sentence.
     base["prompt"] = _append_overrides(prompt, background, additional_style_note)
 
     logger.info(

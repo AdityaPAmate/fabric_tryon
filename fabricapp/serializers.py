@@ -235,6 +235,15 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
                 {"pose": f"pose '{pose}' hides the face and cannot be combined with face_choice."}
             )
 
+    def _check_pose_camera(self, data):
+        """Leg poses need the full body, so they cannot use close_up."""
+        if data.get("camera_view") == "close_up" and data.get("pose") in (
+            "cross_leg_chair_recline", "pocket_walk",
+        ):
+            raise serializers.ValidationError(
+                {"pose": f"pose '{data.get('pose')}' shows the legs and cannot be used with camera_view 'close_up'."}
+            )
+
     def _check_garment_details(self, data):
         keys = data.get("garment_details") or []
         if not keys:
@@ -256,4 +265,5 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         self._check_garment_details(data)
         self._check_person_source(data)
         self._check_pose(data)
+        self._check_pose_camera(data)
         return data
