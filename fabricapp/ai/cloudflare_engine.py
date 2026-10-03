@@ -1,9 +1,9 @@
 """
 Stage: Core engine that talks to Cloudflare Workers AI.
 
-Image-slot convention:
+Image-slot convention (the model accepts up to 4 images, each < 512x512):
     input_image_0 = SUBJECT
-                    - person_photo     : the uploaded person photo
+                    - person_photo     : the uploaded person photo (edited)
                     - person_pose      : a blank neutral canvas
                     - face_photo       : a blank neutral canvas
                     - generated_person : a blank neutral canvas
@@ -11,6 +11,14 @@ Image-slot convention:
     input_image_2 = REFERENCE (only when there is one)
                     - face_photo  : the chosen face photo
                     - person_pose : the uploaded person photo
+    next free slot = POSE GUIDE (only when a pose image exists)
+                    - slot 3 if a reference (image_2) exists, else slot 2
+                    - it is a flat grey SILHOUETTE made from the stored pose
+                      image (poses/) or from the customer's pose_image —
+                      never the photo itself (see pose_images.py)
+
+If a pose NAME has no stored image (or its silhouette cannot be made), the
+pose TEXT from pose_data.py is used instead.
 
 Which prompt is used is decided entirely by prompt_builder.py — this
 module only sends images + the prompt and returns the result.
@@ -26,6 +34,12 @@ import requests
 from django.conf import settings
 
 from .prompts import get_face_image_path
+from .pose_images import (
+    PoseGuideError,
+    get_pose_image_path,
+    get_stored_pose_guide,
+    make_pose_guide_buffer,
+)
 from .prompt_builder import (
     SCENARIO_PERSON_PHOTO,
     SCENARIO_PERSON_POSE,
@@ -45,8 +59,7 @@ logger = logging.getLogger("fabricapp")
 MAX_INPUT_DIM = 511
 MAX_ATTEMPTS = 2
 REQUEST_TIMEOUT_SECONDS = 180
-FINAL_OUTPUT_SIDE = 1536  # draft_mode=false साठी output ची मोठी बाजू (पूर्वी 1024)
-
+FINAL_OUTPUT_SIDE = 1536  # long side of the output when draft_mode=false (was 1024)
 
 
 class CloudflareGenerationError(Exception):
@@ -63,6 +76,40 @@ def _load_face_buffer(face_choice):
             return resize_to_fit(io.BytesIO(f.read()), max_dim=MAX_INPUT_DIM)
     except FileNotFoundError:
         raise CloudflareGenerationError(f"Face image file not found on disk: {path}")
+
+
+def _load_pose_guide(pose, garment_type, pose_image):
+    """
+    Returns the pose GUIDE (silhouette PNG buffer), or None.
+    1) the customer's own pose_image upload (converted now), else
+    2) the stored image of the pose name (silhouette cached in poses/_guides/).
+    None means: no guide, the pose TEXT is used instead.
+    """
+    if pose_image is not None:
+        try:
+            return make_pose_guide_buffer(pose_image)
+        except PoseGuideError as e:
+            logger.error("pose_image could not be converted: %s", e)
+            raise CloudflareGenerationError(f"pose_image could not be used: {e}")
+
+    if not pose:
+        return None
+
+    path = get_pose_image_path(pose, garment_type)
+    if path is None:
+        logger.warning(
+            "No pose image found for pose=%s garment_type=%s — using the pose text instead",
+            pose, garment_type,
+        )
+        return None
+    try:
+        return get_stored_pose_guide(path)
+    except PoseGuideError as e:
+        logger.warning(
+            "Pose silhouette of %s could not be made (%s) — using the pose text instead",
+            path, e,
+        )
+        return None
 
 
 def _build_subject(scenario, person_image, face_choice, max_output_side):
@@ -107,6 +154,7 @@ def generate_tryon_image(
     background=None,
     additional_style_note=None,
     pose=None,
+    pose_image=None,
     garment_details=None,
     options=None,
 ):
@@ -118,11 +166,13 @@ def generate_tryon_image(
     draft_mode = options.get("draft_mode", True)
     max_output_side = 512 if draft_mode else FINAL_OUTPUT_SIDE
 
-    # Stage 0: decide the scenario and prepare the subject image (image_0)
-    scenario = detect_scenario(person_image is not None, face_choice, pose, camera_view)
+    # Stage 0: decide the scenario and prepare the subject image (image_0).
+    # A customer's own pose_image counts as "a pose was requested".
+    pose_requested = True if (pose or pose_image is not None) else None
+    scenario = detect_scenario(person_image is not None, face_choice, pose_requested, camera_view)
     logger.info(
-        "Scenario=%s gender=%s body_type=%s face_choice=%s pose=%s",
-        scenario, gender, body_type, face_choice, pose,
+        "Scenario=%s gender=%s body_type=%s face_choice=%s pose=%s custom_pose_image=%s",
+        scenario, gender, body_type, face_choice, pose, pose_image is not None,
     )
     subject_buffer, reference_buffer, out_w, out_h = _build_subject(
         scenario, person_image, face_choice, max_output_side
@@ -137,6 +187,12 @@ def generate_tryon_image(
             fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box")
         )
 
+    # Stage 1b: prepare the pose guide (silhouette) in the next free slot
+    pose_buffer = _load_pose_guide(pose, garment_type, pose_image)
+    pose_slot = None
+    if pose_buffer is not None:
+        pose_slot = 3 if reference_buffer is not None else 2
+
     # Stage 2: build the prompt (all prompt logic lives in prompt_builder.py)
     prompt_config = build_prompt(
         scenario=scenario,
@@ -150,6 +206,7 @@ def generate_tryon_image(
         additional_style_note=additional_style_note,
         pose=pose,
         garment_details=garment_details,
+        pose_slot=pose_slot,
     )
     if prompt_config is None:
         raise CloudflareGenerationError(
@@ -160,12 +217,17 @@ def generate_tryon_image(
     debug_tag = garment_type or "garment_image"
     if pose:
         debug_tag = f"{debug_tag}_{pose}"
+    elif pose_image is not None:
+        debug_tag = f"{debug_tag}_custompose"
     if camera_view:
         debug_tag = f"{debug_tag}_{camera_view}"
     save_debug_copy(subject_buffer, f"sent_subject_{debug_tag}.jpg")
     save_debug_copy(garment_source_buffer, f"sent_garment_source_{debug_tag}.jpg")
     if reference_buffer is not None:
         save_debug_copy(reference_buffer, f"sent_reference_{debug_tag}.jpg")
+    if pose_buffer is not None:
+        save_debug_copy(pose_buffer, f"sent_pose_guide_{debug_tag}.png")
+        pose_buffer.seek(0)
 
     # Stage 3: call Cloudflare, retrying on transient errors
     files = {
@@ -174,10 +236,12 @@ def generate_tryon_image(
     }
     if reference_buffer is not None:
         files["input_image_2"] = ("reference.jpg", reference_buffer, "image/jpeg")
+    if pose_buffer is not None:
+        files[f"input_image_{pose_slot}"] = ("pose_guide.png", pose_buffer, "image/png")
 
     logger.info(
-        "Stage 3: calling Cloudflare model=%s size=%sx%s images=%s",
-        settings.CLOUDFLARE_MODEL, out_w, out_h, len(files),
+        "Stage 3: calling Cloudflare model=%s size=%sx%s images=%s pose_slot=%s",
+        settings.CLOUDFLARE_MODEL, out_w, out_h, len(files), pose_slot,
     )
     url = (
         f"https://api.cloudflare.com/client/v4/accounts/"
@@ -260,7 +324,7 @@ def generate_tryon_image(
     save_output_copy(image_bytes, f"output_{debug_tag}.png")
 
     # Stage 5: free memory
-    del subject_buffer, garment_source_buffer, reference_buffer, files, response
+    del subject_buffer, garment_source_buffer, reference_buffer, pose_buffer, files, response
     gc.collect()
     logger.info("Stage 5: request finished, memory released")
 

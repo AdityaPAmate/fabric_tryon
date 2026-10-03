@@ -546,22 +546,62 @@ GARMENT_PROMPTS = {
         },
     },
 
-    "saree": {
+        "saree": {
         "default": {
             "prompt": (
-                "Edit image 0. Keep the same woman, face, hairstyle, pose, and background from "
-                "image 0 unchanged. Render the face, eyes, hair strands, and skin texture sharp "
-                "and in full focus, matching the clarity and detail level of image 0 — do not "
-                "soften, smooth, or blur the face or any other part of the image. "
-                "Replace her saree fabric with the fabric from image 1 — same pink base color, "
-                "gold polka dots, and the parrot-and-floral artwork, rendered with sharp, crisp "
-                "detail, not soft or blurred. "
-                "Place the parrot-and-floral artwork only on the pallu end-piece, the part that "
-                "falls over the shoulder — do not repeat it along the main body's bottom hem. "
-                "Along the main body's bottom hem, use only a plain, narrow, evenly repeating gold "
-                "border, matching the border style and proportions shown in image 2 — not large "
-                "decorative artwork there. Do not generate a new person or new scene, and do not "
-                "reduce overall image sharpness."
+                "Edit image 0. Keep the same woman, her face, facial features, skin tone, "
+                "hairstyle, expression and every accessory (earrings, bangles, necklace, "
+                "bindi, watch, spectacles) from image 0, rendered sharp and in full focus, "
+                "with the same clarity and detail as image 0 — do not soften, smooth or "
+                "blur the face or any other part of the image. "
+
+                "Her pose and the background of image 0 stay as they are ONLY if no new "
+                "pose or background is requested elsewhere in this prompt. Her body is "
+                "movable, not fixed to image 0: if a new pose or background is requested, "
+                "that request overrides this, and her arms, hands and legs must be drawn "
+                "fresh for the new pose, never copied from image 0. "
+
+                "Regardless of what she is currently wearing in image 0 (a saree, salwar "
+                "suit, western dress, or anything else), replace it entirely with a "
+                "brand-new Indian saree made from the fabric in image 1. Discard the old "
+                "garment completely: do not keep its drape, pleats, pallu, blouse, folds, "
+                "wrinkles or shadows, and do not keep any loose cloth hanging over her "
+                "shoulder, arm or hand in image 0. Build the new saree from scratch on her "
+                "actual body in the Nivi style, with the front pleats falling neatly to the "
+                "ankles and the pallu (end-piece) coming over the left shoulder and falling "
+                "in soft pleats to the knee or below, unless a new pose described elsewhere "
+                "in this prompt says how the pallu is arranged. "
+
+                "Under the saree she wears a well-fitted, short, normal-length blouse "
+                "(never long or tunic-like) in a solid color picked from image 1's palette, "
+                "with a modest neckline and a fully covered back (a closed round back neck, "
+                "never open or deep), and the waist covered neatly by the saree drape. The "
+                "whole look must be graceful, dignified and modest — nothing revealing or "
+                "suggestive. "
+
+                "Use only the exact colors and pattern shown in image 1 for the saree "
+                "fabric — same type (check, stripe, print, weave, or plain), same scale and "
+                "proportions — do not invent, add, brighten, darken, or alter any color or "
+                "design element not visible in image 1. The motifs must repeat as densely "
+                "and closely spaced as they appear in image 1, with the same small amount "
+                "of empty space between them — do not spread them further apart. "
+
+                "First examine image 1: if it has one uniform pattern, apply it evenly over "
+                "the whole saree. If it has two distinct zones — a main body pattern plus a "
+                "separate, special decorative artwork or denser border strip — put that "
+                "artwork only on the pallu, with its own colors and motifs exactly as in "
+                "image 1; along the bottom hem of the main body use only a plain, narrow, "
+                "evenly repeating border in colors taken from image 1, not large decorative "
+                "artwork. Render the fabric with sharp, crisp detail, never soft or blurred. "
+
+                "She has exactly two arms, two hands and two legs in total — no extra, "
+                "duplicated, merged or leftover limbs or cloth. "
+
+                "Generate new, realistic shading, folds and shadows for the new saree on "
+                "her body, consistent with the lighting direction of the photo. "
+
+                "Result must look like one real, unedited photograph of the same woman, now "
+                "wearing a properly draped new saree made exactly from image 1's fabric."
             ),
             "guidance": 7.0,
             "seed": 42,

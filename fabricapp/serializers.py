@@ -54,6 +54,15 @@ FACE_CHOICES = [
 # it a valid choice here, no other change needed.
 POSE_CHOICES = [(p, p) for p in POSE_OPTIONS]
 
+# Poses that need the legs / seat in frame: not allowed with close_up.
+FULL_BODY_ONLY_POSES = ["cross_leg_chair_recline", "seated_look_down", "pocket_walk"]
+
+# Boy / girl outputs: only plain, age-appropriate poses.
+CHILD_ALLOWED_POSES = [
+    "low_hand_clasp_front", "pocket_walk",
+    "sleeve_adjust_stand", "three_quarter_hand_adjust",
+]
+
 # Optional keys that Postman/forms sometimes send with an empty value.
 # An empty value is treated exactly like "not sent".
 BLANK_TOLERANT_KEYS = ("face_choice", "body_type", "pose")
@@ -85,14 +94,17 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
     camera_view = serializers.CharField(required=False, allow_blank=False)
     background = serializers.CharField(required=False, allow_blank=False)
 
-    # NEW — this field was missing entirely, which was the root cause
-    # of "pose is ignored, original pose stays": DRF silently drops any
-    # field that is not declared here, so pose never reached the engine.
-    # Not sent => original pose (person_photo) / default own-model pose
-    # is kept, exactly like before this feature existed.
+    # Pose NAME. The stored reference image of this pose (fabricapp/ai/poses/)
+    # is sent to the model; if no image exists for it, the pose text from
+    # pose_data.py is used instead.
+    # Not sent => original pose (person_photo) / default own-model pose.
     pose = serializers.ChoiceField(
         choices=POSE_CHOICES, required=False, allow_blank=True
     )
+
+    # Customer's own favourite pose image (optional). Only the POSE of this
+    # image is copied. Cannot be combined with `pose` (checked in _check_pose).
+    pose_image = serializers.ImageField(required=False)
 
     # Used only when no person_image is given.
     gender = serializers.ChoiceField(choices=GENDER_CHOICES, required=False)
@@ -127,7 +139,6 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
                 if part and part not in keys:
                     keys.append(part)
         return keys
-
 
     def validate_camera_view(self, value):
         if value not in CAMERA_VIEW_OPTIONS:
@@ -224,12 +235,24 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
 
     def _check_pose(self, data):
         """
-        A pose that hides the face (see pose_data.POSES_HIDING_FACE)
-        cannot be combined with face_choice — the generated face would
-        never be visible, so there would be nothing to verify it against.
+        - pose and pose_image cannot be sent together.
+        - A pose that hides the face (pose_data.POSES_HIDING_FACE) cannot be
+          combined with face_choice — the generated face would never be
+          visible, so there would be nothing to verify it against.
+        - A garment-only pose (pose_data.POSE_ONLY_FOR) needs that garment.
+        A customer's own pose_image works with every garment.
         """
         pose = data.get("pose")
+        pose_image = data.get("pose_image")
         face_choice = data.get("face_choice")
+
+        if pose and pose_image:
+            raise serializers.ValidationError(
+                {"pose": "Send either pose or pose_image — not both."}
+            )
+        if pose_image:
+            return
+
         if pose in POSES_HIDING_FACE and face_choice:
             raise serializers.ValidationError(
                 {"pose": f"pose '{pose}' hides the face and cannot be combined with face_choice."}
@@ -239,6 +262,18 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"pose": f"pose '{pose}' is only available for garment_type {allowed_garments}."}
             )
+
+    def _check_pose_combinations(self, data):
+        pose = data.get("pose")
+        if pose in FULL_BODY_ONLY_POSES and data.get("camera_view") == "close_up":
+            raise serializers.ValidationError(
+                {"pose": f"pose '{pose}' needs the full body and cannot be used with camera_view 'close_up'."}
+            )
+        if data.get("gender") in ("boy", "girl") and pose and pose not in CHILD_ALLOWED_POSES:
+            raise serializers.ValidationError(
+                {"pose": f"pose '{pose}' is not available for children. Valid values: {CHILD_ALLOWED_POSES}."}
+            )
+
 
     def _check_garment_details(self, data):
         keys = data.get("garment_details") or []
@@ -254,11 +289,11 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         if error:
             raise serializers.ValidationError({"garment_details": error})
 
-
     def validate(self, data):
         self._drop_blank_optional_keys(data)
         self._check_garment_source(data)
         self._check_garment_details(data)
         self._check_person_source(data)
         self._check_pose(data)
+        self._check_pose_combinations(data)
         return data
