@@ -36,28 +36,6 @@ requested, no replacement happens.
 DEFAULT_OWN_MODEL_POSE = "standing in a natural, relaxed pose facing the camera"
 
 POSE_INSTRUCTIONS = {
-    "three_quarter_hand_adjust": (
-        "standing nearly front-facing with the torso turned slightly toward the model's right,"
-        " head tilted down and turned slightly toward the raised right hand,"
-        " right elbow bent with the forearm raised in front of the upper body and fingers loosely curled,"
-        " left elbow bent with the left forearm crossing the abdomen and the left hand gently holding the right wrist,"
-        " legs naturally separated, with the right leg nearly straight and the left leg slightly relaxed,"
-        " both feet flat on the ground, with the left foot slightly forward"
-    ),
-    "low_hand_clasp_front": (
-        "standing facing the camera with the head upright and directed forward,"
-        " both elbows slightly bent with the right hand loosely cupping the left fingers"
-        " and the left hand resting over the right low in front of the pelvis,"
-        " legs nearly straight and feet slightly apart with the left foot a little forward"
-    ),
-    "rail_wide_arm_side_look": (
-        "standing upright facing the camera directly with the body squared to the viewer,"
-        " head turned to look in profile toward the viewer's left,"
-        " both arms extended down and out to the sides with hands resting flat on the top edge"
-        " of a low wall or ledge at hip height,"
-        " one leg straight with the other slightly bent and one foot crossed behind the other,"
-        " weight settled evenly against the ledge"
-    ),
     "back_turn_hair_touch": (
         "standing with the back toward the camera, body turned slightly toward the model's right,"
         " head turned over the right shoulder so that the face is visible,"
@@ -65,6 +43,31 @@ POSE_INSTRUCTIONS = {
         " the left arm raised with the elbow bent and the left hand gently touching the hair at the back of the head,"
         " the right arm hanging naturally down with the right hand near the hip,"
         " one leg straight while the other leg crosses slightly behind it with the foot resting lightly on the toe"
+    ),
+    "cross_leg_chair_recline": (
+        "seated in a low upholstered armchair in a relaxed recline with the back against the chair"
+        " and the body angled slightly toward the viewer's left, head upright and turned slightly toward the viewer's left,"
+        " both forearms resting forward over the lap with the hands loosely overlapped on the upper thigh,"
+        " legs crossed at the knee with the top foot pointing out toward the viewer's left,"
+        " with the whole chair and both full legs and feet visible"
+    ),
+    "hands_on_hips_side_look": (
+        "standing upright with the body facing the camera and the head turned in profile toward the viewer's left,"
+        " both hands placed on the hips with the elbows pointing outward"
+        " and the fingers resting at the front of the hips,"
+        " legs straight with the feet slightly apart"
+    ),
+    "low_hand_clasp_front": (
+        "standing facing the camera with the head upright and directed forward,"
+        " both elbows slightly bent with the right hand loosely cupping the left fingers"
+        " and the left hand resting over the right low in front of the pelvis,"
+        " legs nearly straight and feet slightly apart with the left foot a little forward"
+    ),
+    "pallu_on_head": (
+        "standing upright facing the camera directly, head upright and looking forward,"
+        " a light stole or dupatta drawn over the top of the head and hair as a formal head drape,"
+        " exactly two arms and two hands in total,"
+        " the hands softly clasped together in front of the lower waist"
     ),
     "pocket_walk": (
         "walking toward the camera in a relaxed mid-stride with the body facing forward"
@@ -74,11 +77,13 @@ POSE_INSTRUCTIONS = {
         " the right arm hanging down at the side with the hand relaxed and slightly open,"
         " and one leg stepping forward ahead of the other"
     ),
-    "hands_on_hips_side_look": (
-        "standing upright with the body facing the camera and the head turned in profile toward the viewer's left,"
-        " both hands placed on the hips with the elbows pointing outward"
-        " and the fingers resting at the front of the hips,"
-        " legs straight with the feet slightly apart"
+    "rail_wide_arm_side_look": (
+        "standing upright facing the camera directly with the body squared to the viewer,"
+        " head turned to look in profile toward the viewer's left,"
+        " both arms extended down and out to the sides with hands resting flat on the top edge"
+        " of a low wall or ledge at hip height,"
+        " one leg straight with the other slightly bent and one foot crossed behind the other,"
+        " weight settled evenly against the ledge"
     ),
     "sleeve_adjust_stand": (
         "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
@@ -87,18 +92,13 @@ POSE_INSTRUCTIONS = {
         " the left arm hanging down and slightly forward with the hand relaxed near the thigh,"
         " legs nearly straight with the feet slightly apart, the sleeve staying fully down"
     ),
-    "cross_leg_chair_recline": (
-        "seated in a low upholstered armchair in a relaxed recline with the back against the chair"
-        " and the body angled slightly toward the viewer's left, head upright and turned slightly toward the viewer's left,"
-        " both forearms resting forward over the lap with the hands loosely overlapped on the upper thigh,"
-        " legs crossed at the knee with the top foot pointing out toward the viewer's left,"
-        " with the whole chair and both full legs and feet visible"
-    ),
-
-    "pallu_on_head": (
-        "with the traditional cloth covering the top of the head and hair as a formal head drape, "
-        "the person is standing upright facing the camera directly, head upright and looking forward, "
-        "hands softly clasped together in front of the lower waist"
+    "three_quarter_hand_adjust": (
+        "standing nearly front-facing with the torso turned slightly toward the model's right,"
+        " head tilted down and turned slightly toward the raised right hand,"
+        " right elbow bent with the forearm raised in front of the upper body and fingers loosely curled,"
+        " left elbow bent with the left forearm crossing the abdomen and the left hand gently holding the right wrist,"
+        " legs naturally separated, with the right leg nearly straight and the left leg slightly relaxed,"
+        " both feet flat on the ground, with the left foot slightly forward"
     ),
 }
 
@@ -119,38 +119,6 @@ POSES_HIDING_FACE = ["back_turn_hair_touch"]
 # (modest blouse, covered back, covered waist) are in GARMENT_SPECS["saree"]
 # in prompt_builder.py.
 POSE_OVERRIDES = {
-    ("saree", None, "three_quarter_hand_adjust"): (
-        "standing nearly front-facing with the torso turned slightly toward the model's right,"
-        " the head tilted down with the eyes looking down at the raised right hand,"
-        " the right elbow bent with the forearm raised in front of the chest and the fingers loosely curled,"
-        " the left elbow bent with the left forearm crossing the abdomen and the left hand gently holding the right wrist,"
-        " exactly two arms and two hands in total,"
-        " legs nearly straight with the feet slightly apart and the left foot slightly forward,"
-        " the saree pallu resting on the left shoulder and hanging straight down behind the left arm"
-        " in soft pleats to the knee or below, the front pleats falling neatly to the ankles"
-    ),
-    ("saree", None, "low_hand_clasp_front"): (
-        "standing straight facing the camera with the head upright and the eyes looking straight into the camera"
-        " with a soft, gentle smile,"
-        " both elbows slightly bent with the hands clasped low in front of the waist,"
-        " the right hand loosely cupping the left fingers,"
-        " exactly two arms and two hands in total,"
-        " legs nearly straight with the feet slightly apart and the left foot a little forward,"
-        " the pleated saree pallu resting on the left shoulder and hanging down behind the left arm"
-        " to the knee or below, the saree drape crossing the chest diagonally from the left shoulder to the right hip,"
-        " the front pleats falling neatly to the ankles"
-    ),
-    ("saree", None, "rail_wide_arm_side_look"): (
-        "standing upright with the body facing the camera at a slight angle"
-        " and the head turned in profile to look toward the viewer's left, the eyes looking in the same direction,"
-        " the right arm extended down and out to the side with the palm resting flat on the top edge"
-        " of a low wall or ledge at hip height,"
-        " the left arm hanging naturally down beside the body with the hand relaxed,"
-        " exactly two arms and two hands in total,"
-        " one leg straight with the other slightly bent,"
-        " the saree pallu resting on the left shoulder and hanging down behind the left arm"
-        " in soft pleats to the knee or below, the front pleats falling neatly to the ankles"
-    ),
     ("saree", None, "back_turn_hair_touch"): (
         "standing with the back toward the camera and the body turned slightly toward the model's right,"
         " the head turned over the right shoulder so that the face is seen in a soft three-quarter profile,"
@@ -162,36 +130,6 @@ POSE_OVERRIDES = {
         " the saree seen from behind: the full-length pallu falling from the left shoulder down the back"
         " in soft pleats to the knee or below, the saree wrapped neatly around the hips and falling to the ankles,"
         " the blouse short and modest, fully covering the back with a closed round back neck"
-    ),
-    ("saree", None, "pocket_walk"): (
-        "walking toward the camera in a relaxed mid-stride with the body facing forward"
-        " and the head upright, the eyes looking into the camera with a soft smile,"
-        " the left arm hanging relaxed at the side and the right arm hanging down at the side"
-        " with the hand relaxed and slightly open,"
-        " exactly two arms and two hands in total,"
-        " one foot stepping forward ahead of the other with the saree hem swaying gently,"
-        " the saree pallu resting on the left shoulder and falling in soft pleats to the knee or below,"
-        " the front pleats falling to the ankles"
-    ),
-    ("saree", None, "hands_on_hips_side_look"): (
-        "standing upright with the body facing the camera"
-        " and the head turned in profile toward the viewer's left, the eyes looking in the same direction,"
-        " both hands placed on the hips over the saree wrap with the elbows pointing outward,"
-        " exactly two arms and two hands in total,"
-        " legs straight with the feet slightly apart,"
-        " the saree pallu resting on the left shoulder and hanging down behind the left elbow"
-        " in soft pleats to the knee or below, the front pleats falling neatly to the ankles"
-    ),
-    ("saree", None, "sleeve_adjust_stand"): (
-        "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
-        " and the head turned with the eyes looking toward the viewer's left,"
-        " the right arm bent across the body with the right hand lightly holding the left upper arm"
-        " near the blouse sleeve as if adjusting it,"
-        " the left arm hanging down with the hand relaxed beside the thigh,"
-        " exactly two arms and two hands in total,"
-        " legs nearly straight with the feet slightly apart,"
-        " the saree pallu resting on the left shoulder and hanging down behind the left arm"
-        " in soft pleats to the knee or below, the front pleats falling neatly to the ankles"
     ),
     ("saree", None, "cross_leg_chair_recline"): (
         "seated in a low upholstered armchair in a relaxed, upright recline with the back against the chair"
@@ -205,15 +143,78 @@ POSE_OVERRIDES = {
         " the pallu coming from the left shoulder and resting across the lap and over the knees,"
         " with the whole chair and both full legs and feet visible"
     ),
-
+    ("saree", None, "hands_on_hips_side_look"): (
+        "standing upright with the body facing the camera"
+        " and the head turned in profile toward the viewer's left, the eyes looking in the same direction,"
+        " both hands placed on the hips over the saree wrap with the elbows pointing outward,"
+        " exactly two arms and two hands in total,"
+        " legs straight with the feet slightly apart,"
+        " the saree pallu resting on the left shoulder and hanging down behind the left elbow"
+        " in soft pleats to the knee or below, the front pleats falling neatly to the ankles"
+    ),
+    ("saree", None, "low_hand_clasp_front"): (
+        "standing straight facing the camera with the head upright and the eyes looking straight into the camera"
+        " with a soft, gentle smile,"
+        " both elbows slightly bent with the hands clasped low in front of the waist,"
+        " the right hand loosely cupping the left fingers,"
+        " exactly two arms and two hands in total,"
+        " legs nearly straight with the feet slightly apart and the left foot a little forward,"
+        " the pleated saree pallu resting on the left shoulder and hanging down behind the left arm"
+        " to the knee or below, the saree drape crossing the chest diagonally from the left shoulder to the right hip,"
+        " the front pleats falling neatly to the ankles"
+    ),
     ("saree", None, "pallu_on_head"): (
-        "the person is wearing a traditional saree with the ornate pallu completely pulled up over her head and hair "
-        "to form a full head covering and frame her face, "
-        "standing straight facing the camera with a soft smile, "
-        "exactly two arms and two hands in total, "
-        "hands softly clasped together low in front of the waist, "
-        "the pallu fabric coming over the head and then falling in rich folds down over her right shoulder and arm, "
-        "with the front pleats falling neatly to the ankles"
+        "standing straight facing the camera with a soft smile,"
+        " the pallu lifted from the left shoulder and drawn forward over the top of the head and hair"
+        " as a soft, loose veil, opened wide so that it covers the whole head and frames the face"
+        " in gentle folds, with the hair parting just visible at the forehead,"
+        " the veil falling from the head over the shoulder on the viewer's left in soft folds,"
+        " the main length of the pallu hanging down on the viewer's right side only to the knee, not to the floor,"
+        " exactly two arms and two hands in total,"
+        " the hands softly clasped together low in front of the waist,"
+        " the front pleats falling neatly to the ankles"
+    ),
+    ("saree", None, "pocket_walk"): (
+        "walking toward the camera in a relaxed mid-stride with the body facing forward"
+        " and the head upright, the eyes looking into the camera with a soft smile,"
+        " the left arm hanging relaxed at the side and the right arm hanging down at the side"
+        " with the hand relaxed and slightly open,"
+        " exactly two arms and two hands in total,"
+        " one foot stepping forward ahead of the other with the saree hem swaying gently,"
+        " the saree pallu resting on the left shoulder and falling in soft pleats to the knee or below,"
+        " the front pleats falling to the ankles"
+    ),
+    ("saree", None, "rail_wide_arm_side_look"): (
+        "standing upright with the body facing the camera at a slight angle"
+        " and the head turned in profile to look toward the viewer's left, the eyes looking in the same direction,"
+        " the right arm extended down and out to the side with the palm resting flat on the top edge"
+        " of a low wall or ledge at hip height,"
+        " the left arm hanging naturally down beside the body with the hand relaxed,"
+        " exactly two arms and two hands in total,"
+        " one leg straight with the other slightly bent,"
+        " the saree pallu resting on the left shoulder and hanging down behind the left arm"
+        " in soft pleats to the knee or below, the front pleats falling neatly to the ankles"
+    ),
+    ("saree", None, "sleeve_adjust_stand"): (
+        "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
+        " and the head turned with the eyes looking toward the viewer's left,"
+        " the right arm bent across the body with the right hand lightly holding the left upper arm"
+        " near the blouse sleeve as if adjusting it,"
+        " the left arm hanging down with the hand relaxed beside the thigh,"
+        " exactly two arms and two hands in total,"
+        " legs nearly straight with the feet slightly apart,"
+        " the saree pallu resting on the left shoulder and hanging down behind the left arm"
+        " in soft pleats to the knee or below, the front pleats falling neatly to the ankles"
+    ),
+    ("saree", None, "three_quarter_hand_adjust"): (
+        "standing nearly front-facing with the torso turned slightly toward the model's right,"
+        " the head tilted down with the eyes looking down at the raised right hand,"
+        " the right elbow bent with the forearm raised in front of the chest and the fingers loosely curled,"
+        " the left elbow bent with the left forearm crossing the abdomen and the left hand gently holding the right wrist,"
+        " exactly two arms and two hands in total,"
+        " legs nearly straight with the feet slightly apart and the left foot slightly forward,"
+        " the saree pallu resting on the left shoulder and hanging straight down behind the left arm"
+        " in soft pleats to the knee or below, the front pleats falling neatly to the ankles"
     ),
 }
 

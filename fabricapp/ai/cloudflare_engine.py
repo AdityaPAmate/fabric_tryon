@@ -14,11 +14,6 @@ Image-slot convention:
 
 Which prompt is used is decided entirely by prompt_builder.py — this
 module only sends images + the prompt and returns the result.
-
-Seed: prompt_builder.py gives a fixed default seed (42). A fixed seed
-makes different poses start from the same random noise, so the layouts
-can look alike. For testing, send options={"seed": 7} (any integer) to
-use a different seed. Not sent => the default seed, exactly as before.
 """
 
 import base64
@@ -68,21 +63,6 @@ def _load_face_buffer(face_choice):
             return resize_to_fit(io.BytesIO(f.read()), max_dim=MAX_INPUT_DIM)
     except FileNotFoundError:
         raise CloudflareGenerationError(f"Face image file not found on disk: {path}")
-
-
-def _pick_seed(options, default_seed):
-    """
-    Returns options["seed"] when it is a valid integer, otherwise the
-    default seed from the prompt config.
-    """
-    seed = options.get("seed")
-    if seed is None:
-        return default_seed
-    try:
-        return int(seed)
-    except (TypeError, ValueError):
-        logger.warning("Ignoring invalid options.seed=%r, using default seed", seed)
-        return default_seed
 
 
 def _build_subject(scenario, person_image, face_choice, max_output_side):
@@ -195,10 +175,9 @@ def generate_tryon_image(
     if reference_buffer is not None:
         files["input_image_2"] = ("reference.jpg", reference_buffer, "image/jpeg")
 
-    seed = _pick_seed(options, prompt_config["seed"])
     logger.info(
-        "Stage 3: calling Cloudflare model=%s size=%sx%s images=%s seed=%s",
-        settings.CLOUDFLARE_MODEL, out_w, out_h, len(files), seed,
+        "Stage 3: calling Cloudflare model=%s size=%sx%s images=%s",
+        settings.CLOUDFLARE_MODEL, out_w, out_h, len(files),
     )
     url = (
         f"https://api.cloudflare.com/client/v4/accounts/"
@@ -210,7 +189,7 @@ def generate_tryon_image(
         "width": out_w,
         "height": out_h,
         "guidance": prompt_config["guidance"],
-        "seed": seed,
+        "seed": prompt_config["seed"],
     }
 
     response = None
