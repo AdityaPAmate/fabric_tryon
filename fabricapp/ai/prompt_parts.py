@@ -28,7 +28,7 @@ replaced. The pose is not described in words there.
 """
 
 SAREE_PROMPT_VERSION = "saree-v1"
-POSE_REFERENCE_PROMPT_VERSION = "saree-ref-v1"
+POSE_REFERENCE_PROMPT_VERSION = "saree-ref-v2"
 
 # ----------------------------------------------------------------------
 # TASK + IMAGE roles
@@ -196,7 +196,7 @@ MODESTY_FINAL_SAREE = (
 
 
 # ======================================================================
-# POSE REFERENCE PATH (NEW)
+# POSE REFERENCE PATH
 #
 # Used ONLY when the pose has a reference photo (pose_reference.py), the
 # garment is a saree, there is no person_image and no garment_image.
@@ -205,7 +205,7 @@ MODESTY_FINAL_SAREE = (
 #
 # The pose, the drape, the person and the background are NOT written here:
 # they are already in the photo. Python (prompt_builder.py) only decides
-# WHAT to keep (REF_KEEP) and which optional parts apply (face,
+# WHAT to keep (REF_KEEP) and which optional parts apply (camera, face,
 # background, style note). Fabric colours reuse SAREE_FABRIC_RULES and
 # lighting reuses LIGHTING, so those stay owned in one place.
 # ======================================================================
@@ -227,18 +227,41 @@ REF_IMAGES_FACE = (
     "shape); image 2 = face reference."
 )
 
-# {kept} is a comma-separated list built by Python from the three pieces
+# {kept} is a comma-separated list built by Python from the pieces
 # below. A piece that does not apply (the face is replaced, the background
 # is replaced) is simply not in the list, so this line never contradicts
-# the FACE / BACKGROUND lines.
+# the FACE / BACKGROUND / CAMERA lines.
 REF_KEEP = "KEEP exactly as in image 0, sharp and in full focus: {kept}."
 
 REF_KEPT_BASE = (
     "the woman's pose, both arms and hands, the draping of the saree and "
-    "its pallu with every fold and pleat, the blouse, the framing"
+    "its pallu with every fold and pleat,  the framing"
 )
 REF_KEPT_FACE = "her face, hair and skin tone"
 REF_KEPT_SCENE = "the background and the lighting"
+
+# NEW: used instead of REF_KEPT_BASE / REF_KEPT_SCENE when a camera_view
+# is sent. The framing is NOT kept (the camera view changes it), and the
+# ORIGINAL background is kept as the same place, continued behind the new
+# camera angle (it is never replaced by a plain grey / white / studio one).
+REF_KEPT_BASE_CAMERA = (
+    "the woman's pose, her arms and hands (as far as they are in the "
+    "frame), the draping of the saree and its pallu with every fold and "
+    "pleat"
+)
+REF_KEPT_SCENE_CAMERA = (
+    "the original background of image 0 (the same place, objects and "
+    "colours, continued naturally behind the new camera angle) and its "
+    "lighting"
+)
+
+# NEW: {instruction} is the existing CAMERA_VIEW_INSTRUCTIONS text from
+# prompts.py (front / side / close_up), unchanged.
+REF_CAMERA = (
+    "CAMERA: {instruction} Only the camera angle and the framing change; "
+    "the woman, her pose, her saree and its pallu stay the same as in "
+    "image 0."
+)
 
 REF_CHANGE = (
     "CHANGE: replace the fabric of the saree, everywhere it appears (the "
@@ -259,6 +282,22 @@ REF_BORDER_RULES = (
     "the border shown in image 1 (a plain hem if image 1 has no border), "
     "and do not repeat the large artwork there."
 )
+
+# NEW: blouse is a separate garment (sleeve was getting the swatch border).
+REF_BLOUSE = (
+    "BLOUSE: the blouse, including both sleeves and the narrow trim at "
+    "the sleeve edges, is a separate garment from the saree: it keeps "
+    "the shape and position it has in image 0, in one single solid "
+    "colour picked from image 1's palette, with no border artwork on it."
+)
+
+# NEW: keeps the right side of the frame free of loose cloth.
+REF_RIGHT_SIDE = (
+    "On the right side of the frame, only the straight arm, the blouse "
+    "sleeve and the saree wrap are visible; the pallu hangs only on the "
+    "left side of the frame."
+)
+
 
 # Only when face_choice is sent (first draft, untested).
 REF_FACE = (

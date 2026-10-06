@@ -21,12 +21,14 @@ Scenarios:
                          reference. Uses the dedicated own-model prompt.
     generated_person  -> no person photo and no face. Dedicated
                          own-model prompt built from GARMENT_SPECS.
-    pose_reference    -> (NEW) no person photo, and the chosen pose has a
+    pose_reference    -> no person photo, and the chosen pose has a
                          reference PHOTO (pose_reference.py, today only
                          saree + pallu_on_head). image 0 = that photo
                          (it is EDITED, the pose is not described in
                          words), image 1 = fabric, image 2 = face (only if
-                         a face was chosen). See the POSE REFERENCE PATH.
+                         a face was chosen). A camera_view and a
+                         background can be applied on top of the photo.
+                         See the POSE REFERENCE PATH.
 
 Movable parts (variables):
     pose            -> pose_data.py (can differ per garment / style / detail)
@@ -47,12 +49,16 @@ architecture):
     person_pose / person_photo / garment_image) still uses the OLD path
     below, which is unchanged.
 
-POSE REFERENCE PATH (NEW):
+POSE REFERENCE PATH:
     scenario == pose_reference -> _build_pose_reference_prompt().
     Same resolve-then-compose idea, but the prompt is an EDIT prompt: the
     reference photo is image 0 and only the fabric is replaced. Texts are
     the REF_* variables in prompt_parts.py. Nothing in the old paths or in
     the saree resolver path is changed by it.
+    camera_view (NEW): when sent, a CAMERA line (the existing
+    CAMERA_VIEW_INSTRUCTIONS text) is added, the framing is no longer
+    "kept", and the ORIGINAL background of the photo is kept (continued
+    behind the new angle), never replaced by a plain one.
 
 CONSISTENCY RULES kept in this file (do not break them when editing):
     1. One instruction = one place. A pose, a pallu arrangement, a
@@ -94,6 +100,7 @@ from .prompts import (
     GARMENT_IMAGE_SEED,
     BACKGROUND_DESCRIPTIONS,
     get_prompt_config,
+    get_camera_view_instruction,
 )
 from .pose_data import (
     POSE_PHRASE_REPLACEMENTS,
@@ -960,36 +967,45 @@ def _build_saree_resolved(
 
 
 # ----------------------------------------------------------------------
-# POSE REFERENCE PATH (NEW)
+# POSE REFERENCE PATH
 #
 # The reference photo is image 0 and is EDITED: only the fabric changes.
 # The pose / drape / person / background are NOT described in words (they
 # are in the photo). Python only resolves what to keep and which optional
 # parts apply; the wording is in prompt_parts.py (REF_* variables).
 #
-#   no face_choice, no background -> keep person, face, pose, drape,
+#   nothing optional sent         -> keep person, face, pose, drape,
 #                                    blouse, framing, background, lighting
+#   camera_view                   -> CAMERA line added (the existing
+#                                    CAMERA_VIEW_INSTRUCTIONS text); the
+#                                    framing is not kept; the ORIGINAL
+#                                    background is kept, continued behind
+#                                    the new angle (not made plain)
 #   face_choice                   -> FACE line added, face not kept
 #   background                    -> BACKGROUND + LIGHTING lines added,
 #                                    background / lighting not kept
 # ----------------------------------------------------------------------
 
 def _resolve_pose_reference_instructions(
-    use_face_reference, background, additional_style_note,
+    use_face_reference, background, additional_style_note, camera_view=None,
 ):
     """
     Resolution step. Returns an ordered dict of final texts, one per
     requirement. A requirement that does not apply is an empty string.
     """
     description = BACKGROUND_DESCRIPTIONS.get(background) if background else None
+    camera_text = get_camera_view_instruction(camera_view)
+    use_camera = bool(camera_text)
 
     # What stays exactly as in the photo. A piece that is replaced by the
     # FACE / BACKGROUND line is left out, so KEEP never contradicts them.
-    kept = [P.REF_KEPT_BASE]
+    # With a camera_view the framing is not kept and the original
+    # background is continued behind the new angle.
+    kept = [P.REF_KEPT_BASE_CAMERA if use_camera else P.REF_KEPT_BASE]
     if not use_face_reference:
         kept.append(P.REF_KEPT_FACE)
     if not description:
-        kept.append(P.REF_KEPT_SCENE)
+        kept.append(P.REF_KEPT_SCENE_CAMERA if use_camera else P.REF_KEPT_SCENE)
 
     note = (additional_style_note or "").strip().rstrip(".")
 
@@ -997,9 +1013,14 @@ def _resolve_pose_reference_instructions(
         "task": P.REF_TASK,
         "images": P.REF_IMAGES_FACE if use_face_reference else P.REF_IMAGES,
         "keep": P.REF_KEEP.format(kept=", ".join(kept)),
+        "camera": (
+            P.REF_CAMERA.format(instruction=camera_text) if use_camera else ""
+        ),
         "change": P.REF_CHANGE,
         "fabric": P.SAREE_FABRIC_RULES,
         "border": P.REF_BORDER_RULES,
+        "blouse": P.REF_BLOUSE,
+        "right_side": P.REF_RIGHT_SIDE,
         "face": P.REF_FACE if use_face_reference else "",
         "background": (
             P.REF_BACKGROUND.format(description=description) if description else ""
@@ -1014,8 +1035,9 @@ def _resolve_pose_reference_instructions(
 
 # Fixed order of the final prompt. The final modesty rule is always last.
 POSE_REFERENCE_PROMPT_ORDER = (
-    "task", "images", "keep", "change", "fabric", "border", "face",
-    "background", "lighting", "realism", "style", "final",
+    "task", "images", "keep", "camera", "change", "fabric", "border",
+    "blouse", "right_side", "face", "background", "lighting", "realism",
+    "style", "final",
 )
 
 
@@ -1030,6 +1052,7 @@ def _compose_pose_reference_prompt(resolved):
 
 def _build_pose_reference_prompt(
     garment_type, use_face_reference, background, additional_style_note,
+    camera_view=None,
 ):
     """
     Returns {"prompt","guidance","seed"} for the pose reference path, or
@@ -1039,15 +1062,15 @@ def _build_pose_reference_prompt(
         return None
 
     resolved = _resolve_pose_reference_instructions(
-        use_face_reference, background, additional_style_note
+        use_face_reference, background, additional_style_note, camera_view
     )
     prompt = _compose_pose_reference_prompt(resolved)
 
     logger.info(
         "Pose reference prompt built: version=%s face_reference=%s "
-        "background=%s words=%s",
-        P.POSE_REFERENCE_PROMPT_VERSION, use_face_reference, background,
-        len(prompt.split()),
+        "camera_view=%s background=%s words=%s",
+        P.POSE_REFERENCE_PROMPT_VERSION, use_face_reference, camera_view,
+        background, len(prompt.split()),
     )
     logger.info("FINAL PROMPT: %s", prompt)
     return {
@@ -1144,10 +1167,12 @@ def build_prompt(
     use_face_reference is used only by the pose_reference scenario: True
     when a face_choice was sent (image 2 = the face to put on the photo).
     """
-    # NEW: reference photo of the pose -> edit prompt (fabric only).
+    # Reference photo of the pose -> edit prompt (fabric only; optional
+    # camera_view, face and background on top of the photo).
     if scenario == SCENARIO_POSE_REFERENCE:
         return _build_pose_reference_prompt(
             garment_type, use_face_reference, background, additional_style_note,
+            camera_view,
         )
 
     # Saree + generated_person / face_photo -> resolver path.

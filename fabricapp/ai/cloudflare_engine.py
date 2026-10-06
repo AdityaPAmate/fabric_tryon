@@ -8,7 +8,9 @@ Image-slot convention:
                     - face_photo        : a blank neutral canvas
                     - generated_person  : a blank neutral canvas
                     - pose_reference    : the POSE REFERENCE PHOTO (it is
-                                          edited: only the fabric changes)
+                                          edited: only the fabric changes,
+                                          plus camera_view / face /
+                                          background when they are sent)
     input_image_1 = GARMENT SOURCE — fabric_image or garment_image
     input_image_2 = REFERENCE (only when there is one)
                     - face_photo     : the chosen face photo
@@ -22,6 +24,9 @@ module only sends images + the prompt and returns the result.
 Pose reference photos (pose_reference.py): for a garment + pose that has a
 reference photo (today saree + pallu_on_head) and no person_image, the
 photo is sent as image 0 instead of describing the pose in the prompt.
+A camera_view does NOT switch this off: the camera_view text is added to
+the reference prompt by prompt_builder.py and the original background of
+the photo is kept.
 """
 
 import base64
@@ -147,6 +152,8 @@ def _find_pose_reference_path(person_image, garment_image, garment_type, pose):
     Returns the pose reference photo path, or None when the normal
     prompt-only path must be used. A reference photo is used only for a
     fabric request (no garment_image) without a person_image.
+    camera_view, face_choice and background do not change this: they are
+    applied on top of the reference photo by prompt_builder.py.
     """
     if person_image is not None or garment_image is not None:
         return None
@@ -190,8 +197,10 @@ def generate_tryon_image(
         use_pose_reference=pose_reference_path is not None,
     )
     logger.info(
-        "Scenario=%s gender=%s body_type=%s face_choice=%s pose=%s pose_reference=%s",
-        scenario, gender, body_type, face_choice, pose, pose_reference_path,
+        "Scenario=%s gender=%s body_type=%s face_choice=%s pose=%s "
+        "camera_view=%s pose_reference=%s",
+        scenario, gender, body_type, face_choice, pose, camera_view,
+        pose_reference_path,
     )
     subject_buffer, reference_buffer, out_w, out_h = _build_subject(
         scenario, person_image, face_choice, max_output_side, pose_reference_path
