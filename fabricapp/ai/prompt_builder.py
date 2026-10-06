@@ -21,6 +21,12 @@ Scenarios:
                          reference. Uses the dedicated own-model prompt.
     generated_person  -> no person photo and no face. Dedicated
                          own-model prompt built from GARMENT_SPECS.
+    pose_reference    -> (NEW) no person photo, and the chosen pose has a
+                         reference PHOTO (pose_reference.py, today only
+                         saree + pallu_on_head). image 0 = that photo
+                         (it is EDITED, the pose is not described in
+                         words), image 1 = fabric, image 2 = face (only if
+                         a face was chosen). See the POSE REFERENCE PATH.
 
 Movable parts (variables):
     pose            -> pose_data.py (can differ per garment / style / detail)
@@ -28,6 +34,25 @@ Movable parts (variables):
     garment_details -> garment_details.py (sleeves, tuck, dupatta)
     background      -> BACKGROUND_DESCRIPTIONS in prompts.py
     style note      -> additional_style_note
+
+SAREE RESOLVER PATH (first round of the "one requirement, one owner"
+architecture):
+    garment_type == "saree", no garment_image, and scenario in
+    (generated_person, face_photo) -> _build_saree_resolved().
+    Python resolves every known condition (pose, pallu, background, face,
+    style note) FIRST, then composes the prompt from the text variables in
+    prompt_parts.py. The final prompt contains only the resolved
+    instruction, never "unless" / "otherwise" / "if the pose ...".
+    Every other garment and every other scenario (including saree with
+    person_pose / person_photo / garment_image) still uses the OLD path
+    below, which is unchanged.
+
+POSE REFERENCE PATH (NEW):
+    scenario == pose_reference -> _build_pose_reference_prompt().
+    Same resolve-then-compose idea, but the prompt is an EDIT prompt: the
+    reference photo is image 0 and only the fabric is replaced. Texts are
+    the REF_* variables in prompt_parts.py. Nothing in the old paths or in
+    the saree resolver path is changed by it.
 
 CONSISTENCY RULES kept in this file (do not break them when editing):
     1. One instruction = one place. A pose, a pallu arrangement, a
@@ -61,6 +86,7 @@ warm/dark colour cast from the background scene.
 
 import logging
 
+from . import prompt_parts as P
 from .prompts import (
     GARMENT_STYLE_OPTIONS,
     GARMENT_IMAGE_PROMPT,
@@ -72,6 +98,7 @@ from .prompts import (
 from .pose_data import (
     POSE_PHRASE_REPLACEMENTS,
     get_pose_sentence,
+    get_saree_pose_parts,
 )
 from .camera_data import get_framing
 from .garment_details import apply_garment_details, MODE_EDIT, MODE_OWN
@@ -82,6 +109,7 @@ SCENARIO_PERSON_PHOTO = "person_photo"
 SCENARIO_PERSON_POSE = "person_pose"
 SCENARIO_FACE_PHOTO = "face_photo"
 SCENARIO_GENERATED_PERSON = "generated_person"
+SCENARIO_POSE_REFERENCE = "pose_reference"
 
 # Scenarios that start from a blank canvas and build a brand-new photo.
 OWN_MODEL_SCENARIOS = (
@@ -90,14 +118,32 @@ OWN_MODEL_SCENARIOS = (
     SCENARIO_PERSON_POSE,
 )
 
+# Scenarios that use the NEW saree resolver (see _uses_saree_resolver).
+SAREE_RESOLVER_SCENARIOS = (
+    SCENARIO_GENERATED_PERSON,
+    SCENARIO_FACE_PHOTO,
+)
+
 GENERATED_GUIDANCE = 7.0
 GENERATED_SEED = 42
 
 CHILD_AGE = 12  # boy / girl are generated as 12-year-old children
 
 
-def detect_scenario(has_person_image, face_choice, pose=None, camera_view=None):
-    """Decides which scenario applies for this request."""
+def detect_scenario(
+    has_person_image, face_choice, pose=None, camera_view=None,
+    use_pose_reference=False,
+):
+    """
+    Decides which scenario applies for this request.
+
+    use_pose_reference is True only when the engine found a reference
+    photo for this garment + pose (pose_reference.py) and there is no
+    person_image. It is checked first, because a face_choice in that case
+    only replaces the face on the reference photo.
+    """
+    if use_pose_reference:
+        return SCENARIO_POSE_REFERENCE
     if has_person_image:
         # A new pose or a new camera view cannot be made by editing the
         # photo (the model keeps the original pose and framing), so the
@@ -435,6 +481,7 @@ BORDER_RULES = (
 # the hem and sleeve cuffs, which is wrong for a saree (special artwork goes
 # on the pallu only). This is the ONLY place the saree border / artwork rule
 # is stated; the saree description in GARMENT_SPECS no longer repeats it.
+# (The saree resolver path has its own version in prompt_parts.py.)
 SAREE_BORDER_RULES = (
     "First examine image 1: if it has one uniform pattern, apply it evenly "
     "over the whole saree, pallu included. If it has two distinct zones — "
@@ -590,10 +637,12 @@ GARMENT_SPECS = {
             "image 1's fabric, only the trouser is. "
         ),
     },
-    # SAREE — FIXED: the border / artwork rule is no longer repeated here
-    # (it lives only in SAREE_BORDER_RULES), and "border_rules" tells the
-    # builder to use it. The pallu default below is used only when the pose
-    # sentence does not describe the pallu.
+    # SAREE — OLD path only (person_pose etc.). The generated_person /
+    # face_photo requests use the saree resolver (prompt_parts.py) and do
+    # not read this entry. The border / artwork rule lives only in
+    # SAREE_BORDER_RULES, and "border_rules" tells the builder to use it.
+    # The pallu default below is used only when the pose sentence does not
+    # describe the pallu.
     ("saree", "default"): {
         "fabric_target": "saree",
         "border": False,
@@ -793,6 +842,222 @@ def _build_own_model_prompt(
 
 
 # ----------------------------------------------------------------------
+# SAREE RESOLVER PATH
+#
+# Step 1 (resolve): Python decides every known condition and produces ONE
+#                   final text for each requirement.
+# Step 2 (compose): the resolved texts are joined in a fixed order.
+# The final prompt has no "unless" / "otherwise" / "if the pose ...".
+# All wording lives in prompt_parts.py (variables) and pose_data.py.
+# ----------------------------------------------------------------------
+
+def _uses_saree_resolver(scenario, garment_type, use_garment_image):
+    """True only for saree + fabric swatch + generated_person / face_photo."""
+    return (
+        garment_type == "saree"
+        and not use_garment_image
+        and scenario in SAREE_RESOLVER_SCENARIOS
+    )
+
+
+def _resolve_saree_instructions(
+    scenario, gender, body_type, pose, camera_view, background,
+    additional_style_note,
+):
+    """
+    Resolution step. Returns an ordered dict of final texts, one per
+    requirement. A requirement that does not apply is an empty string.
+    """
+    is_face = scenario == SCENARIO_FACE_PHOTO
+    framing = get_framing(camera_view)
+    person = _person_description(gender, body_type)
+
+    # POSE (+ PALLU): the pose module owns both.
+    pose_text, pallu_text = get_saree_pose_parts(pose, framing["pose_default"])
+
+    # CAMERA: the face reference also needs "do not copy the crop of image 2".
+    camera = P.CAMERA.format(
+        shot=framing["shot"], shown=framing["shown"], fill=framing["fill"]
+    )
+    if is_face:
+        camera += " " + framing["output_rule_face"].strip()
+
+    # BACKGROUND: ONE of two texts, chosen here.
+    description = BACKGROUND_DESCRIPTIONS.get(background) if background else None
+    if description:
+        background_text = P.BACKGROUND_SCENE.format(description=description)
+    else:
+        background_text = P.BACKGROUND_DEFAULT
+
+    # STYLE NOTE: only when the user sent one.
+    note = (additional_style_note or "").strip().rstrip(".")
+    style_text = P.STYLE_NOTE.format(note=note) if note else ""
+
+    # GARMENT: saree text (no pallu placement); child line when needed.
+    garment_text = P.SAREE_GARMENT
+    if _is_child(gender):
+        garment_text += " " + CHILD_GARMENT_LINE.strip()
+
+    return {
+        "task": P.TASK,
+        "images": P.IMAGES_FACE if is_face else P.IMAGES_GENERATED,
+        "pose": P.POSE.format(pose_text=pose_text),
+        "pallu": P.PALLU.format(pallu_text=pallu_text) if pallu_text else "",
+        "subject": (P.SUBJECT_FACE if is_face else P.SUBJECT_GENERATED).format(
+            person=person
+        ),
+        "garment": garment_text,
+        "fabric": P.SAREE_FABRIC_RULES,
+        "border": P.SAREE_BORDER_RULES,
+        "camera": camera,
+        "background": background_text,
+        "lighting": P.LIGHTING,
+        "realism": P.REALISM,
+        "style": style_text,
+        "final": P.MODESTY_FINAL_SAREE,
+    }
+
+
+# Fixed order of the final prompt. The final modesty rule is always last.
+SAREE_PROMPT_ORDER = (
+    "task", "images", "pose", "pallu", "subject", "garment", "fabric",
+    "border", "camera", "background", "lighting", "realism", "style",
+    "final",
+)
+
+
+def _compose_saree_prompt(resolved):
+    """Composition step: joins the resolved texts in SAREE_PROMPT_ORDER."""
+    return " ".join(
+        resolved[key].strip() for key in SAREE_PROMPT_ORDER if resolved[key]
+    ) + " "
+
+
+def _build_saree_resolved(
+    scenario, gender, body_type, pose, camera_view, background,
+    additional_style_note,
+):
+    """Returns {"prompt","guidance","seed"} for the saree resolver path."""
+    resolved = _resolve_saree_instructions(
+        scenario, gender, body_type, pose, camera_view, background,
+        additional_style_note,
+    )
+    prompt = _compose_saree_prompt(resolved)
+
+    logger.info(
+        "Saree resolver prompt built: version=%s scenario=%s pose=%s "
+        "camera_view=%s background=%s pallu_owner=%s words=%s",
+        P.SAREE_PROMPT_VERSION, scenario, pose, camera_view, background,
+        "pose_parts" if resolved["pallu"] else "pose_text",
+        len(prompt.split()),
+    )
+    logger.info("FINAL PROMPT: %s", prompt)
+    return {
+        "prompt": prompt,
+        "guidance": GENERATED_GUIDANCE,
+        "seed": GENERATED_SEED,
+    }
+
+
+# ----------------------------------------------------------------------
+# POSE REFERENCE PATH (NEW)
+#
+# The reference photo is image 0 and is EDITED: only the fabric changes.
+# The pose / drape / person / background are NOT described in words (they
+# are in the photo). Python only resolves what to keep and which optional
+# parts apply; the wording is in prompt_parts.py (REF_* variables).
+#
+#   no face_choice, no background -> keep person, face, pose, drape,
+#                                    blouse, framing, background, lighting
+#   face_choice                   -> FACE line added, face not kept
+#   background                    -> BACKGROUND + LIGHTING lines added,
+#                                    background / lighting not kept
+# ----------------------------------------------------------------------
+
+def _resolve_pose_reference_instructions(
+    use_face_reference, background, additional_style_note,
+):
+    """
+    Resolution step. Returns an ordered dict of final texts, one per
+    requirement. A requirement that does not apply is an empty string.
+    """
+    description = BACKGROUND_DESCRIPTIONS.get(background) if background else None
+
+    # What stays exactly as in the photo. A piece that is replaced by the
+    # FACE / BACKGROUND line is left out, so KEEP never contradicts them.
+    kept = [P.REF_KEPT_BASE]
+    if not use_face_reference:
+        kept.append(P.REF_KEPT_FACE)
+    if not description:
+        kept.append(P.REF_KEPT_SCENE)
+
+    note = (additional_style_note or "").strip().rstrip(".")
+
+    return {
+        "task": P.REF_TASK,
+        "images": P.REF_IMAGES_FACE if use_face_reference else P.REF_IMAGES,
+        "keep": P.REF_KEEP.format(kept=", ".join(kept)),
+        "change": P.REF_CHANGE,
+        "fabric": P.SAREE_FABRIC_RULES,
+        "border": P.REF_BORDER_RULES,
+        "face": P.REF_FACE if use_face_reference else "",
+        "background": (
+            P.REF_BACKGROUND.format(description=description) if description else ""
+        ),
+        # Lighting is changed only when the background is changed.
+        "lighting": P.LIGHTING if description else "",
+        "realism": P.REALISM,
+        "style": P.STYLE_NOTE.format(note=note) if note else "",
+        "final": P.MODESTY_FINAL_SAREE,
+    }
+
+
+# Fixed order of the final prompt. The final modesty rule is always last.
+POSE_REFERENCE_PROMPT_ORDER = (
+    "task", "images", "keep", "change", "fabric", "border", "face",
+    "background", "lighting", "realism", "style", "final",
+)
+
+
+def _compose_pose_reference_prompt(resolved):
+    """Composition step: joins the resolved texts in order."""
+    return " ".join(
+        resolved[key].strip()
+        for key in POSE_REFERENCE_PROMPT_ORDER
+        if resolved[key]
+    ) + " "
+
+
+def _build_pose_reference_prompt(
+    garment_type, use_face_reference, background, additional_style_note,
+):
+    """
+    Returns {"prompt","guidance","seed"} for the pose reference path, or
+    None if the garment has no pose reference prompt (today: saree only).
+    """
+    if garment_type != "saree":
+        return None
+
+    resolved = _resolve_pose_reference_instructions(
+        use_face_reference, background, additional_style_note
+    )
+    prompt = _compose_pose_reference_prompt(resolved)
+
+    logger.info(
+        "Pose reference prompt built: version=%s face_reference=%s "
+        "background=%s words=%s",
+        P.POSE_REFERENCE_PROMPT_VERSION, use_face_reference, background,
+        len(prompt.split()),
+    )
+    logger.info("FINAL PROMPT: %s", prompt)
+    return {
+        "prompt": prompt,
+        "guidance": GENERATED_GUIDANCE,
+        "seed": GENERATED_SEED,
+    }
+
+
+# ----------------------------------------------------------------------
 # Public entry point
 # ----------------------------------------------------------------------
 
@@ -869,12 +1134,29 @@ def build_prompt(
     additional_style_note=None,
     pose=None,
     garment_details=None,
+    use_face_reference=False,
 ):
     """
     Main function used by the engine. Returns
     {"prompt", "guidance", "seed"}, or None if no prompt exists for the
     given garment_type / garment_style.
+
+    use_face_reference is used only by the pose_reference scenario: True
+    when a face_choice was sent (image 2 = the face to put on the photo).
     """
+    # NEW: reference photo of the pose -> edit prompt (fabric only).
+    if scenario == SCENARIO_POSE_REFERENCE:
+        return _build_pose_reference_prompt(
+            garment_type, use_face_reference, background, additional_style_note,
+        )
+
+    # Saree + generated_person / face_photo -> resolver path.
+    if _uses_saree_resolver(scenario, garment_type, use_garment_image):
+        return _build_saree_resolved(
+            scenario, gender, body_type, pose, camera_view, background,
+            additional_style_note,
+        )
+
     base = _build_base(
         scenario, garment_type, garment_style, use_garment_image, gender,
         body_type, pose, camera_view, garment_details, background,
