@@ -9,7 +9,7 @@ To add a new pose: add one entry to POSE_INSTRUCTIONS. Nothing else
 needs to change.
 
 POSE_OVERRIDES gives a garment its own wording for a pose. The SAREE has
-its own wording for all 8 poses, because:
+its own wording for all 9 poses, because:
     - the pallu must be placed explicitly (the pose decides where it hangs),
     - a hand that holds or lifts the pallu in the ORIGINAL photo is the
       main cause of "three hands" (the old arm stays, two new arms are
@@ -17,6 +17,14 @@ its own wording for all 8 poses, because:
       in total" and says where the pallu rests,
     - generic words like "trouser pocket" or "cuff of the sleeve" do not
       fit a saree.
+
+SAREE_POSE_PARTS (NEW) is used ONLY by the saree resolver path
+(prompt_builder._build_saree_resolved: generated_person / face_photo).
+There the pose owns the pallu placement, as a separate "pallu" variable,
+and the garment text does not repeat it. A saree pose that is not listed
+in SAREE_POSE_PARTS keeps using its POSE_OVERRIDES text (the pallu is
+inside that text). POSE_OVERRIDES itself is NOT changed, so the old
+paths (person_pose etc.) behave exactly as before.
 
 Left / right rule used in the wording:
     "left arm", "right hand", "left foot"  -> the model's OWN left / right
@@ -117,7 +125,7 @@ POSES_HIDING_FACE = ["back_turn_hair_touch"]
 # SAREE: every sentence also fixes the pallu (shoulder, fall, length) and
 # says "exactly two arms and two hands in total". The saree modesty rules
 # (modest blouse, covered back, covered waist) are in GARMENT_SPECS["saree"]
-# in prompt_builder.py.
+# in prompt_builder.py (old path) and in prompt_parts.py (resolver path).
 POSE_OVERRIDES = {
     ("saree", None, "back_turn_hair_touch"): (
         "standing with the back toward the camera and the body turned slightly toward the model's right,"
@@ -224,6 +232,64 @@ for _garment, _variant, _pose_name in POSE_OVERRIDES:
         raise ValueError(f"POSE_OVERRIDES has unknown pose '{_pose_name}'")
 
 
+# ----------------------------------------------------------------------
+# SAREE resolver path (NEW). Used only by prompt_builder._build_saree_resolved.
+#
+# SAREE_POSE_PARTS[pose] = {"pose": <body pose>, "pallu": <pallu placement>}
+#   - "pose"  reads after "the person is ..." (no pallu inside, no pleats:
+#             the pleats belong to the garment text in prompt_parts.py)
+#   - "pallu" is a full sentence block; it is the ONLY place that says
+#             where the pallu is for this pose.
+# Poses not listed here keep their POSE_OVERRIDES text (pallu inside it).
+#
+# PALLU WRITING RULES (FLUX.2 Klein):
+#   1. Positive wording only: Klein does not follow "no ..." / "must not ..."
+#      well, and every mention of the unwanted place primes cloth there.
+#      So the clean side is described by what IS visible there.
+#   2. ONE direction language only: the position in the IMAGE
+#      ("left side of the image"), never "model's right (viewer's left)".
+#   3. Short: describe the one visible result, nothing else.
+#   4. Name the drape. The model's default saree has the pallu over the
+#      wearer's LEFT shoulder (Nivi). Gujarati "seedha pallu" brings the
+#      pallu from the back, over the RIGHT shoulder, to the front, which is
+#      the wanted geometry, so the style name is used to replace that default.
+# Reference image: the pallu hangs on the LEFT side of the IMAGE
+# (= the model's right side), ending at mid-thigh. The arm on the LEFT of the image is gently bent and touches the pallu; the arm on the RIGHT of the image hangs straight.
+# ----------------------------------------------------------------------
+
+# Pallu used when no pose is requested (Python picks it; the model is not
+# told "if the pose does not describe it").
+SAREE_DEFAULT_PALLU = (
+    "The pallu falls over the left shoulder in soft pleats to the knee or below."
+)
+
+SAREE_POSE_PARTS = {
+    "pallu_on_head": {
+        "pose": (
+            "standing upright and straight, facing the camera directly,"
+            " head upright with the eyes looking forward and a soft smile,"
+            " exactly two arms and two hands in total,"
+            " the arm on the right of the image hanging straight down with the elbow straight"
+            " and the hand relaxed beside the thigh,"
+            " the arm on the left of the image gently bent at the elbow"
+            " with the hand held lightly at waist height"
+        ),
+        "pallu": (
+            "The saree is draped in the Gujarati seedha pallu style: the loose end of the saree"
+            " comes from behind the back, rises over the top of the head and hair like a soft hood"
+            " framing the face, then falls over the shoulder on the left of the image"
+            " and hangs down that side of the body over the outside of the bent arm,"
+            " ending at mid-thigh, with the hand of the bent arm gently touching the pallu at waist height."
+            " The right side of the frame shows only the straight arm, the blouse sleeve and the saree wrap."
+        ),
+    },
+}
+
+for _pose_name in SAREE_POSE_PARTS:
+    if _pose_name not in POSE_INSTRUCTIONS:
+        raise ValueError(f"SAREE_POSE_PARTS has unknown pose '{_pose_name}'")
+
+
 # (old phrase in the prompts, replacement used only when a pose
 # is requested). Each old phrase is copied exactly from prompts.py.
 POSE_PHRASE_REPLACEMENTS = [
@@ -273,3 +339,32 @@ def get_pose_sentence(pose, garment_type=None, garment_style=None, detail_keys=N
         if key in POSE_OVERRIDES:
             return POSE_OVERRIDES[key]
     return POSE_INSTRUCTIONS.get(pose)
+
+
+def get_saree_pose_parts(pose, default_pose_text):
+    """
+    Saree resolver path. Returns (pose_text, pallu_text).
+
+    pallu_text is None when the pallu is already described inside
+    pose_text (the poses that still use their POSE_OVERRIDES text).
+
+        no pose            -> (default_pose_text, SAREE_DEFAULT_PALLU)
+        pose in SAREE_POSE_PARTS -> its own pose + its own pallu
+        saree override exists    -> (override text, None)
+        anything else            -> (generic pose text, SAREE_DEFAULT_PALLU)
+    """
+    if not pose:
+        return default_pose_text, SAREE_DEFAULT_PALLU
+
+    parts = SAREE_POSE_PARTS.get(pose)
+    if parts:
+        return parts["pose"], parts["pallu"]
+
+    override = POSE_OVERRIDES.get(("saree", None, pose))
+    if override:
+        return override, None
+
+    generic = POSE_INSTRUCTIONS.get(pose)
+    if generic:
+        return generic, SAREE_DEFAULT_PALLU
+    return default_pose_text, SAREE_DEFAULT_PALLU
