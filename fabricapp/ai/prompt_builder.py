@@ -450,10 +450,15 @@ def _subject_block_with_person(pose_text, framing, keep_background=True):
         f"{framing['shot'].upper()} photograph of this SAME person, "
         f"in the exact pose given in the POSE line above, {background_text}, "
         f"{framing['shown']}. "
-        "THE PERSON MUST BE COPIED EXACTLY FROM IMAGE 2: same face, "
-        "eyes, eyebrows, nose, lips, same skin tone and brightness, same "
-        "hair colour, hair length and hairstyle, same age, same body build "
-        "and proportions, the same facial hair if any, and every "
+        "IDENTITY AND BODY PROPORTIONS: match the person in image 2 as "
+        "closely as possible: same face, eyes, eyebrows, nose, lips, skin "
+        "tone, hair colour and style, age, and accessories. Preserve the "
+        "same body build and scale: keep the original shoulder, waist and "
+        "hip widths, torso length, height-to-width ratio, and arm and leg "
+        "thickness. Do not make the person slimmer, wider, taller, shorter, "
+        "or more muscular. Change only the pose and outfit. "
+        "The face should remain recognizably the same person. "
+        "Keep every "
         "accessory worn in image 2 (watch, bangles, rings, earrings, "
         "necklace, spectacles) in the same place. "
         f"{ignore_text} — the pose "
@@ -612,16 +617,13 @@ GARMENT_SPECS = {
         "fabric_target": "kurti",
         "border": True,
         "garment": (
-            "a traditional Indian women's kurti — a modest straight or "
-            "A-line cut ending at roughly mid-thigh or knee, with a plain "
-            "round or V neckline (not deep), and elbow-length or "
-            "full-length sleeves (never sleeveless), comfortably "
-            "loose-fitting. The kurti is ALWAYS worn together with a "
-            "matching straight-cut churidar/salwar-style pant that is "
-            "clearly visible below the kurti hem and reaches the ankles, "
-            "in a plain solid color (white, off-white, or a solid shade "
-            "from the kurti's palette), never patterned — the legs must "
-            "never be bare. No dupatta. "
+            "a traditional Indian women's kurti, modest and comfortably "
+            "loose-fitting, with a simple round or modest V neckline and "
+            "full-length sleeves reaching the wrists. Pair it with plain, "
+            "solid white, straight-cut full-length pants visible below the "
+            "kurti hem and reaching the ankles. The pants must be white and "
+            "must not use image 1's fabric, print, or pattern. Apply image "
+            "1's fabric only to the kurti. No dupatta. "
         ),
     },
     ("shirt", "default"): {
@@ -732,7 +734,7 @@ def _get_garment_spec(garment_type, garment_style):
 _GARMENT_NOUN = {
     "saree": "saree",
     "kurta": "kurta",
-    "kurti_pant": "kurti with a matching pant",
+    "kurti_pant": "kurti with plain white pants",
     "shirt": "shirt",
     "pant": "pant",
     "blazer": "blazer",
@@ -766,8 +768,14 @@ def _task_line(scenario, garment_type, use_garment_image, keep_background=True):
         what = "the garment shown in image 1"
         image_1 = "image 1 = the garment to copy"
     else:
-        noun = _GARMENT_NOUN.get(garment_type, "garment")
-        what = f"a {noun} made from the fabric in image 1"
+        if garment_type == "kurti_pant":
+            what = (
+                "a kurti made from the fabric in image 1, paired with "
+                "plain white pants"
+            )
+        else:
+            noun = _GARMENT_NOUN.get(garment_type, "garment")
+            what = f"a {noun} made from the fabric in image 1"
         image_1 = (
             "image 1 = the FABRIC swatch (only its colors and pattern are "
             "used; it is not a garment shape)"
@@ -1120,6 +1128,59 @@ def _build_base(
     return dict(base)  # copy — never modify the stored data
 
 
+def _build_person_pose_kurti_prompt(
+    pose, camera_view=None, background=None,
+):
+    """Short, priority-ordered instructions for person-photo kurti edits."""
+    pose_text = _own_model_pose_text(
+        pose, garment_type="kurti_pant", camera_view=camera_view
+    )
+    framing = get_framing(camera_view)
+    keep_background = not background
+    prompt = _task_line(
+        SCENARIO_PERSON_POSE, "kurti_pant", False, keep_background
+    )
+    prompt += _pose_line(pose_text)
+    dupatta_rule = (
+        "For this pose, include a plain white dupatta draped over the head; "
+        "keep it solid white and do not apply image 1's fabric to it. "
+        if pose == "pallu_on_head"
+        else "No dupatta. "
+    )
+    prompt += (
+        "POSE PRIORITY: Change the woman's posture to exactly the pose above. "
+        "Do not retain her original posture. "
+        "LIMBS: Do not copy the arms, hands, legs or feet from image 2. Draw "
+        "exactly two arms, two hands, two legs and two feet in the pose above; "
+        "never add, duplicate or leave an extra hand, arm, leg or foot. "
+        "SUBJECT: Generate one realistic " + framing["shot"]
+        + " photograph of the same woman in image 2, "
+        + framing["shown"] + ". Preserve her recognizable "
+        "face, hair, skin tone, age, accessories and natural body build. Keep "
+        "her original shoulder, waist and hip widths, torso length, height-to-"
+        "width ratio, and arm and leg thickness; do not slim or widen her. "
+        "Replace the clothes in image 2 completely; do not copy their color, "
+        "print or garment design. "
+        "OUTFIT: Dress her in a modest Indian kurti with full-length sleeves "
+        "reaching the wrists, paired with plain, solid white, full-length "
+        "pants visible below the kurti and reaching the ankles. The pants are "
+        "white and have no print. " + dupatta_rule +
+        "FABRIC: Use image 1 only as the kurti fabric reference. Apply its "
+        "actual colors, print, motif size and density across the kurti. Do "
+        "not use image 1's fabric or pattern on the white pants. If image 1 "
+        "has a distinct border, use it only as a narrow kurti hem and sleeve "
+        "cuff trim; do not invent a border when none is shown. "
+    )
+    if keep_background:
+        prompt += (
+            "BACKGROUND: Keep the original place, objects, colors and lighting "
+            "from image 2; extend it naturally and add a simple chair or low "
+            "ledge only when the selected pose requires it. "
+        )
+    prompt += "Make the result a natural, realistic photograph. "
+    return prompt
+
+
 def _append_overrides(prompt, background, additional_style_note):
     """
     Adds background / style-note text at the very end, and then the final
@@ -1181,6 +1242,36 @@ def build_prompt(
             scenario, gender, body_type, pose, camera_view, background,
             additional_style_note,
         )
+
+    # FLUX.2 Klein inconsistently followed the longer shared prompt for
+    # person-photo kurti pose edits (often retaining the source outfit or pose).
+    # Keep these top-priority requirements in one short, dedicated prompt.
+    if (
+        scenario == SCENARIO_PERSON_POSE
+        and garment_type == "kurti_pant"
+        and not use_garment_image
+    ):
+        prompt = _build_person_pose_kurti_prompt(
+            pose, camera_view=camera_view, background=background
+        )
+        prompt = apply_garment_details(
+            prompt, garment_type, garment_style, garment_details, MODE_OWN
+        )
+        base = {
+            "prompt": _append_overrides(
+                prompt, background, additional_style_note
+            ),
+            "guidance": GENERATED_GUIDANCE,
+            "seed": GENERATED_SEED,
+        }
+        logger.info(
+            "Prompt built: scenario=%s pose=%s camera_view=%s details=%s "
+            "words=%s",
+            scenario, pose, camera_view, garment_details,
+            len(base["prompt"].split()),
+        )
+        logger.info("FINAL PROMPT: %s", base["prompt"])
+        return base
 
     base = _build_base(
         scenario, garment_type, garment_style, use_garment_image, gender,

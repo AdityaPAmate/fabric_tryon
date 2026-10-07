@@ -96,7 +96,7 @@ POSE_INSTRUCTIONS = {
     "sleeve_adjust_stand": (
         "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
         " and the head turned to look toward the viewer's left,"
-        " the right arm bent horizontally across the stomach with its fingers holding the cuff of the left sleeve near the elbow,"
+        " the right arm bent horizontally across the stomach with its fingers holding the left sleeve near the wrist,"
         " the left arm hanging down and slightly forward with the hand relaxed near the thigh,"
         " legs nearly straight with the feet slightly apart, the sleeve staying fully down"
     ),
@@ -223,6 +223,27 @@ POSE_OVERRIDES = {
         " legs nearly straight with the feet slightly apart and the left foot slightly forward,"
         " the saree pallu resting on the left shoulder and hanging straight down behind the left arm"
         " in soft pleats to the knee or below, the front pleats falling neatly to the ankles"
+    ),
+
+    # kurti_pant only. Directions (right / left) are kept, because a text
+    # without them made the model keep the pose of image 2. The left hand
+    # is placed in ONE spot only (holding the right wrist), which avoids
+    # the third hand.
+    ("kurti_pant", None, "three_quarter_hand_adjust"): (
+        "standing nearly front-facing with the torso turned slightly toward the model's right,"
+        " head tilted down with the eyes looking at both hands,"
+        " exactly two arms and two hands in total,"
+        " both hands together at chest height in front of the body, below the chin and away from the hair and face,"
+        " the left hand gently holding the right wrist and the right hand loosely closed,"
+        " legs naturally separated, with the right leg nearly straight and the left leg slightly relaxed,"
+        " both feet flat on the ground, with the left foot slightly forward"
+    ),
+    ("kurti_pant", None, "pocket_walk"): (
+        "walking toward the camera in a relaxed mid-stride with the body facing forward and the head upright looking straight ahead,"
+        " exactly two arms and two hands in total,"
+        " the left elbow bent with the left hand resting firmly on the left hip,"
+        " the right arm hanging down at the side with the hand relaxed and slightly open,"
+        " and the left leg stepping forward ahead of the right leg"
     ),
 }
 

@@ -365,7 +365,7 @@ GARMENT_PROMPTS = {
 
     "kurti_pant": {
         "default": {
-            # Women's kurti + matching pant, tested and working
+            # Women's kurti + plain white pant.
             "prompt": (
                 "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
                 "hands, arms, background, and body pose from image 0 completely unchanged — "
@@ -373,24 +373,20 @@ GARMENT_PROMPTS = {
 
                 "Regardless of what garment the person is currently wearing (saree, salwar suit, "
                 "western dress, top, or anything else), replace it entirely with a new, "
-                "traditional Indian women's kurti paired with a matching straight-cut pant "
+                "traditional Indian women's kurti paired with plain, solid white, straight-cut pants "
                 "(churidar or straight salwar-pant style). "
 
                 "The kurti must be a simple, modest, straight or A-line cut extending down to "
                 "roughly mid-thigh or knee length, with a plain round or V-neck neckline (no "
-                "deep or low-cut neckline), and sleeves that are either elbow-length or "
-                "full-length (choose whichever drapes more naturally given the person's current "
-                "arm position in image 0) — never sleeveless. "
+                "deep or low-cut neckline), and full-length sleeves reaching down to the wrists "
+                "— never sleeveless. "
 
                 "If any part of the person's legs is visible below the kurti hem in image 0 "
                 "(whether originally covered by a saree, jeans, a skirt, or anything else), do "
                 "NOT leave that area as bare, exposed, or nude skin under any circumstance. "
-                "Instead, generate a matching straight-cut pant (churidar/salwar style) covering "
-                "the legs down to the ankles, in a plain solid color that coordinates naturally "
-                "with the kurti — white, off-white, or a solid shade picked from the kurti's own "
-                "color palette — with a simple realistic fabric drape and natural folds, never "
-                "patterned or bright, and never the same check/stripe/print pattern as the "
-                "kurti fabric itself. "
+                "Instead, generate plain, solid white, straight-cut pants covering the legs down "
+                "to the ankles, with natural folds. The pants must remain white and must not use "
+                "image 1's fabric, colors, print or pattern; image 1's fabric is for the kurti only. "
 
                 "Do not add a dupatta, stole, or scarf unless one is already clearly present and "
                 "unchanged from image 0 — if there is no dupatta in image 0, do not invent one. "
@@ -432,8 +428,8 @@ GARMENT_PROMPTS = {
 
                 "Result must look like one real, unedited photograph of the same person in the "
                 "same pose and background, fully and modestly clothed, now wearing a properly "
-                "fitted new kurti made exactly from image 1's fabric, paired with a plain "
-                "matching pant."
+                "fitted new kurti made exactly from image 1's fabric, paired with plain, solid "
+                "white pants."
             ),
             "guidance": 7.0,
             "seed": 42,

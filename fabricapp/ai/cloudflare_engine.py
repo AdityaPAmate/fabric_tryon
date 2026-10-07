@@ -129,10 +129,15 @@ def _build_subject(
         out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
         return subject_buffer, None, out_w, out_h
 
-    # Own-model scenarios always output a portrait shape, and always
-    # use a blank canvas as image_0.
-    out_w, out_h = get_portrait_dimensions(max_side=max_output_side)
-    canvas_w, canvas_h = get_portrait_dimensions(max_side=MAX_INPUT_DIM)
+    # Own-model scenarios use a portrait shape. For person_pose, preserve
+    # the uploaded photo's aspect ratio for both the blank canvas and output
+    # so the model is less likely to widen, slim, or stretch the person.
+    if scenario == SCENARIO_PERSON_POSE:
+        out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
+        canvas_w, canvas_h = get_output_dimensions(person_image, max_side=MAX_INPUT_DIM)
+    else:
+        out_w, out_h = get_portrait_dimensions(max_side=max_output_side)
+        canvas_w, canvas_h = get_portrait_dimensions(max_side=MAX_INPUT_DIM)
     subject_buffer = make_blank_canvas(canvas_w, canvas_h)
 
     reference_buffer = None
@@ -278,7 +283,6 @@ def generate_tryon_image(
                 url, headers=headers, files=files, data=data, timeout=REQUEST_TIMEOUT_SECONDS
             )
         except requests.exceptions.RequestException as e:
-            # Network-level failure (connection dropped, timeout, DNS, etc.)
             if attempt < MAX_ATTEMPTS:
                 wait_seconds = 2 ** attempt
                 logger.warning(
@@ -287,7 +291,7 @@ def generate_tryon_image(
                 )
                 time.sleep(wait_seconds)
                 for _, file_tuple in files.items():
-                    file_tuple[1].seek(0)  # rewind so the retry sends full images
+                    file_tuple[1].seek(0)
                 continue
             logger.error("Cloudflare request failed after network error: %s", e)
             raise CloudflareGenerationError(f"Network error calling Cloudflare: {e}")
@@ -318,7 +322,6 @@ def generate_tryon_image(
         )
         raise CloudflareGenerationError(f"Cloudflare request failed with status {response.status_code}")
 
-    # Stage 4: parse the response into raw image bytes
     logger.info("Stage 4: parsing Cloudflare response")
     content_type = response.headers.get("Content-Type", "")
 
@@ -337,7 +340,6 @@ def generate_tryon_image(
 
     save_output_copy(image_bytes, f"output_{debug_tag}.png")
 
-    # Stage 5: free memory
     del subject_buffer, garment_source_buffer, reference_buffer, files, response
     gc.collect()
     logger.info("Stage 5: request finished, memory released")

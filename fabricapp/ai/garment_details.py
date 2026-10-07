@@ -113,11 +113,9 @@ SHIRT_EDIT_ANCHOR = "collared button-up shirt."
 SHIRT_OWN_ANCHOR = "worn with plain dark solid-color formal full-length trousers. "
 
 KURTI_SLEEVES_EDIT_ANCHOR = (
-    "sleeves that are either elbow-length or full-length (choose whichever "
-    "drapes more naturally given the person's current arm position in "
-    "image 0) — never sleeveless"
+    "full-length sleeves reaching down to the wrists — never sleeveless"
 )
-KURTI_SLEEVES_OWN_ANCHOR = "elbow-length or full-length sleeves (never sleeveless)"
+KURTI_SLEEVES_OWN_ANCHOR = "full-length sleeves reaching the wrists"
 
 KURTI_DUPATTA_EDIT_ANCHOR = (
     "Do not add a dupatta, stole, or scarf unless one is already clearly "
