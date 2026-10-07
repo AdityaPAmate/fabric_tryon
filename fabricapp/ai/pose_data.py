@@ -229,12 +229,26 @@ POSE_OVERRIDES = {
     # without them made the model keep the pose of image 2. The left hand
     # is placed in ONE spot only (holding the right wrist), which avoids
     # the third hand.
+    ("kurti_pant", None, "cross_leg_chair_recline"): (
+        "seated in one low upholstered armchair in an upright, relaxed recline with the back supported by the chair"
+        " and the torso angled slightly toward the viewer's left, head upright and turned slightly toward the viewer's left,"
+        " both forearms resting separately across the lap with both relaxed hands together on the upper knee,"
+        " one leg crossed over the other at the knee with the top foot pointing toward the viewer's left,"
+        " with the complete chair, both legs and both feet visible"
+    ),
+    ("kurti_pant", None, "sleeve_adjust_stand"): (
+        "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
+        " and the head turned to look toward the viewer's left,"
+        " the right elbow bent with the right forearm diagonally across the torso and the right fingers visibly pinching the left sleeve cuff at the left wrist,"
+        " the left arm hanging naturally beside the body with the left hand open beside the left thigh,"
+        " both hands separate and visible, legs nearly straight with the feet slightly apart"
+    ),
     ("kurti_pant", None, "three_quarter_hand_adjust"): (
         "standing nearly front-facing with the torso turned slightly toward the model's right,"
-        " head tilted down with the eyes looking at both hands,"
-        " exactly two arms and two hands in total,"
-        " both hands together at chest height in front of the body, below the chin and away from the hair and face,"
-        " the left hand gently holding the right wrist and the right hand loosely closed,"
+        " head tilted down with the eyes looking at the hands,"
+        " the right elbow bent with the right forearm raised diagonally across the upper torso and the right hand loosely closed at chest height,"
+        " the left forearm crossing the lower abdomen with the left hand visibly holding the right wrist from below,"
+        " both hands separate and visible below the chin, away from the hair and face,"
         " legs naturally separated, with the right leg nearly straight and the left leg slightly relaxed,"
         " both feet flat on the ground, with the left foot slightly forward"
     ),

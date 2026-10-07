@@ -129,15 +129,11 @@ def _build_subject(
         out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
         return subject_buffer, None, out_w, out_h
 
-    # Own-model scenarios use a portrait shape. For person_pose, preserve
-    # the uploaded photo's aspect ratio for both the blank canvas and output
-    # so the model is less likely to widen, slim, or stretch the person.
-    if scenario == SCENARIO_PERSON_POSE:
-        out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
-        canvas_w, canvas_h = get_output_dimensions(person_image, max_side=MAX_INPUT_DIM)
-    else:
-        out_w, out_h = get_portrait_dimensions(max_side=max_output_side)
-        canvas_w, canvas_h = get_portrait_dimensions(max_side=MAX_INPUT_DIM)
+    # Pose generation uses the original stable 3:4 portrait frame. It gives
+    # the model enough space for the complete head-to-feet pose and keeps the
+    # fabric rendering at the same scale as the earlier sharp outputs.
+    out_w, out_h = get_portrait_dimensions(max_side=max_output_side)
+    canvas_w, canvas_h = get_portrait_dimensions(max_side=MAX_INPUT_DIM)
     subject_buffer = make_blank_canvas(canvas_w, canvas_h)
 
     reference_buffer = None

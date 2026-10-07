@@ -1147,6 +1147,19 @@ def _build_person_pose_kurti_prompt(
         if pose == "pallu_on_head"
         else "No dupatta. "
     )
+    # A chair pose changes the person's perspective more than the standing
+    # poses. Keep this lock local to that pose so the proven prompt for the
+    # other kurti-pant poses remains byte-for-byte the same.
+    cross_leg_identity_lock = (
+        "CROSS-CHAIR IDENTITY LOCK: Copy the exact facial structure from image 2 "
+        "— same eyes, eyebrows, nose, lips and face shape — and preserve the "
+        "same slim shoulder, waist and hip widths when seated. Keep the same "
+        "arm and leg thickness; do not make her fuller or wider because she is "
+        "sitting. The kurti and plain white pants are the only garments visible; "
+        "do not retain any source clothing or loose cloth from image 2. "
+        if pose == "cross_leg_chair_recline"
+        else ""
+    )
     prompt += (
         "POSE PRIORITY: Change the woman's posture to exactly the pose above. "
         "Do not retain her original posture. "
@@ -1161,6 +1174,7 @@ def _build_person_pose_kurti_prompt(
         "width ratio, and arm and leg thickness; do not slim or widen her. "
         "Replace the clothes in image 2 completely; do not copy their color, "
         "print or garment design. "
+        + cross_leg_identity_lock +
         "OUTFIT: Dress her in a modest Indian kurti with full-length sleeves "
         "reaching the wrists, paired with plain, solid white, full-length "
         "pants visible below the kurti and reaching the ankles. The pants are "
