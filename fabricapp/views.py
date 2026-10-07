@@ -8,6 +8,7 @@ that all lives in ai/cloudflare_engine.py.
 import base64
 import logging
 
+from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -17,6 +18,11 @@ from .ai.cloudflare_engine import CloudflareGenerationError, generate_tryon_imag
 from .serializers import FabricTryOnRequestSerializer
 
 logger = logging.getLogger("fabricapp")
+
+
+def health_check(request):
+    """Small unauthenticated endpoint used by the Render health check."""
+    return JsonResponse({"status": "ok"})
 
 
 class FabricTryOnView(APIView):

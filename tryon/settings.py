@@ -20,6 +20,13 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# Render supplies this hostname for every web service. Keep any manually
+# configured hosts as well, so custom domains can still be added through
+# ALLOWED_HOSTS without changing the application code.
+render_external_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+if render_external_hostname:
+    ALLOWED_HOSTS.append(render_external_hostname)
+
 # Cloudflare Workers AI configuration
 CLOUDFLARE_ACCOUNT_ID = os.getenv('CLOUDFLARE_ACCOUNT_ID')
 CLOUDFLARE_API_TOKEN = os.getenv('CLOUDFLARE_API_TOKEN')

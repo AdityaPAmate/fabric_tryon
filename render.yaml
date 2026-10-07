@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: fabric-tryon-api
+    runtime: docker
+    healthCheckPath: /api/health/
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: SAVE_DEBUG_FILES
+        value: "False"
+      - key: CLOUDFLARE_MODEL
+        value: "@cf/black-forest-labs/flux-2-klein-4b"
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
