@@ -1,11 +1,10 @@
 """
-Stage: API view. Validates the request, calls the engine, returns the
-image as a JSON response (base64-encoded), not raw binary.
+Stage: API view. Validates the request, calls the engine, uploads the
+generated image to Cloudinary, and returns its delivery URL as JSON.
 This file knows nothing about Cloudflare or image resizing internals —
 that all lives in ai/cloudflare_engine.py.
 """
 
-import base64
 import logging
 
 from django.http import JsonResponse
@@ -16,6 +15,7 @@ from rest_framework.views import APIView
 
 from .ai.cloudflare_engine import CloudflareGenerationError, generate_tryon_image
 from .serializers import FabricTryOnRequestSerializer
+from .services.cloudinary_service import CloudinaryUploadError, upload_generated_image
 
 logger = logging.getLogger("fabricapp")
 
@@ -63,7 +63,17 @@ class FabricTryOnView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        encoded_image = base64.b64encode(image_bytes).decode("utf-8")
+        try:
+            uploaded_image = upload_generated_image(image_bytes)
+        except CloudinaryUploadError as e:
+            logger.error("Generated image could not be stored: %s", e)
+            return Response(
+                {
+                    "success": False,
+                    "error": "Image was generated but could not be stored. Please try again.",
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         response_data = {
             "success": True,
@@ -76,12 +86,6 @@ class FabricTryOnView(APIView):
             "gender": data.get("gender"),
             "body_type": data.get("body_type") or "default",
             "face_choice": data.get("face_choice"),
-            "images": [
-                {
-                    "view": camera_view or pose or "default",
-                    "format": "png",
-                    "data": encoded_image,
-                }
-            ],
+            "images": [{"view": camera_view or pose or "default", **uploaded_image}],
         }
         return Response(response_data, status=status.HTTP_200_OK)
