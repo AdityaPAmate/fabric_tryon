@@ -1195,6 +1195,56 @@ def _build_person_pose_kurti_prompt(
     return prompt
 
 
+def _build_person_pose_shirt_prompt(
+    pose, camera_view=None, background=None,
+):
+    """Priority-ordered shirt instructions for a posed person photo."""
+    pose_text = _own_model_pose_text(
+        pose, garment_type="shirt", camera_view=camera_view
+    )
+    framing = get_framing(camera_view)
+    keep_background = not background
+    prompt = _task_line(
+        SCENARIO_PERSON_POSE, "shirt", False, keep_background
+    )
+    prompt += _pose_line(pose_text)
+    prompt += (
+        "POSE PRIORITY: Change the person's posture to exactly the pose above. "
+        "Do not retain the posture in image 2. "
+        "LIMBS: Do not copy arms, hands, legs or feet from image 2. Draw "
+        "exactly two arms, two hands, two legs and two feet in the pose above; "
+        "never add, duplicate or leave an extra limb. "
+        "SUBJECT: Generate one realistic " + framing["shot"]
+        + " photograph of the same person in image 2, "
+        + framing["shown"] + ". Preserve the recognizable face, hair, skin "
+        "tone, age, accessories and natural body build. Keep the original "
+        "shoulder, waist and hip widths, torso length, height-to-width ratio, "
+        "and arm and leg thickness; do not slim or widen the person. "
+        "Replace every source garment completely, including shorts, trousers "
+        "or jeans; do not copy their colour, print, cut or fabric. "
+        "OUTFIT: Dress the person in a properly fitted, collared button-up "
+        "shirt. Sleeves, where the garment has them, must be full-length down "
+        "to the wrist, straight and unrolled, unless the garment description "
+        "above says otherwise. The shirt is worn with "
+        "plain dark solid-color formal full-length trousers. The trousers "
+        "must reach the ankles, fit naturally, and be newly generated even "
+        "when image 2 shows shorts or trousers. They must not use image 1's "
+        "fabric, pattern or print. "
+        "FABRIC: Use image 1 only as the shirt fabric reference. Apply its "
+        "actual colours, print, motif size and density across the entire "
+        "shirt. Do not use image 1's fabric, pattern or colour on the "
+        "trousers, footwear, accessories, skin or background. "
+    )
+    if keep_background:
+        prompt += (
+            "BACKGROUND: Keep the original place, objects, colours and lighting "
+            "from image 2; extend it naturally and add a simple chair or low "
+            "ledge only when the selected pose requires it. "
+        )
+    prompt += "Make the result a natural, realistic photograph. "
+    return prompt
+
+
 def _append_overrides(prompt, background, additional_style_note):
     """
     Adds background / style-note text at the very end, and then the final
@@ -1266,6 +1316,36 @@ def build_prompt(
         and not use_garment_image
     ):
         prompt = _build_person_pose_kurti_prompt(
+            pose, camera_view=camera_view, background=background
+        )
+        prompt = apply_garment_details(
+            prompt, garment_type, garment_style, garment_details, MODE_OWN
+        )
+        base = {
+            "prompt": _append_overrides(
+                prompt, background, additional_style_note
+            ),
+            "guidance": GENERATED_GUIDANCE,
+            "seed": GENERATED_SEED,
+        }
+        logger.info(
+            "Prompt built: scenario=%s pose=%s camera_view=%s details=%s "
+            "words=%s",
+            scenario, pose, camera_view, garment_details,
+            len(base["prompt"].split()),
+        )
+        logger.info("FINAL PROMPT: %s", base["prompt"])
+        return base
+
+    # Shirt pose edits must replace the complete outfit even when the source
+    # photo has shorts, rolled sleeves, or a tucked shirt.  This route is
+    # intentionally shirt-only; all other garment prompt paths stay unchanged.
+    if (
+        scenario == SCENARIO_PERSON_POSE
+        and garment_type == "shirt"
+        and not use_garment_image
+    ):
+        prompt = _build_person_pose_shirt_prompt(
             pose, camera_view=camera_view, background=background
         )
         prompt = apply_garment_details(

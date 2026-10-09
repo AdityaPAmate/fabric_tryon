@@ -445,7 +445,7 @@ GARMENT_PROMPTS = {
 
                 "Regardless of what garment the person is currently wearing (shirt, t-shirt, "
                 "kurta, or anything else), replace it entirely with a new, properly fitted, "
-                "collared button-up shirt."
+                "collared button-up shirt. "
 
                 "Use only the exact colors and pattern shown in "
                 "image 1 — same type (check, stripe, print, weave, or plain), same scale and "
@@ -465,9 +465,15 @@ GARMENT_PROMPTS = {
                 "the wrist in a natural, straight, unrolled state — never folded, cuffed, "
                 "or rolled up at the forearm or elbow. "
 
+                "Replace any shorts, trousers, jeans, or other lower-body clothing in image "
+                "0 with newly generated, plain dark solid-color formal full-length trousers "
+                "that reach the ankles and fit naturally. The trousers must be created even "
+                "when image 0 already shows full-length trousers. Do not use image 1's "
+                "fabric, print, pattern, or colours on the trousers. "
+
                 "Generate new, realistic shading, folds, and shadows appropriate for this "
-                "new shirt on this body and pose — consistent with the lighting direction "
-                "in the rest of the photo. "
+                "new shirt and trousers on this body and pose — consistent with the lighting "
+                "direction in the rest of the photo. "
 
                 "Result must look like one real, unedited photograph of the same person in "
                 "the same pose and background, now wearing a properly fitted new shirt made "
