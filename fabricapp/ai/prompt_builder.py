@@ -209,6 +209,17 @@ MODESTY_FINAL = (
     "catalog photograph, never nude, revealing or suggestive. "
 )
 
+# Used only by fabric-based shirt prompts. It is placed immediately before
+# MODESTY_FINAL so a later camera/background instruction cannot turn a wall
+# or another object into the fabric target.
+SHIRT_FABRIC_FINAL_RULE = (
+    "FINAL FABRIC CHECK: image 1's colors and pattern must cover the new "
+    "shirt clearly and accurately, with the same hue, brightness, saturation, "
+    "motif scale and density. The fabric from image 1 must appear nowhere "
+    "else: never on a wall, floor, background object, trouser, footwear, skin "
+    "or accessory. "
+)
+
 
 def _modesty_rule(garment_type):
     """Modesty wording that fits the garment (saree has its own)."""
@@ -1202,6 +1213,16 @@ def _build_person_pose_shirt_prompt(
     pose_text = _own_model_pose_text(
         pose, garment_type="shirt", camera_view=camera_view
     )
+    # pallu_on_head describes a saree veil. For a shirt, retain the usable
+    # standing / hand position but remove the contradictory head-covering
+    # instruction, which can otherwise change the identity into a woman.
+    if pose == "pallu_on_head":
+        pose_text = (
+            "standing upright facing the camera with the head upright and "
+            "looking forward, both hands softly clasped together in front of "
+            "the lower waist, with exactly two arms and two hands in total, "
+            "and no head covering"
+        )
     framing = get_framing(camera_view)
     keep_background = not background
     prompt = _task_line(
@@ -1216,8 +1237,11 @@ def _build_person_pose_shirt_prompt(
         "never add, duplicate or leave an extra limb. "
         "SUBJECT: Generate one realistic " + framing["shot"]
         + " photograph of the same person in image 2, "
-        + framing["shown"] + ". Preserve the recognizable face, hair, skin "
-        "tone, age, accessories and natural body build. Keep the original "
+        + framing["shown"] + ". IDENTITY: Copy the person in image 2 exactly: "
+        "the same face shape, eyes, eyebrows, nose, lips, skin tone, hair, "
+        "age category, apparent gender presentation, accessories and natural "
+        "body build. Do not turn a man or boy into a woman or girl, or a woman "
+        "or girl into a man or boy. Keep the original "
         "shoulder, waist and hip widths, torso length, height-to-width ratio, "
         "and arm and leg thickness; do not slim or widen the person. "
         "Replace every source garment completely, including shorts, trousers "
@@ -1232,8 +1256,10 @@ def _build_person_pose_shirt_prompt(
         "fabric, pattern or print. "
         "FABRIC: Use image 1 only as the shirt fabric reference. Apply its "
         "actual colours, print, motif size and density across the entire "
-        "shirt. Do not use image 1's fabric, pattern or colour on the "
-        "trousers, footwear, accessories, skin or background. "
+        "shirt. The fabric must be clearly visible on the shirt, with its "
+        "original hue, brightness and saturation. Do not use image 1's fabric, "
+        "pattern or colour on the trousers, footwear, accessories, skin or "
+        "background. "
     )
     if keep_background:
         prompt += (
@@ -1268,6 +1294,14 @@ def _append_overrides(prompt, background, additional_style_note):
 
     prompt += " " + MODESTY_FINAL
     return prompt
+
+
+def _append_shirt_fabric_final_rule(prompt):
+    """Place shirt-only fabric boundaries after all prompt overrides."""
+    before, marker, after = prompt.rpartition(MODESTY_FINAL)
+    if not marker:
+        return prompt + " " + SHIRT_FABRIC_FINAL_RULE
+    return before + SHIRT_FABRIC_FINAL_RULE + marker + after
 
 
 def build_prompt(
@@ -1352,9 +1386,9 @@ def build_prompt(
             prompt, garment_type, garment_style, garment_details, MODE_OWN
         )
         base = {
-            "prompt": _append_overrides(
+            "prompt": _append_shirt_fabric_final_rule(_append_overrides(
                 prompt, background, additional_style_note
-            ),
+            )),
             "guidance": GENERATED_GUIDANCE,
             "seed": GENERATED_SEED,
         }
@@ -1406,6 +1440,8 @@ def build_prompt(
 
     # Background, style note, then MODESTY_FINAL as the last sentence.
     base["prompt"] = _append_overrides(prompt, background, additional_style_note)
+    if garment_type == "shirt" and not use_garment_image:
+        base["prompt"] = _append_shirt_fabric_final_rule(base["prompt"])
 
     logger.info(
         "Prompt built: scenario=%s pose=%s camera_view=%s details=%s "
