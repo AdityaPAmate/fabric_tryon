@@ -217,7 +217,11 @@ SHIRT_FABRIC_FINAL_RULE = (
     "shirt clearly and accurately, with the same hue, brightness, saturation, "
     "motif scale and density. The fabric from image 1 must appear nowhere "
     "else: never on a wall, floor, background object, trouser, footwear, skin "
-    "or accessory. "
+    "or accessory. If image 1 has a main repeating pattern plus a large "
+    "decorative picture, artwork or border, preserve every part: use the main "
+    "pattern across the shirt, place the complete artwork once as a scaled "
+    "print centered on the shirt front, and use the border only as narrow hem "
+    "or sleeve-cuff trim. Do not omit the artwork. "
 )
 
 
