@@ -49,6 +49,7 @@ from .prompt_builder import (
 from .pose_reference import get_pose_reference_path
 from .image_utils import (
     resize_to_fit,
+    find_main_fabric_pattern_crop,
     get_output_dimensions,
     get_portrait_dimensions,
     make_blank_canvas,
@@ -211,8 +212,16 @@ def generate_tryon_image(
     if use_garment_image:
         garment_source_buffer = resize_to_fit(garment_image, max_dim=MAX_INPUT_DIM)
     else:
+        fabric_crop_box = options.get("fabric_crop_box")
+        if garment_type == "shirt" and fabric_crop_box is None:
+            fabric_crop_box = find_main_fabric_pattern_crop(fabric_image)
+            if fabric_crop_box is not None:
+                logger.info(
+                    "Stage 1: automatically using shirt fabric pattern crop=%s",
+                    fabric_crop_box,
+                )
         garment_source_buffer = resize_to_fit(
-            fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box")
+            fabric_image, max_dim=MAX_INPUT_DIM, crop_box=fabric_crop_box
         )
 
     # Stage 2: build the prompt (all prompt logic lives in prompt_builder.py)

@@ -1259,7 +1259,7 @@ def _build_person_pose_shirt_prompt(
         "shirt. The fabric must be clearly visible on the shirt, with its "
         "original hue, brightness and saturation. Do not use image 1's fabric, "
         "pattern or colour on the trousers, footwear, accessories, skin or "
-        "background. "
+        "background. " + FABRIC_RULES.format(target="shirt")
     )
     if keep_background:
         prompt += (
