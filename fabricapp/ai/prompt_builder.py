@@ -79,6 +79,22 @@ KURTA / PLAIN: WHITE PANT (NEW):
     KURTA_WHITE_PANT_STYLES is the one place that lists which kurta styles
     get it.
 
+KURTA / BLAZER FIXES OF THE 2026-10-10 TEST REPORTS (NEW, kurta + blazer ONLY):
+    Every helper in the section "KURTA + BLAZER FIXES" returns its input
+    unchanged for any other garment, so shirt / pant / kurti_pant / saree
+    prompts stay exactly as they were. prompts.py is never edited; edit-route
+    phrases are replaced in memory (a phrase not found is logged).
+        plain kurta length + fabric patch on the hand + third hand (edit)
+        sherwani / pathani trouser = plain solid main colour of image 1
+        business blazer tie = plain solid main colour of image 1
+        back view (back_turn_hair_touch): no buttons / placket / pockets
+        face_choice + pose + background together: dedicated SHORT prompt
+            _build_own_model_spec_prompt (OWN_MODEL_SPEC_SCENARIOS)
+        body_type (plus / trim) with face_choice: explicit BODY BUILD line
+        new background on kurta / blazer person_pose / face_photo: short
+            background text, written in the middle of the prompt
+        seated pose: "one person" rule (two bodies for two legs)
+
 CONSISTENCY RULES kept in this file (do not break them when editing):
     1. One instruction = one place. A pose, a pallu arrangement, a
        lighting rule or a background rule is stated once, and no other
@@ -155,6 +171,13 @@ SAREE_RESOLVER_SCENARIOS = (
 # shirt have their own builders and are not listed here.
 PERSON_POSE_SPEC_GARMENTS = ("kurta", "blazer")
 
+# NEW (2026-10-10 reports 6, 7, 9, 10): own-model scenarios that use the
+# short kurta / blazer prompt (_build_own_model_spec_prompt). Only the
+# face_photo path failed in the reports (face + pose + background together,
+# body_type ignored, three hands). Add SCENARIO_GENERATED_PERSON here later
+# if the no-face path should use it too.
+OWN_MODEL_SPEC_SCENARIOS = (SCENARIO_FACE_PHOTO,)
+
 # NEW: kurta styles whose trouser / pajama must be plain solid white on the
 # person_photo (edit) route. The own-model wording is in GARMENT_SPECS.
 KURTA_WHITE_PANT_STYLES = ("plain",)
@@ -219,11 +242,223 @@ _WEDDING_NEW_ELEMENTS_NEW = (
 _WEDDING_RESULT_OLD = "over a white shirt with a black bow tie and pocket square"
 _WEDDING_RESULT_NEW = "over a plain band-collar shirt with a pocket square"
 
+# ----------------------------------------------------------------------
+# KURTA + BLAZER FIXES (2026-10-10 test reports). Text + tiny helpers.
+# Everything here works for garment_type "kurta" / "blazer" only and
+# returns its input unchanged otherwise.
+# ----------------------------------------------------------------------
+
+KURTA_BLAZER = ("kurta", "blazer")
+
+
+def _replace_phrases(prompt, pairs, label):
+    """In-memory replace of exact phrases; a phrase not found is logged."""
+    for old_text, new_text in pairs:
+        if old_text in prompt:
+            prompt = prompt.replace(old_text, new_text, 1)
+        else:
+            logger.warning("%s: phrase not found: %.70s", label, old_text)
+    return prompt
+
+
+# Report 1: plain kurta too short (edit route). The user wants the hem at
+# the knee; the tested prompt said "a few inches above the kneecap".
+KURTA_PLAIN_LENGTH_OLD = (
+    "extending down to just above the knee (NOT mid-thigh, NOT below the "
+    "knee — the hem must end a few inches above the kneecap)"
+)
+KURTA_PLAIN_LENGTH_NEW = (
+    "extending down to the knee (the hem ends level with the middle of the "
+    "kneecaps, clearly below mid-thigh)"
+)
+KURTA_PLAIN_LENGTH_LINE = (
+    "KURTA LENGTH (replaces any earlier length instruction): the plain kurta "
+    "is long, its hem ending level with the knees and fully covering both "
+    "thighs, never short or mid-thigh. "
+)
+
+# Reports 1 + 2 (edit route): fabric patch on the hand, extra (third) hand.
+KURTA_EDIT_LIMBS_LINE = (
+    "ARMS AND HANDS: the person has exactly two arms and two hands in total — "
+    "never a third hand or a leftover arm at the lower side of the frame. "
+    "Hands, fingers and wrists keep their bare skin exactly as in image 0: "
+    "image 1's fabric, its border or any patch of it appears only on the "
+    "kurta body, collar and sleeves (a cuff band stops at the sleeve edge), "
+    "never on the hands, skin or background. "
+)
+
+# Report 3: sherwani / pathani trouser = plain solid main colour of the
+# fabric (it came out black, because the prompt left the colour open).
+KURTA_COLOURED_PANT_STYLES = ("sherwani", "pathani")
+
+KURTA_PANT_COLOUR_EDIT = {
+    "sherwani": [(
+        "(white, off-white, or a solid shade picked from the sherwani's own "
+        "color palette), never patterned or bright",
+        "(exactly the main colour of the sherwani fabric from image 1, as a "
+        "plain solid), never patterned",
+    )],
+    "pathani": [(
+        "(commonly the same tone as the kurta itself, or a solid shade "
+        "picked from the kurta's own color palette), never patterned or "
+        "bright",
+        "(exactly the main colour of the kurta fabric from image 1, as a "
+        "plain solid), never patterned",
+    )],
+}
+
+KURTA_PANT_COLOUR_LINE = (
+    "TROUSER COLOUR (replaces any earlier instruction about the trouser "
+    "colour): the churidar / salwar below is a plain solid in exactly the "
+    "main colour of image 1's fabric, with no pattern, print, check or "
+    "border. It is never black, grey or any dark colour unless that is the "
+    "main colour of image 1, and it does not keep the trouser colour of "
+    "image 0. "
+)
+
+# Business blazer: the tie is a plain solid in the main colour of the
+# fabric, no pattern (edit route = exact phrases of prompts.py).
+BLAZER_TIE_EDIT_REPLACEMENTS = [
+    (
+        "with a plain dark solid-color necktie visible at the collar",
+        "with a plain solid necktie visible at the collar, in exactly the "
+        "main colour of image 1's fabric",
+    ),
+    (
+        "plain white (shirt) and a plain dark solid color (tie), completely "
+        "unrelated to image 1's fabric; do not put image 1's pattern on the "
+        "shirt or tie",
+        "plain white (shirt) and a plain solid tie in the main colour of "
+        "image 1's fabric; the shirt is unrelated to image 1, and image 1's "
+        "pattern must never appear on the shirt or on the tie",
+    ),
+    (
+        "over a white shirt and dark tie",
+        "over a white shirt and a plain tie in the blazer's main colour",
+    ),
+]
+
+BLAZER_TIE_LINE = (
+    "TIE (replaces any earlier instruction about the tie colour): the "
+    "necktie is plain and solid, in exactly the main colour of the blazer "
+    "fabric from image 1, with no pattern, stripe, check or texture. Only "
+    "the colour is taken from image 1, never its pattern. "
+)
+
+# Report 8: sherwani buttons drawn on the BACK when the person is seen from
+# behind. The button column, placket and pockets are front details.
+BACK_VIEW_POSES = ("back_turn_hair_touch",)
+
+BACK_VIEW_REPLACEMENTS = [
+    ("a full column of small decorative buttons from neck to hem",
+     "a plain, smooth, completely button-free back"),
+    ("a full column of small buttons, one small chest pocket and two flap "
+     "hip pockets",
+     "a smooth plain back"),
+    ("two rectangular chest patch pockets with flaps, and a short button "
+     "placket",
+     "a smooth plain back"),
+    ("a short front placket with two or three buttons near the neck",
+     "a plain smooth back"),
+]
+
+BACK_VIEW_NOTE = (
+    "BACK VIEW: the camera sees only the BACK of the person, so the front of "
+    "the garment is hidden: no buttons, button column, placket, chest "
+    "pocket, hip pocket flaps or lapels are drawn anywhere. The back of the "
+    "garment is one smooth, plain surface of image 1's fabric (a jacket may "
+    "show a single centre vent). "
+)
+
+# Report 7: three hands (stated once, right after the POSE line).
+OWN_MODEL_LIMBS_LINE = (
+    "LIMBS: exactly two arms, two hands, two legs and two feet in total in "
+    "the pose above — never a third hand, an extra arm or a duplicate limb. "
+)
+
+# Report 5: two bodies for two legs (seated pose).
+SINGLE_PERSON_RULE = (
+    "ONE PERSON: exactly one person, with one head, one torso and exactly "
+    "two legs in total — never two bodies, a mirrored copy or a second "
+    "person. "
+)
+
+# Report 6: body_type ignored when face_choice is sent (image 2 is a slim
+# face photo and "copy exactly from image 2" wins over a short build hint).
+BODY_LINES = {
+    "plus": (
+        "BODY BUILD (image 2 gives only the face and hair, never the body): "
+        "the body is clearly PLUS-SIZE — a heavy, broad build with a full "
+        "rounded belly, wide chest and shoulders, thick arms and thick "
+        "thighs. The face keeps image 2's features and may look "
+        "proportionally fuller. The garment is cut larger to fit this body. "
+    ),
+    "trim": (
+        "BODY BUILD (image 2 gives only the face and hair, never the body): "
+        "the body is clearly ATHLETIC and toned — broad shoulders, a "
+        "V-shaped torso, defined arms and a flat stomach. The garment fits "
+        "this body. "
+    ),
+}
+
+
+def _body_line(body_type):
+    return BODY_LINES.get(body_type, "")
+
+
+def _short_background(description):
+    """
+    Report 4 ("cinematic" image): short background text with plain catalog
+    lighting. Used by the kurta / blazer short prompts only.
+    """
+    if not description:
+        return ""
+    return (
+        "BACKGROUND: replace the whole area behind the person with this "
+        "scene: " + description + ". The person is lit by plain, natural "
+        "daylight with neutral white balance and no colour cast; it is an "
+        "ordinary catalog photograph, not cinematic, with no dramatic "
+        "lighting and no film look. "
+    )
+
+
+def _garment_text_for_pose(garment_text, garment_type, pose):
+    """Garment wording for the pose (a back view hides every front detail)."""
+    if garment_type not in KURTA_BLAZER or pose not in BACK_VIEW_POSES:
+        return garment_text
+    for old_text, new_text in BACK_VIEW_REPLACEMENTS:
+        garment_text = garment_text.replace(old_text, new_text, 1)
+    return garment_text + BACK_VIEW_NOTE
+
+
+def _apply_kurta_edit_changes(prompt, garment_type, garment_style, use_garment_image):
+    """person_photo (edit) route: kurta length and trouser colour phrases."""
+    if use_garment_image or garment_type != "kurta":
+        return prompt
+    pairs = []
+    if garment_style == "plain":
+        pairs.append((KURTA_PLAIN_LENGTH_OLD, KURTA_PLAIN_LENGTH_NEW))
+    pairs += KURTA_PANT_COLOUR_EDIT.get(garment_style, [])
+    return _replace_phrases(prompt, pairs, "kurta edit")
+
+
+def _kurta_edit_extra_lines(garment_type, garment_style, use_garment_image):
+    """person_photo (edit) route: the short extra lines for kurta only."""
+    if use_garment_image or garment_type != "kurta":
+        return ""
+    text = KURTA_EDIT_LIMBS_LINE
+    if garment_style == "plain":
+        text += KURTA_PLAIN_LENGTH_LINE
+    if garment_style in KURTA_COLOURED_PANT_STYLES:
+        text += KURTA_PANT_COLOUR_LINE
+    return text
+
+
 BLAZER_EDIT_REPLACEMENTS = {
     "business": [
         ("hitting at roughly hip length",
          "with the hem " + BLAZER_LENGTH_DETAIL),
-    ],
+    ] + BLAZER_TIE_EDIT_REPLACEMENTS,
     "wedding": [
         ("hitting at roughly hip length",
          "with the hem " + BLAZER_LENGTH_DETAIL),
@@ -684,9 +919,13 @@ GARMENT_SPECS = {
             "never patterned and never made from image 1's fabric. "
         ),
     },
+    # CHANGED (report 3): the churidar is a plain solid in the main colour of
+    # image 1 ("pant_colour_from_fabric"), no longer "white, off-white, or a
+    # shade from the palette" (the model picked black).
     ("kurta", "sherwani"): {
         "fabric_target": "sherwani",
         "border": False,
+        "pant_colour_from_fabric": True,
         "color_note": (
             "CRITICAL — sherwanis are commonly black, maroon, or gold, but "
             "ignore that assumption completely: the sherwani must be in the "
@@ -701,13 +940,16 @@ GARMENT_SPECS = {
             "buttons from neck to hem, and a fitted, tailored torso with "
             "visible waist suppression. Below it, a matching churidar — "
             "fitted through the leg, gathering into soft folds above the "
-            "ankle — in a plain solid color (white, off-white, or a solid "
-            "shade from the sherwani's palette), never patterned. "
+            "ankle — in a plain solid color that is exactly the main colour "
+            "of the sherwani fabric from image 1 (never black, grey or "
+            "white unless that is image 1's main colour), with no pattern. "
         ),
     },
+    # CHANGED (report 3): same idea for the Pathani salwar.
     ("kurta", "pathani"): {
         "fabric_target": "kurta",
         "border": False,
+        "pant_colour_from_fabric": True,
         "color_note": (
             "CRITICAL — Pathani suits are commonly white or beige, but "
             "ignore that assumption: the kurta must be in the colors of "
@@ -720,8 +962,10 @@ GARMENT_SPECS = {
             "chest patch pockets with flaps, and a short button placket. "
             "Below it, a Pathani salwar — VERY LOOSE, voluminous and "
             "pleated, dramatically wider than a normal kurta-pajama, "
-            "narrowing to a cuffed ankle — in a plain solid color that "
-            "coordinates with the kurta, never patterned. "
+            "narrowing to a cuffed ankle — in a plain solid color that is "
+            "exactly the main colour of the kurta fabric from image 1 "
+            "(never black or grey unless that is image 1's main colour), "
+            "never patterned. "
         ),
     },
     ("kurta", "jodhpuri"): {
@@ -808,25 +1052,30 @@ GARMENT_SPECS = {
     #   - jacket length is pinned (BLAZER_LENGTH_DETAIL),
     #   - business / wedding trousers are a plain solid in the main colour
     #     of the blazer fabric ("trouser_colour_from_fabric": True),
+    #   - business tie (NEW): plain solid in the main colour of the blazer
+    #     fabric ("tie_colour_from_fabric": True), never the pattern,
     #   - wedding: shawl lapel jacket over a mandarin band-collar shirt
     #     (no bow tie) with a puff-flower pocket square.
     ("blazer", "business"): {
         "fabric_target": "blazer",
         "border": False,
         "trouser_colour_from_fabric": True,
+        "tie_colour_from_fabric": True,
         "color_note": (
             "CRITICAL — business suits are commonly navy, charcoal, or "
             "black, but ignore that assumption: the blazer, including its "
-            "lapel, must be in the colors of image 1 only. The shirt and "
-            "tie are plain and unrelated to image 1. The trousers use only "
-            "the main colour of the blazer fabric, as a plain solid. "
+            "lapel, must be in the colors of image 1 only. The shirt is "
+            "plain white and unrelated to image 1. The necktie and the "
+            "trousers use only the main colour of the blazer fabric, each "
+            "as a plain solid with no pattern. "
         ),
         "garment": (
             "a formal business blazer — structured, single-breasted, notch "
             "lapel, sharply tailored shoulders, the hem " + BLAZER_LENGTH_DETAIL
             + ", buttoned closed — worn over a plain white collared shirt "
-            "with a plain dark solid-color necktie, and matching plain, "
-            "solid, full-length trousers in exactly the main colour of the "
+            "with a plain solid necktie in exactly the main colour of the "
+            "blazer fabric (no pattern), and matching plain, solid, "
+            "full-length trousers in exactly the main colour of the "
             "blazer fabric, with no pattern. "
         ),
     },
@@ -976,10 +1225,16 @@ def _build_own_model_prompt(
     else:
         subject = _subject_block(gender, body_type, pose_text, framing)
 
+    # NEW (kurta / blazer, report 7): the limbs rule is stated right after
+    # the POSE line when a pose is requested.
+    pose_part = _pose_line(pose_text)
+    if garment_type in KURTA_BLAZER and pose:
+        pose_part += OWN_MODEL_LIMBS_LINE
+
     # The garment and the role of every image come FIRST.
     subject = (
         _task_line(scenario, garment_type, use_garment_image, keep_background)
-        + _pose_line(pose_text)
+        + pose_part
         + subject
     )
 
@@ -991,7 +1246,10 @@ def _build_own_model_prompt(
             return None
 
         target = spec["fabric_target"]
-        prompt = subject + "Dress this person in " + spec["garment"]
+        # NEW (report 8): a back view hides every front detail.
+        prompt = subject + "Dress this person in " + _garment_text_for_pose(
+            spec["garment"], garment_type, pose
+        )
         prompt += spec.get("color_note", "")
         prompt += FABRIC_RULES.format(target=target)
         if spec["border"]:
@@ -1437,13 +1695,14 @@ PERSON_POSE_NO_HEAD_COVER = (
 # sleeve stays down, which contradicts the folded_sleeves detail.
 POSE_SLEEVE_DOWN_PHRASE = ", the sleeve staying fully down"
 
+# CHANGED (report 5): SINGLE_PERSON_RULE added (two bodies for two legs).
 PERSON_POSE_SPEC_RULES = (
     "POSE PRIORITY: Change the person's posture to exactly the pose above. "
     "Do not retain the posture in image 2. "
     "LIMBS: Do not copy arms, hands, legs or feet from image 2. Draw "
     "exactly two arms, two hands, two legs and two feet in the pose above; "
     "never add, duplicate or leave an extra limb. "
-)
+) + SINGLE_PERSON_RULE
 
 PERSON_POSE_SPEC_IDENTITY = (
     "IDENTITY: Copy the person in image 2 exactly: the same face shape, "
@@ -1512,8 +1771,11 @@ def _build_person_pose_spec_prompt(
         + framing["shown"] + ". " + PERSON_POSE_SPEC_IDENTITY
     )
 
-    # 3. The outfit (wording owned by GARMENT_SPECS).
-    prompt += "OUTFIT: Dress the person in " + spec["garment"]
+    # 3. The outfit (wording owned by GARMENT_SPECS; a back view hides the
+    #    front details).
+    prompt += "OUTFIT: Dress the person in " + _garment_text_for_pose(
+        spec["garment"], garment_type, pose
+    )
     prompt += spec.get("color_note", "")
 
     # 4. The fabric. The dupatta (kurta only, when requested) is NOT listed
@@ -1529,13 +1791,88 @@ def _build_person_pose_spec_prompt(
     if spec["border"]:
         prompt += BORDER_RULES.format(target=target)
 
-    # 5. Background (only when the original one is kept; a new background
-    #    is added later by _append_overrides).
+    # 5. Background. A kept background is described here. CHANGED (report 4):
+    #    a NEW background is now also written here, as a short text with
+    #    plain catalog lighting (no "cinematic" look), and no longer at the
+    #    end of the prompt by _append_overrides.
     if keep_background:
         prompt += PERSON_POSE_KEEP_BACKGROUND
+    else:
+        prompt += _short_background(BACKGROUND_DESCRIPTIONS.get(background))
 
     # 6. Closing. Holds the anchors used by garment_details.py.
     prompt += CLOSING
+    return prompt
+
+
+def _build_own_model_spec_prompt(
+    scenario, garment_type, garment_style, gender, body_type, pose=None,
+    camera_view=None, garment_details=None, background=None,
+):
+    """
+    NEW (reports 6, 7, 9, 10): short prompt for kurta / blazer on the
+    face_photo path (face + pose + background together). The old own-model
+    prompt was about 1000 words, so the background (at its end) and part of
+    the body_type / pose were lost. Order = importance: pose, limbs, one
+    person, subject, body build, background, outfit, fabric, closing.
+    Returns the prompt text, or None if the garment spec does not exist.
+    """
+    spec = _get_garment_spec(garment_type, garment_style)
+    if spec is None:
+        return None
+
+    pose_text = _spec_person_pose_text(
+        pose, garment_type, garment_style, garment_details, camera_view
+    )
+    framing = get_framing(camera_view)
+    target = spec["fabric_target"]
+
+    prompt = _task_line(scenario, garment_type, False)
+    prompt += _pose_line(pose_text) + OWN_MODEL_LIMBS_LINE + SINGLE_PERSON_RULE
+
+    if scenario == SCENARIO_FACE_PHOTO:
+        prompt += (
+            "SUBJECT: image 0 is only a blank canvas (frame size). Image 2 "
+            "is a reference photo of a real person's face. Generate a "
+            f"brand-new, realistic {framing['shot']} photograph of this SAME "
+            f"person, {_person_description(gender, body_type)}, "
+            f"{framing['shown']}{framing['fill']}. Copy the face and hair "
+            "exactly from image 2: same facial structure, eyes, eyebrows, "
+            "nose, lips, skin tone and brightness, hair colour and style, "
+            "and facial hair if any (jet-black hair stays jet-black); the "
+            "face is sharp and evenly lit. " + framing["output_rule_face"]
+        )
+        if not _is_child(gender):
+            prompt += _body_line(body_type)
+    else:
+        prompt += (
+            "SUBJECT: image 0 is only a blank canvas (frame size). Generate "
+            f"a brand-new, realistic {framing['shot']} photograph of "
+            f"{_person_description(gender, body_type)}, with a sharp, "
+            f"natural face, {framing['shown']}{framing['fill']}. "
+        )
+
+    description = BACKGROUND_DESCRIPTIONS.get(background) if background else None
+    if description:
+        prompt += _short_background(description)
+    else:
+        prompt += "BACKGROUND: a plain neutral studio background. "
+
+    prompt += "OUTFIT: Dress the person in " + _garment_text_for_pose(
+        spec["garment"], garment_type, pose
+    )
+    prompt += spec.get("color_note", "")
+    prompt += (
+        "FABRIC: Use image 1 only as the " + target + " fabric reference, "
+        "with its actual colours, print, motif size and density. "
+        + _fabric_forbidden_text(spec) + FABRIC_RULES.format(target=target)
+    )
+    if spec["border"]:
+        prompt += BORDER_RULES.format(target=target)
+
+    prompt += CLOSING  # holds the anchors used by garment_details.py
+    if _is_child(gender):
+        prompt += CHILD_GARMENT_LINE
     return prompt
 
 
@@ -1581,16 +1918,31 @@ def _kurta_white_pant_line(garment_type, garment_style, use_garment_image):
 
 def _fabric_forbidden_text(spec):
     """
-    Where image 1's fabric must NOT appear (person_pose kurta / blazer
-    prompt). Business and wedding blazers: the trousers take only the
-    main COLOUR of the fabric, as a plain solid, never its pattern.
+    Where image 1's fabric must NOT appear (kurta / blazer short prompts).
+    Business blazer: the tie and the trousers take only the main COLOUR of
+    the fabric, as a plain solid, never its pattern. Wedding blazer: the
+    trousers do. Sherwani / Pathani: the churidar / salwar does.
     """
+    if spec.get("tie_colour_from_fabric"):
+        return (
+            "Do not use image 1's pattern on the shirt, pocket square, "
+            "footwear, accessories, skin or background. The necktie and "
+            "the trousers use only the main colour of image 1 as a plain "
+            "solid, with no pattern. "
+        )
     if spec.get("trouser_colour_from_fabric"):
         return (
             "Do not use image 1's pattern on the shirt, tie, pocket "
             "square, footwear, accessories, skin or background. The "
             "trousers use only the main colour of image 1 as a plain "
             "solid, with no pattern. "
+        )
+    if spec.get("pant_colour_from_fabric"):
+        return (
+            "Do not use image 1's pattern on the churidar, salwar or "
+            "trousers, footwear, accessories, skin or background. The "
+            "lower garment uses only the main colour of image 1 as a "
+            "plain solid, with no pattern. "
         )
     return (
         "Do not use image 1's fabric, pattern or colour on the trousers "
@@ -1603,8 +1955,9 @@ def _apply_blazer_edit_changes(prompt, garment_type, garment_style, use_garment_
     """
     person_photo (edit) route only, blazer fabric requests. Replaces the
     exact phrases listed in BLAZER_EDIT_REPLACEMENTS in memory (jacket
-    length, and the wedding shirt / bow tie / pocket square wording), then
-    adds the TROUSERS line for business and wedding. Other garments and
+    length, the business tie colour, and the wedding shirt / bow tie /
+    pocket square wording), then adds the TROUSERS line for business and
+    wedding and the TIE line for business. Other garments and
     garment_image requests are returned unchanged.
     """
     if use_garment_image or garment_type != "blazer":
@@ -1619,6 +1972,8 @@ def _apply_blazer_edit_changes(prompt, garment_type, garment_style, use_garment_
             )
     if garment_style in BLAZER_TROUSER_STYLES:
         prompt = prompt.rstrip() + " " + BLAZER_TROUSER_LINE
+    if garment_style == "business":
+        prompt = prompt.rstrip() + " " + BLAZER_TIE_LINE
     return prompt
 
 
@@ -1756,6 +2111,8 @@ def build_prompt(
     # made the model ignore the new pose and camera view (test reports of
     # 2026-10-09), so these two garments get the same short dedicated route
     # as kurti_pant and shirt. Other garments are not affected.
+    # CHANGED (report 4): the background is written inside the builder (short
+    # text), so _append_overrides gets background=None here.
     if (
         scenario == SCENARIO_PERSON_POSE
         and garment_type in PERSON_POSE_SPEC_GARMENTS
@@ -1772,7 +2129,7 @@ def build_prompt(
         )
         base = {
             "prompt": _append_overrides(
-                prompt, background, additional_style_note
+                prompt, None, additional_style_note
             ),
             "guidance": GENERATED_GUIDANCE,
             "seed": GENERATED_SEED,
@@ -1782,6 +2139,39 @@ def build_prompt(
             "details=%s words=%s",
             scenario, garment_type, garment_style, pose, camera_view,
             garment_details, len(base["prompt"].split()),
+        )
+        logger.info("FINAL PROMPT: %s", base["prompt"])
+        return base
+
+    # NEW (reports 6, 7, 9, 10): kurta / blazer with a face reference
+    # (face + pose + background together) use the short own-model prompt.
+    if (
+        scenario in OWN_MODEL_SPEC_SCENARIOS
+        and garment_type in PERSON_POSE_SPEC_GARMENTS
+        and not use_garment_image
+    ):
+        prompt = _build_own_model_spec_prompt(
+            scenario, garment_type, garment_style, gender, body_type,
+            pose=pose, camera_view=camera_view,
+            garment_details=garment_details, background=background,
+        )
+        if prompt is None:
+            return None
+        prompt = apply_garment_details(
+            prompt, garment_type, garment_style, garment_details, MODE_OWN
+        )
+        base = {
+            "prompt": _append_overrides(
+                prompt, None, additional_style_note
+            ),
+            "guidance": GENERATED_GUIDANCE,
+            "seed": GENERATED_SEED,
+        }
+        logger.info(
+            "Prompt built (own-model spec): scenario=%s garment=%s/%s pose=%s "
+            "camera_view=%s background=%s details=%s words=%s",
+            scenario, garment_type, garment_style, pose, camera_view,
+            background, garment_details, len(base["prompt"].split()),
         )
         logger.info("FINAL PROMPT: %s", base["prompt"])
         return base
@@ -1815,11 +2205,20 @@ def build_prompt(
         prompt = _replace_kurta_pant_phrase(
             prompt, garment_type, garment_style, use_garment_image
         )
-        # NEW: blazer length / trousers / wedding details (edit route).
+        # NEW: blazer length / trousers / business tie / wedding details
+        # (edit route).
         prompt = _apply_blazer_edit_changes(
             prompt, garment_type, garment_style, use_garment_image
         )
+        # NEW (2026-10-10 reports 1, 2, 3): kurta length, trouser colour of
+        # sherwani / pathani, two arms only, no fabric patch on the hand.
+        prompt = _apply_kurta_edit_changes(
+            prompt, garment_type, garment_style, use_garment_image
+        )
         prompt += _kurta_white_pant_line(
+            garment_type, garment_style, use_garment_image
+        )
+        prompt += _kurta_edit_extra_lines(
             garment_type, garment_style, use_garment_image
         )
         # The prompts in prompts.py already forbid bare legs. Only one short line added.

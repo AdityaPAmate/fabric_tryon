@@ -18,6 +18,11 @@ its own wording for all 9 poses, because:
     - generic words like "trouser pocket" or "cuff of the sleeve" do not
       fit a saree.
 
+KURTA (NEW, 2026-10-10 reports): one kurta override (cross_leg_chair_recline:
+"two bodies for two legs"). A kurta override applies to every kurta style,
+on every path. The "three hands" report is solved by the LIMBS rule in
+prompt_builder.py, not by a pose text, so the pose sentences stay as tested.
+
 SAREE_POSE_PARTS (NEW) is used ONLY by the saree resolver path
 (prompt_builder._build_saree_resolved: generated_person / face_photo).
 There the pose owns the pallu placement, as a separate "pallu" variable,
@@ -258,6 +263,21 @@ POSE_OVERRIDES = {
         " the left elbow bent with the left hand resting firmly on the left hip,"
         " the right arm hanging down at the side with the hand relaxed and slightly open,"
         " and the left leg stepping forward ahead of the right leg"
+    ),
+
+    # kurta only (NEW, 2026-10-10 report 5; applies to every kurta style).
+    # cross_leg_chair_recline: "2 bodies for 2 legs" -> one person, one
+    # chair, exactly two legs, and the long garment hem rests over the
+    # thighs.
+    ("kurta", None, "cross_leg_chair_recline"): (
+        "seated on ONE low upholstered armchair, one person only, in an upright, relaxed recline"
+        " with the back supported by the chair and the torso angled slightly toward the viewer's left,"
+        " head upright and turned slightly toward the viewer's left,"
+        " both forearms resting across the lap with both hands together on the upper knee,"
+        " exactly two legs in total, one leg crossed over the other at the knee"
+        " with the top foot pointing toward the viewer's left,"
+        " the hem of the long garment resting over the thighs and knees,"
+        " with the complete chair, both legs and both feet visible"
     ),
 }
 
