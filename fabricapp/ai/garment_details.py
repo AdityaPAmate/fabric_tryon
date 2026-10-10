@@ -27,6 +27,11 @@ that rule is skipped. Run check_garment_details.py to verify all anchors.
 
 NOTE: the wording of the NEW options (folded, tucked, half sleeves,
 dupatta) is a first draft and untested.
+
+CHANGED (kurta test report: "dupatta does not have patterns from fabric,
+it is plain"): the KURTA dupatta now has its own wording
+(KURTA_DUPATTA_ADD) that says clearly the dupatta shows image 1's colours
+and pattern. DUPATTA_ADD is still used, unchanged, by kurti_pant.
 """
 
 import logging
@@ -69,6 +74,7 @@ KURTI_SLEEVES_HALF_EDIT = "half sleeves ending at the elbow — never sleeveless
 KURTI_SLEEVES_FULL_OWN = "full-length sleeves reaching down to the wrist (never sleeveless)"
 KURTI_SLEEVES_HALF_OWN = "half sleeves ending at the elbow (never sleeveless)"
 
+# Used by kurti_pant (unchanged).
 DUPATTA_ADD = (
     "Add a dupatta — a long, light, soft stole draped neatly over the "
     "shoulders and hanging down the front and back, made from exactly the "
@@ -76,6 +82,21 @@ DUPATTA_ADD = (
     "plain finished edge). The dupatta must follow the person's pose: it "
     "hangs naturally from the shoulders and never covers the face. "
 )
+
+# NEW: used by kurta only. The dupatta is named as a second piece of the
+# fabric, and the pattern must be visible on it (the old wording was one
+# short sentence and the dupatta came out plain).
+KURTA_DUPATTA_ADD = (
+    "Add a dupatta — a long, light, soft stole draped neatly over the "
+    "shoulders and hanging down the front and back. DUPATTA FABRIC: the "
+    "dupatta is cut from the same fabric as the kurta, so image 1's "
+    "colors, pattern and motifs must be clearly visible all over the "
+    "dupatta, at the same scale and density as on the kurta — never plain "
+    "and never a single solid color — with a plain finished edge. The "
+    "dupatta must follow the person's pose: it hangs naturally from the "
+    "shoulders and never covers the face. "
+)
+
 DUPATTA_REMOVE = (
     "Do NOT add any dupatta, stole or scarf. If the person in the source "
     "photo has a dupatta, stole, pallu or any loose cloth over the "
@@ -142,8 +163,10 @@ def _rule(slot, garment, mode, anchor, options, default=None, styles=None, noun=
     }
 
 
+# Used ONLY by the kurta dupatta rules below (kurti_pant has its own
+# rules and keeps DUPATTA_ADD).
 DUPATTA_OPTIONS_BEFORE = {
-    "with_dupatta": DUPATTA_ADD + "{anchor}",
+    "with_dupatta": KURTA_DUPATTA_ADD + "{anchor}",
     "no_dupatta": DUPATTA_REMOVE + "{anchor}",
 }
 
