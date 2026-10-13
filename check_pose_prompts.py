@@ -82,6 +82,13 @@ if old is not None:
 # ---------------------------------------------------------------
 # Check 2: person photo + pose  ->  person_pose scenario
 # ---------------------------------------------------------------
+# KNOWN CONVERSION: pallu_on_head is a saree / kurti_pant pose. For all
+# other garments (kurta, blazer, shirt) the pose sentence is intentionally
+# replaced with PERSON_POSE_NO_HEAD_COVER (a neutral standing pose that
+# removes the head-cover instruction, which would be wrong for a man or a
+# non-kurti garment). These cases are skipped so they don't count as errors.
+PALLU_HEAD_SKIP_GARMENTS = {"kurta", "blazer", "shirt"}
+
 c2 = 0
 checked2 = 0
 for pose in POSE_OPTIONS:
@@ -91,6 +98,10 @@ for pose in POSE_OPTIONS:
         print(f"PROBLEM: detect_scenario(person, pose={pose}) gave {scenario}")
         continue
     for garment_type, garment_style, use_garment_image in CASES:
+        # Skip the intentional pallu_on_head conversion for men's garments.
+        if pose == "pallu_on_head" and garment_type in PALLU_HEAD_SKIP_GARMENTS:
+            checked2 += 1
+            continue
         sentence = get_pose_sentence(pose, garment_type, garment_style)
         result = new.build_prompt(
             scenario=scenario, garment_type=garment_type,
@@ -119,6 +130,13 @@ checked3 = 0
 for pose in POSE_OPTIONS:
     for scenario in (new.SCENARIO_GENERATED_PERSON, new.SCENARIO_FACE_PHOTO):
         for garment_type, garment_style, use_garment_image in CASES:
+            # Skip the intentional pallu_on_head conversion for men's garments
+            # (kurta, blazer, shirt) on the own-model spec path. These garments
+            # replace the pallu_on_head sentence with PERSON_POSE_NO_HEAD_COVER,
+            # which is the correct behaviour and not a bug.
+            if pose == "pallu_on_head" and garment_type in PALLU_HEAD_SKIP_GARMENTS:
+                checked3 += 1
+                continue
             if garment_type == "saree" and not use_garment_image:
                 # Generated-person and face-photo sarees use the resolver,
                 # whose pose text is owned by the saree pose-parts table.

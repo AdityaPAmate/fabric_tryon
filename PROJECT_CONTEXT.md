@@ -95,3 +95,42 @@ Kurti-pant test reports मधील तक्रारी आणि केल�
 ## Saree issue (अजून बदललेले नाही)
 
 Saree + person image + pose: long shared prompt, pallu instructions ची पुनरावृत्ती आणि blank-canvas reconstruction यामुळे pose कमकुवत. Saree code मध्ये कोणताही बदल केलेला नाही. पुढील वेळी बदल करायचा असल्यास फक्त `saree + person_pose` route साठी छोटा dedicated prompt बनवावा.
+
+### 7. Kurti-pant: 2026-10-13 Test Reports बदल (Reports #11–#17)
+
+| # | Report | तक्रार | कारण | बदल |
+|---|---|---|---|---|
+| 11 | cross_leg + riverside_ghat | fabric applied नाही kurti ला | `_append_overrides` ने 120-word background block शेवटी जोडला; तो fabric instructions पेक्षा नंतर येतो | `_build_person_pose_kurti_prompt` मध्येच `_short_background` embed केला; `_append_overrides(background=None)` |
+| 12 | sleeve_adjust_stand | तीन हात | override मध्ये per-hand role अस्पष्ट | "no other hand is visible anywhere, no extra arm" असे explicit पर टाकले |
+| 13 | three_quarter_hand_adjust | तीन हात | override मध्ये hanging hand साठी explicit नकार नव्हता | "no other hand hangs at the side or appears anywhere, no extra arm" जोडले |
+| 14 | pocket_walk + white_marble_terrace | pose lost | `kurti_pant` generated_person/face_photo साठी 950-word long prompt वापरला जात होता; background शेवटी जोडल्याने model ने त्याकडे दुर्लक्ष केले | `OWN_MODEL_SPEC_GARMENTS = ("kurta", "blazer", "kurti_pant")` — spec routing मध्ये kurti_pant समाविष्ट |
+| 15 | pocket_walk + riverside_ghat | pose lost | वरीलप्रमाणे (generated_person) | वरीलप्रमाणे + `OWN_MODEL_SPEC_SCENARIOS = (SCENARIO_FACE_PHOTO, SCENARIO_GENERATED_PERSON)` |
+| 16 | cross_leg + white_marble_terrace | chair missing | `_short_background` ने फक्त scene बदलला, chair retention सांगितले नाही | `_short_background(description, pose=None)` — `cross_leg_chair_recline` साठी "armchair must be present" note जोडला |
+| 17 | rail_wide_arm_side_look | तीन हात | override मध्ये "never a third hand" नव्हते | "never a third hand: exactly two hands... one on each side, no extra or hanging hand anywhere" जोडले |
+
+**face_choice + background + pose (only fabric as output):**
+
+- कारण: `kurti_pant` `OWN_MODEL_SPEC_GARMENTS` मध्ये नव्हता; त्यामुळे face_photo/generated_person साठी ~950-word `_build_own_model_prompt` वापरला जात होता. Text encoder attention decays; model ने background + face reference नंतर fabric swatch (image 1) alone render केले.
+- बदल: `OWN_MODEL_SPEC_GARMENTS = ("kurta", "blazer", "kurti_pant")` आणि `OWN_MODEL_SPEC_SCENARIOS = (SCENARIO_FACE_PHOTO, SCENARIO_GENERATED_PERSON)` — kurti_pant आता ~380-word `_build_own_model_spec_prompt` वापरतो (pose पहिला, शेवटी fabric).
+
+**केलेले code बदल (2026-10-13):**
+
+- `fabricapp/ai/prompt_builder.py`:
+  - `OWN_MODEL_SPEC_SCENARIOS` → `(SCENARIO_FACE_PHOTO, SCENARIO_GENERATED_PERSON)`
+  - `OWN_MODEL_SPEC_GARMENTS = ("kurta", "blazer", "kurti_pant")` नवीन constant
+  - routing gate: `PERSON_POSE_SPEC_GARMENTS` → `OWN_MODEL_SPEC_GARMENTS`
+  - `_short_background(description, pose=None)` — cross_leg_chair_recline साठी chair note
+  - `_build_own_model_spec_prompt` generated_person branch: child + plus → explicit BODY BUILD line
+  - `_build_person_pose_spec_prompt`: `_short_background(..., pose=pose)` call
+  - `_build_own_model_spec_prompt`: `_short_background(description, pose=pose)` call
+  - `_build_person_pose_kurti_prompt`: background embed + FABRIC PRIORITY note for seated
+  - `build_prompt` kurti SCENARIO_PERSON_POSE: `_append_overrides(prompt, None, ...)` (background=None)
+  - `_spec_person_pose_text`: `pallu_on_head` conversion only for `KURTA_BLAZER`, not kurti_pant
+- `fabricapp/ai/pose_data.py`:
+  - `sleeve_adjust_stand` kurti_pant: "no other hand is visible anywhere, no extra arm"
+  - `three_quarter_hand_adjust` kurti_pant: "no other hand hangs at the side, no extra arm"
+  - `rail_wide_arm_side_look` kurti_pant: "never a third hand: exactly two hands... no extra or hanging hand"
+- `check_pose_prompts.py`:
+  - `PALLU_HEAD_SKIP_GARMENTS = {"kurta", "blazer", "shirt"}` — Check 2 आणि Check 3 मध्ये pallu_on_head false positives skip
+
+**Verification:** `check_pose_prompts.py` → ALL OK (Check 2: 0, Check 3: 0, Check 4: 0); `verify_kurti_fixes.py` → 13/13 PASSED

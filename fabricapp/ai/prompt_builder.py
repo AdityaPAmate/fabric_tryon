@@ -172,11 +172,16 @@ SAREE_RESOLVER_SCENARIOS = (
 PERSON_POSE_SPEC_GARMENTS = ("kurta", "blazer")
 
 # NEW (2026-10-10 reports 6, 7, 9, 10): own-model scenarios that use the
-# short kurta / blazer prompt (_build_own_model_spec_prompt). Only the
-# face_photo path failed in the reports (face + pose + background together,
-# body_type ignored, three hands). Add SCENARIO_GENERATED_PERSON here later
-# if the no-face path should use it too.
-OWN_MODEL_SPEC_SCENARIOS = (SCENARIO_FACE_PHOTO,)
+# short spec prompt (_build_own_model_spec_prompt). The face_photo path
+# failed in the reports (face + pose + background together, body_type
+# ignored, three hands). SCENARIO_GENERATED_PERSON is now also included so
+# kurti_pant pocket_walk + background is not lost in the long prompt.
+OWN_MODEL_SPEC_SCENARIOS = (SCENARIO_FACE_PHOTO, SCENARIO_GENERATED_PERSON)
+
+# Garments that route through _build_own_model_spec_prompt on
+# OWN_MODEL_SPEC_SCENARIOS. kurti_pant has its own GARMENT_SPECS entry and
+# the same short prompt structure, so it joins kurta and blazer here.
+OWN_MODEL_SPEC_GARMENTS = ("kurta", "blazer", "kurti_pant")
 
 # NEW: kurta styles whose trouser / pajama must be plain solid white on the
 # person_photo (edit) route. The own-model wording is in GARMENT_SPECS.
@@ -406,19 +411,28 @@ def _body_line(body_type):
     return BODY_LINES.get(body_type, "")
 
 
-def _short_background(description):
+def _short_background(description, pose=None):
     """
     Report 4 ("cinematic" image): short background text with plain catalog
-    lighting. Used by the kurta / blazer short prompts only.
+    lighting. Used by the kurta / blazer / kurti_pant short prompts only.
+    When pose == cross_leg_chair_recline a chair-retention note is added so
+    the model does not seat the person on the bare floor of the new scene.
     """
     if not description:
         return ""
+    chair_note = (
+        "An upholstered armchair from the seated pose must be present in "
+        "this setting; the person is seated in the chair, never on the "
+        "bare ground or floor. "
+        if pose == "cross_leg_chair_recline"
+        else ""
+    )
     return (
         "BACKGROUND: replace the whole area behind the person with this "
-        "scene: " + description + ". The person is lit by plain, natural "
-        "daylight with neutral white balance and no colour cast; it is an "
-        "ordinary catalog photograph, not cinematic, with no dramatic "
-        "lighting and no film look. "
+        "scene: " + description + ". " + chair_note + "The person is lit "
+        "by plain, natural daylight with neutral white balance and no "
+        "colour cast; it is an ordinary catalog photograph, not cinematic,"
+        " with no dramatic lighting and no film look. "
     )
 
 
@@ -1617,6 +1631,19 @@ def _build_person_pose_kurti_prompt(
             "from image 2; extend it naturally and add a simple chair or low "
             "ledge only when the selected pose requires it. "
         )
+    else:
+        # Background requested: embed it here (short + catalog lighting).
+        # Reinforce fabric for the seated pose where drape-vs-background
+        # can cause the model to skip applying the fabric swatch.
+        bg_desc = BACKGROUND_DESCRIPTIONS.get(background) if background else None
+        if bg_desc:
+            prompt += _short_background(bg_desc, pose=pose)
+        if pose == "cross_leg_chair_recline":
+            prompt += (
+                "FABRIC PRIORITY: the kurti must clearly be made from image 1's "
+                "fabric, with its actual colours, print and motifs across the "
+                "whole kurti — never plain or blank, even when seated. "
+            )
     prompt += "Make the result a natural, realistic photograph. "
     return prompt
 
@@ -1744,11 +1771,17 @@ PERSON_POSE_KEEP_BACKGROUND = (
 def _spec_person_pose_text(
     pose, garment_type, garment_style, garment_details, camera_view,
 ):
-    """Pose wording for the kurta / blazer person_pose prompt."""
+    """Pose wording for the kurta / blazer / kurti_pant spec prompts.
+    pallu_on_head is a saree-specific pose.  For men's garments (kurta,
+    blazer) the head-cover instruction is replaced with a neutral standing
+    pose. kurti_pant keeps the generic standing+clasped-hands text because
+    the white-dupatta drape is handled in _build_person_pose_kurti_prompt;
+    for the own-model spec path it is acceptable to keep the generic pose.
+    """
     pose_text = _own_model_pose_text(
         pose, garment_type, garment_style, garment_details, camera_view
     )
-    if pose == "pallu_on_head":
+    if pose == "pallu_on_head" and garment_type in KURTA_BLAZER:
         pose_text = PERSON_POSE_NO_HEAD_COVER
     if pose == "sleeve_adjust_stand" and "folded_sleeves" in (garment_details or []):
         pose_text = pose_text.replace(POSE_SLEEVE_DOWN_PHRASE, "")
@@ -1816,7 +1849,7 @@ def _build_person_pose_spec_prompt(
     if keep_background:
         prompt += PERSON_POSE_KEEP_BACKGROUND
     else:
-        prompt += _short_background(BACKGROUND_DESCRIPTIONS.get(background))
+        prompt += _short_background(BACKGROUND_DESCRIPTIONS.get(background), pose=pose)
 
     # 6. Closing. Holds the anchors used by garment_details.py.
     prompt += CLOSING
@@ -1828,11 +1861,11 @@ def _build_own_model_spec_prompt(
     camera_view=None, garment_details=None, background=None,
 ):
     """
-    NEW (reports 6, 7, 9, 10): short prompt for kurta / blazer on the
-    face_photo path (face + pose + background together). The old own-model
-    prompt was about 1000 words, so the background (at its end) and part of
-    the body_type / pose were lost. Order = importance: pose, limbs, one
-    person, subject, body build, background, outfit, fabric, closing.
+    NEW (reports 6, 7, 9, 10 + 2026-10-13): short prompt for kurta / blazer
+    / kurti_pant on face_photo and generated_person paths. The old own-model
+    prompt was ~1000 words, so background (at its end) and pose were lost.
+    Order = importance: pose, limbs, one person, subject, body build,
+    background, outfit, fabric, closing.
     Returns the prompt text, or None if the garment spec does not exist.
     """
     spec = _get_garment_spec(garment_type, garment_style)
@@ -1874,10 +1907,16 @@ def _build_own_model_spec_prompt(
             f"{_person_description(gender, body_type)}, with a sharp, "
             f"natural face, {framing['shown']}{framing['fill']}. "
         )
+        if _is_child(gender) and body_type == "plus":
+            prompt += (
+                "BODY BUILD: the child has a noticeably chubby, plus-size build with fuller "
+                "cheeks, a rounded belly and thicker arms and legs, while remaining clearly "
+                "a 12-year-old child. "
+            )
 
     description = BACKGROUND_DESCRIPTIONS.get(background) if background else None
     if description:
-        prompt += _short_background(description)
+        prompt += _short_background(description, pose=pose)
     else:
         prompt += "BACKGROUND: a plain neutral studio background. "
 
@@ -2086,7 +2125,10 @@ def build_prompt(
         )
         base = {
             "prompt": _append_overrides(
-                prompt, background, additional_style_note
+                # background is embedded inside the kurti prompt;
+                # pass None here so _append_overrides doesn't append
+                # the long 120-word _background_instruction on top.
+                prompt, None, additional_style_note
             ),
             "guidance": GENERATED_GUIDANCE,
             "seed": GENERATED_SEED,
@@ -2166,11 +2208,12 @@ def build_prompt(
         logger.info("FINAL PROMPT: %s", base["prompt"])
         return base
 
-    # NEW (reports 6, 7, 9, 10): kurta / blazer with a face reference
-    # (face + pose + background together) use the short own-model prompt.
+    # NEW (reports 6, 7, 9, 10 + 2026-10-13): kurta / blazer / kurti_pant
+    # with a face reference or generated-person use the short own-model
+    # spec prompt so pose + background are not lost in a 950-word monolith.
     if (
         scenario in OWN_MODEL_SPEC_SCENARIOS
-        and garment_type in PERSON_POSE_SPEC_GARMENTS
+        and garment_type in OWN_MODEL_SPEC_GARMENTS
         and not use_garment_image
     ):
         prompt = _build_own_model_spec_prompt(
