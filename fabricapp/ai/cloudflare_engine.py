@@ -3,17 +3,30 @@ Stage: Core engine that talks to Cloudflare Workers AI.
 
 Image-slot convention:
     input_image_0 = SUBJECT
-                    - person_photo     : the uploaded person photo
-                    - person_pose      : a blank neutral canvas
-                    - face_photo       : a blank neutral canvas
-                    - generated_person : a blank neutral canvas
+                    - person_photo      : the uploaded person photo
+                    - person_pose       : a blank neutral canvas
+                    - face_photo        : a blank neutral canvas
+                    - generated_person  : a blank neutral canvas
+                    - pose_reference    : the POSE REFERENCE PHOTO (it is
+                                          edited: only the fabric changes,
+                                          plus camera_view / face /
+                                          background when they are sent)
     input_image_1 = GARMENT SOURCE — fabric_image or garment_image
     input_image_2 = REFERENCE (only when there is one)
-                    - face_photo  : the chosen face photo
-                    - person_pose : the uploaded person photo
+                    - face_photo     : the chosen face photo
+                    - person_pose    : the uploaded person photo
+                    - pose_reference : the chosen face photo (only when a
+                                       face_choice was sent)
 
 Which prompt is used is decided entirely by prompt_builder.py — this
 module only sends images + the prompt and returns the result.
+
+Pose reference photos (pose_reference.py): for a garment + pose that has a
+reference photo (today saree + pallu_on_head) and no person_image, the
+photo is sent as image 0 instead of describing the pose in the prompt.
+A camera_view does NOT switch this off: the camera_view text is added to
+the reference prompt by prompt_builder.py and the original background of
+the photo is kept.
 """
 
 import base64
@@ -29,9 +42,11 @@ from .prompts import get_face_image_path
 from .prompt_builder import (
     SCENARIO_PERSON_PHOTO,
     SCENARIO_PERSON_POSE,
+    SCENARIO_POSE_REFERENCE,
     detect_scenario,
     build_prompt,
 )
+from .pose_reference import get_pose_reference_path
 from .image_utils import (
     resize_to_fit,
     get_output_dimensions,
@@ -65,19 +80,58 @@ def _load_face_buffer(face_choice):
         raise CloudflareGenerationError(f"Face image file not found on disk: {path}")
 
 
-def _build_subject(scenario, person_image, face_choice, max_output_side):
+def _load_pose_reference_bytes(path):
+    """Reads the pose reference photo; a missing file gives a clear error."""
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        raise CloudflareGenerationError(
+            f"Pose reference image not found on disk: {path}"
+        )
+
+
+def _build_pose_reference_subject(pose_reference_path, face_choice, max_output_side):
+    """
+    pose_reference scenario: image_0 is the reference PHOTO itself (it is
+    edited), so the output has the same shape as the photo. The chosen face
+    (if any) goes in as image_2.
+    Returns (subject_buffer, reference_buffer_or_None, out_w, out_h).
+    """
+    photo_bytes = _load_pose_reference_bytes(pose_reference_path)
+
+    # A fresh BytesIO for every call, so no function sees a stream that
+    # another function has already read to the end.
+    subject_buffer = resize_to_fit(io.BytesIO(photo_bytes), max_dim=MAX_INPUT_DIM)
+    out_w, out_h = get_output_dimensions(
+        io.BytesIO(photo_bytes), max_side=max_output_side
+    )
+
+    reference_buffer = _load_face_buffer(face_choice) if face_choice else None
+    return subject_buffer, reference_buffer, out_w, out_h
+
+
+def _build_subject(
+    scenario, person_image, face_choice, max_output_side, pose_reference_path=None,
+):
     """
     Prepares image_0 (subject), the optional reference image (image_2)
     and the output size for the scenario.
     Returns (subject_buffer, reference_buffer_or_None, out_w, out_h).
     """
+    if scenario == SCENARIO_POSE_REFERENCE:
+        return _build_pose_reference_subject(
+            pose_reference_path, face_choice, max_output_side
+        )
+
     if scenario == SCENARIO_PERSON_PHOTO:
         subject_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
         out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
         return subject_buffer, None, out_w, out_h
 
-    # Own-model scenarios always output a portrait shape, and always
-    # use a blank canvas as image_0.
+    # Pose generation uses the original stable 3:4 portrait frame. It gives
+    # the model enough space for the complete head-to-feet pose and keeps the
+    # fabric rendering at the same scale as the earlier sharp outputs.
     out_w, out_h = get_portrait_dimensions(max_side=max_output_side)
     canvas_w, canvas_h = get_portrait_dimensions(max_side=MAX_INPUT_DIM)
     subject_buffer = make_blank_canvas(canvas_w, canvas_h)
@@ -92,6 +146,19 @@ def _build_subject(scenario, person_image, face_choice, max_output_side):
         # not as image_0, so the model builds a full-body photo.
         reference_buffer = _load_face_buffer(face_choice)
     return subject_buffer, reference_buffer, out_w, out_h
+
+
+def _find_pose_reference_path(person_image, garment_image, garment_type, pose):
+    """
+    Returns the pose reference photo path, or None when the normal
+    prompt-only path must be used. A reference photo is used only for a
+    fabric request (no garment_image) without a person_image.
+    camera_view, face_choice and background do not change this: they are
+    applied on top of the reference photo by prompt_builder.py.
+    """
+    if person_image is not None or garment_image is not None:
+        return None
+    return get_pose_reference_path(garment_type, pose)
 
 
 def generate_tryon_image(
@@ -117,19 +184,30 @@ def generate_tryon_image(
     options = options or {}
     draft_mode = options.get("draft_mode", True)
     max_output_side = 512 if draft_mode else FINAL_OUTPUT_SIDE
+    use_garment_image = garment_image is not None
 
     # Stage 0: decide the scenario and prepare the subject image (image_0)
-    scenario = detect_scenario(person_image is not None, face_choice, pose, camera_view)
+    pose_reference_path = _find_pose_reference_path(
+        person_image, garment_image, garment_type, pose
+    )
+    scenario = detect_scenario(
+        person_image is not None,
+        face_choice,
+        pose,
+        camera_view,
+        use_pose_reference=pose_reference_path is not None,
+    )
     logger.info(
-        "Scenario=%s gender=%s body_type=%s face_choice=%s pose=%s",
-        scenario, gender, body_type, face_choice, pose,
+        "Scenario=%s gender=%s body_type=%s face_choice=%s pose=%s "
+        "camera_view=%s pose_reference=%s",
+        scenario, gender, body_type, face_choice, pose, camera_view,
+        pose_reference_path,
     )
     subject_buffer, reference_buffer, out_w, out_h = _build_subject(
-        scenario, person_image, face_choice, max_output_side
+        scenario, person_image, face_choice, max_output_side, pose_reference_path
     )
 
     # Stage 1: prepare the garment source image (image_1)
-    use_garment_image = garment_image is not None
     if use_garment_image:
         garment_source_buffer = resize_to_fit(garment_image, max_dim=MAX_INPUT_DIM)
     else:
@@ -150,6 +228,7 @@ def generate_tryon_image(
         additional_style_note=additional_style_note,
         pose=pose,
         garment_details=garment_details,
+        use_face_reference=bool(face_choice),
     )
     if prompt_config is None:
         raise CloudflareGenerationError(
@@ -200,7 +279,6 @@ def generate_tryon_image(
                 url, headers=headers, files=files, data=data, timeout=REQUEST_TIMEOUT_SECONDS
             )
         except requests.exceptions.RequestException as e:
-            # Network-level failure (connection dropped, timeout, DNS, etc.)
             if attempt < MAX_ATTEMPTS:
                 wait_seconds = 2 ** attempt
                 logger.warning(
@@ -209,7 +287,7 @@ def generate_tryon_image(
                 )
                 time.sleep(wait_seconds)
                 for _, file_tuple in files.items():
-                    file_tuple[1].seek(0)  # rewind so the retry sends full images
+                    file_tuple[1].seek(0)
                 continue
             logger.error("Cloudflare request failed after network error: %s", e)
             raise CloudflareGenerationError(f"Network error calling Cloudflare: {e}")
@@ -240,7 +318,6 @@ def generate_tryon_image(
         )
         raise CloudflareGenerationError(f"Cloudflare request failed with status {response.status_code}")
 
-    # Stage 4: parse the response into raw image bytes
     logger.info("Stage 4: parsing Cloudflare response")
     content_type = response.headers.get("Content-Type", "")
 
@@ -259,7 +336,6 @@ def generate_tryon_image(
 
     save_output_copy(image_bytes, f"output_{debug_tag}.png")
 
-    # Stage 5: free memory
     del subject_buffer, garment_source_buffer, reference_buffer, files, response
     gc.collect()
     logger.info("Stage 5: request finished, memory released")

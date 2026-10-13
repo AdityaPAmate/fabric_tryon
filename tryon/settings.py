@@ -5,10 +5,17 @@ Django settings for tryon project.
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+import cloudinary
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv()
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+)
 
 SECRET_KEY = os.environ["SECRET_KEY"]
 
@@ -20,12 +27,31 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# Render supplies this hostname for every web service. Keep any manually
+# configured hosts as well, so custom domains can still be added through
+# ALLOWED_HOSTS without changing the application code.
+render_external_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+if render_external_hostname:
+    ALLOWED_HOSTS.append(render_external_hostname)
+
 # Cloudflare Workers AI configuration
 CLOUDFLARE_ACCOUNT_ID = os.getenv('CLOUDFLARE_ACCOUNT_ID')
 CLOUDFLARE_API_TOKEN = os.getenv('CLOUDFLARE_API_TOKEN')
 CLOUDFLARE_MODEL = os.getenv('CLOUDFLARE_MODEL')
 
 SAVE_DEBUG_FILES = os.getenv("SAVE_DEBUG_FILES", "False").lower() == "true"
+
+# The independent local tester runs on port 5500. Production UI origins can
+# be supplied through CORS_ALLOWED_ORIGINS without changing code.
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:5500,http://127.0.0.1:5500",
+    ).split(",")
+    if origin.strip()
+]
+CORS_URLS_REGEX = r"^/api/.*$"
 
 # Cloud Run runs behind a reverse proxy
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -43,6 +69,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework',
     'fabricapp',
 ]
@@ -50,6 +77,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',

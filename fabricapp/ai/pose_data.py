@@ -9,7 +9,7 @@ To add a new pose: add one entry to POSE_INSTRUCTIONS. Nothing else
 needs to change.
 
 POSE_OVERRIDES gives a garment its own wording for a pose. The SAREE has
-its own wording for all 8 poses, because:
+its own wording for all 9 poses, because:
     - the pallu must be placed explicitly (the pose decides where it hangs),
     - a hand that holds or lifts the pallu in the ORIGINAL photo is the
       main cause of "three hands" (the old arm stays, two new arms are
@@ -17,6 +17,19 @@ its own wording for all 8 poses, because:
       in total" and says where the pallu rests,
     - generic words like "trouser pocket" or "cuff of the sleeve" do not
       fit a saree.
+
+KURTA (NEW, 2026-10-10 reports): one kurta override (cross_leg_chair_recline:
+"two bodies for two legs"). A kurta override applies to every kurta style,
+on every path. The "three hands" report is solved by the LIMBS rule in
+prompt_builder.py, not by a pose text, so the pose sentences stay as tested.
+
+SAREE_POSE_PARTS (NEW) is used ONLY by the saree resolver path
+(prompt_builder._build_saree_resolved: generated_person / face_photo).
+There the pose owns the pallu placement, as a separate "pallu" variable,
+and the garment text does not repeat it. A saree pose that is not listed
+in SAREE_POSE_PARTS keeps using its POSE_OVERRIDES text (the pallu is
+inside that text). POSE_OVERRIDES itself is NOT changed, so the old
+paths (person_pose etc.) behave exactly as before.
 
 Left / right rule used in the wording:
     "left arm", "right hand", "left foot"  -> the model's OWN left / right
@@ -88,7 +101,7 @@ POSE_INSTRUCTIONS = {
     "sleeve_adjust_stand": (
         "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
         " and the head turned to look toward the viewer's left,"
-        " the right arm bent horizontally across the stomach with its fingers holding the cuff of the left sleeve near the elbow,"
+        " the right arm bent horizontally across the stomach with its fingers holding the left sleeve near the wrist,"
         " the left arm hanging down and slightly forward with the hand relaxed near the thigh,"
         " legs nearly straight with the feet slightly apart, the sleeve staying fully down"
     ),
@@ -117,7 +130,7 @@ POSES_HIDING_FACE = ["back_turn_hair_touch"]
 # SAREE: every sentence also fixes the pallu (shoulder, fall, length) and
 # says "exactly two arms and two hands in total". The saree modesty rules
 # (modest blouse, covered back, covered waist) are in GARMENT_SPECS["saree"]
-# in prompt_builder.py.
+# in prompt_builder.py (old path) and in prompt_parts.py (resolver path).
 POSE_OVERRIDES = {
     ("saree", None, "back_turn_hair_touch"): (
         "standing with the back toward the camera and the body turned slightly toward the model's right,"
@@ -216,12 +229,120 @@ POSE_OVERRIDES = {
         " the saree pallu resting on the left shoulder and hanging straight down behind the left arm"
         " in soft pleats to the knee or below, the front pleats falling neatly to the ankles"
     ),
+
+    # kurti_pant only. Directions (right / left) are kept, because a text
+    # without them made the model keep the pose of image 2. The left hand
+    # is placed in ONE spot only (holding the right wrist), which avoids
+    # the third hand.
+    ("kurti_pant", None, "cross_leg_chair_recline"): (
+        "seated in one low upholstered armchair in an upright, relaxed recline with the back supported by the chair"
+        " and the torso angled slightly toward the viewer's left, head upright and turned slightly toward the viewer's left,"
+        " both forearms resting separately across the lap with both relaxed hands together on the upper knee,"
+        " one leg crossed over the other at the knee with the top foot pointing toward the viewer's left,"
+        " with the complete chair, both legs and both feet visible"
+    ),
+    ("kurti_pant", None, "sleeve_adjust_stand"): (
+        "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
+        " and the head turned to look toward the viewer's left,"
+        " the right elbow bent with the right forearm diagonally across the torso and the right fingers visibly pinching the left sleeve cuff at the left wrist,"
+        " the left arm hanging naturally beside the body with the left hand open beside the left thigh,"
+        " both hands separate and visible, legs nearly straight with the feet slightly apart"
+    ),
+    ("kurti_pant", None, "three_quarter_hand_adjust"): (
+        "standing nearly front-facing with the torso turned slightly toward the model's right,"
+        " head tilted down with the eyes looking at the hands,"
+        " the right elbow bent with the right forearm raised diagonally across the upper torso and the right hand loosely closed at chest height,"
+        " the left forearm crossing the lower abdomen with the left hand visibly holding the right wrist from below,"
+        " both hands separate and visible below the chin, away from the hair and face,"
+        " legs naturally separated, with the right leg nearly straight and the left leg slightly relaxed,"
+        " both feet flat on the ground, with the left foot slightly forward"
+    ),
+    ("kurti_pant", None, "pocket_walk"): (
+        "walking toward the camera in a relaxed mid-stride with the body facing forward and the head upright looking straight ahead,"
+        " exactly two arms and two hands in total,"
+        " the left elbow bent with the left hand resting firmly on the left hip,"
+        " the right arm hanging down at the side with the hand relaxed and slightly open,"
+        " and the left leg stepping forward ahead of the right leg"
+    ),
+
+    # kurta only (NEW, 2026-10-10 report 5; applies to every kurta style).
+    # cross_leg_chair_recline: "2 bodies for 2 legs" -> one person, one
+    # chair, exactly two legs, and the long garment hem rests over the
+    # thighs.
+    ("kurta", None, "cross_leg_chair_recline"): (
+        "seated on ONE low upholstered armchair, one person only, in an upright, relaxed recline"
+        " with the back supported by the chair and the torso angled slightly toward the viewer's left,"
+        " head upright and turned slightly toward the viewer's left,"
+        " both forearms resting across the lap with both hands together on the upper knee,"
+        " exactly two legs in total, one leg crossed over the other at the knee"
+        " with the top foot pointing toward the viewer's left,"
+        " the hem of the long garment resting over the thighs and knees,"
+        " with the complete chair, both legs and both feet visible"
+    ),
 }
 
 # Catches a typo in a pose name as soon as Django starts.
 for _garment, _variant, _pose_name in POSE_OVERRIDES:
     if _pose_name not in POSE_INSTRUCTIONS:
         raise ValueError(f"POSE_OVERRIDES has unknown pose '{_pose_name}'")
+
+
+# ----------------------------------------------------------------------
+# SAREE resolver path (NEW). Used only by prompt_builder._build_saree_resolved.
+#
+# SAREE_POSE_PARTS[pose] = {"pose": <body pose>, "pallu": <pallu placement>}
+#   - "pose"  reads after "the person is ..." (no pallu inside, no pleats:
+#             the pleats belong to the garment text in prompt_parts.py)
+#   - "pallu" is a full sentence block; it is the ONLY place that says
+#             where the pallu is for this pose.
+# Poses not listed here keep their POSE_OVERRIDES text (pallu inside it).
+#
+# PALLU WRITING RULES (FLUX.2 Klein):
+#   1. Positive wording only: Klein does not follow "no ..." / "must not ..."
+#      well, and every mention of the unwanted place primes cloth there.
+#      So the clean side is described by what IS visible there.
+#   2. ONE direction language only: the position in the IMAGE
+#      ("left side of the image"), never "model's right (viewer's left)".
+#   3. Short: describe the one visible result, nothing else.
+#   4. Name the drape. The model's default saree has the pallu over the
+#      wearer's LEFT shoulder (Nivi). Gujarati "seedha pallu" brings the
+#      pallu from the back, over the RIGHT shoulder, to the front, which is
+#      the wanted geometry, so the style name is used to replace that default.
+# Reference image: the pallu hangs on the LEFT side of the IMAGE
+# (= the model's right side), ending at mid-thigh. The arm on the LEFT of the image is gently bent and touches the pallu; the arm on the RIGHT of the image hangs straight.
+# ----------------------------------------------------------------------
+
+# Pallu used when no pose is requested (Python picks it; the model is not
+# told "if the pose does not describe it").
+SAREE_DEFAULT_PALLU = (
+    "The pallu falls over the left shoulder in soft pleats to the knee or below."
+)
+
+SAREE_POSE_PARTS = {
+    "pallu_on_head": {
+        "pose": (
+            "standing upright and straight, facing the camera directly,"
+            " head upright with the eyes looking forward and a soft smile,"
+            " exactly two arms and two hands in total,"
+            " the arm on the right of the image hanging straight down with the elbow straight"
+            " and the hand relaxed beside the thigh,"
+            " the arm on the left of the image gently bent at the elbow"
+            " with the hand held lightly at waist height"
+        ),
+        "pallu": (
+            "The saree is draped in the Gujarati seedha pallu style: the loose end of the saree"
+            " comes from behind the back, rises over the top of the head and hair like a soft hood"
+            " framing the face, then falls over the shoulder on the left of the image"
+            " and hangs down that side of the body over the outside of the bent arm,"
+            " ending at mid-thigh, with the hand of the bent arm gently touching the pallu at waist height."
+            " The right side of the frame shows only the straight arm, the blouse sleeve and the saree wrap."
+        ),
+    },
+}
+
+for _pose_name in SAREE_POSE_PARTS:
+    if _pose_name not in POSE_INSTRUCTIONS:
+        raise ValueError(f"SAREE_POSE_PARTS has unknown pose '{_pose_name}'")
 
 
 # (old phrase in the prompts, replacement used only when a pose
@@ -273,3 +394,32 @@ def get_pose_sentence(pose, garment_type=None, garment_style=None, detail_keys=N
         if key in POSE_OVERRIDES:
             return POSE_OVERRIDES[key]
     return POSE_INSTRUCTIONS.get(pose)
+
+
+def get_saree_pose_parts(pose, default_pose_text):
+    """
+    Saree resolver path. Returns (pose_text, pallu_text).
+
+    pallu_text is None when the pallu is already described inside
+    pose_text (the poses that still use their POSE_OVERRIDES text).
+
+        no pose            -> (default_pose_text, SAREE_DEFAULT_PALLU)
+        pose in SAREE_POSE_PARTS -> its own pose + its own pallu
+        saree override exists    -> (override text, None)
+        anything else            -> (generic pose text, SAREE_DEFAULT_PALLU)
+    """
+    if not pose:
+        return default_pose_text, SAREE_DEFAULT_PALLU
+
+    parts = SAREE_POSE_PARTS.get(pose)
+    if parts:
+        return parts["pose"], parts["pallu"]
+
+    override = POSE_OVERRIDES.get(("saree", None, pose))
+    if override:
+        return override, None
+
+    generic = POSE_INSTRUCTIONS.get(pose)
+    if generic:
+        return generic, SAREE_DEFAULT_PALLU
+    return default_pose_text, SAREE_DEFAULT_PALLU

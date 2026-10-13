@@ -23,6 +23,7 @@ from fabricapp.ai.pose_data import (
     POSE_OPTIONS,
     DEFAULT_OWN_MODEL_POSE,
     get_pose_sentence,
+    get_saree_pose_parts,
 )
 from fabricapp.ai.prompts import GARMENT_PROMPTS, GARMENT_STYLE_OPTIONS
 
@@ -89,8 +90,8 @@ for pose in POSE_OPTIONS:
         c2 += 1
         print(f"PROBLEM: detect_scenario(person, pose={pose}) gave {scenario}")
         continue
-    sentence = get_pose_sentence(pose)
     for garment_type, garment_style, use_garment_image in CASES:
+        sentence = get_pose_sentence(pose, garment_type, garment_style)
         result = new.build_prompt(
             scenario=scenario, garment_type=garment_type,
             garment_style=garment_style, use_garment_image=use_garment_image,
@@ -116,9 +117,14 @@ problems += c2
 c3 = 0
 checked3 = 0
 for pose in POSE_OPTIONS:
-    sentence = get_pose_sentence(pose)
     for scenario in (new.SCENARIO_GENERATED_PERSON, new.SCENARIO_FACE_PHOTO):
         for garment_type, garment_style, use_garment_image in CASES:
+            if garment_type == "saree" and not use_garment_image:
+                # Generated-person and face-photo sarees use the resolver,
+                # whose pose text is owned by the saree pose-parts table.
+                sentence, _ = get_saree_pose_parts(pose, DEFAULT_OWN_MODEL_POSE)
+            else:
+                sentence = get_pose_sentence(pose, garment_type, garment_style)
             result = new.build_prompt(
                 scenario=scenario, garment_type=garment_type,
                 garment_style=garment_style, use_garment_image=use_garment_image,
@@ -132,5 +138,50 @@ for pose in POSE_OPTIONS:
 
 print(f"Check 3: {checked3} own-model prompts checked, problems = {c3}")
 problems += c3
+
+# ---------------------------------------------------------------
+# Check 4: kurti fabric must not be assigned to its white pants
+# ---------------------------------------------------------------
+c4 = 0
+kurti_cases = [(new.SCENARIO_PERSON_PHOTO, None)] + [
+    (new.SCENARIO_PERSON_POSE, pose) for pose in POSE_OPTIONS
+]
+for scenario, pose in kurti_cases:
+    result = new.build_prompt(
+        scenario=scenario,
+        garment_type="kurti_pant",
+        pose=pose,
+    )
+    prompt = result["prompt"]
+    required = (
+        "plain, solid white",
+        "full-length sleeves",
+    )
+    if scenario == new.SCENARIO_PERSON_POSE:
+        required += (
+            "a kurti made from the fabric in image 1, paired with plain white pants",
+            "Use image 1 only as the kurti fabric reference",
+            "exactly two arms, two hands, two legs and two feet",
+            get_pose_sentence(pose, "kurti_pant"),
+        )
+    else:
+        required += ("image 1's fabric is for the kurti only",)
+    if any(text not in prompt for text in required):
+        c4 += 1
+        print(f"PROBLEM kurti_pant white-pants rules missing in scenario={scenario}")
+    if "white pants made from the fabric in image 1" in prompt:
+        c4 += 1
+        print(f"PROBLEM kurti_pant TASK assigns fabric to pants in scenario={scenario}")
+    if scenario == new.SCENARIO_PERSON_POSE and len(prompt.split()) > 600:
+        c4 += 1
+        print(f"PROBLEM kurti_pant prompt is too long in scenario={scenario} pose={pose}")
+    if pose == "pallu_on_head" and "No dupatta." in prompt:
+        c4 += 1
+        print("PROBLEM pallu_on_head conflicts with the kurti dupatta rule")
+    if pose == "sleeve_adjust_stand" and "near the elbow" in prompt:
+        c4 += 1
+        print("PROBLEM sleeve_adjust_stand conflicts with full-length sleeves")
+print(f"Check 4: {len(kurti_cases)} kurti_pant fabric/pants prompts checked, problems = {c4}")
+problems += c4
 
 print("\nRESULT:", "ALL OK" if problems == 0 else f"{problems} PROBLEM(S) - send me this output")

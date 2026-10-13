@@ -12,6 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 ENV PYTHONUNBUFFERED=1
-ENV PORT=8080
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PORT=10000
 
-CMD exec gunicorn --bind :$PORT --workers 2 --threads 4 --timeout 120 tryon.wsgi:application
+EXPOSE 10000
+
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 2 --threads 4 --timeout 240 tryon.wsgi:application"]
