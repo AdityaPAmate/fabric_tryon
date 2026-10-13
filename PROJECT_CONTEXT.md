@@ -81,6 +81,17 @@ Reference image (Casual / Business / Wedding blazer) शी prompts तपास
 
 Reference मधील पण अजून न बदललेले फरक: Casual मध्ये white T-shirt आणि jeans आहेत (आपल्या prompt मध्ये collared shirt आणि dark trousers); Business jacket ला दोन बटणे आहेत (आपल्या prompt मध्ये single front button).
 
+### 6. Kurti-pant: 2026-10-09 Test Reports बदल (NEW)
+
+Kurti-pant test reports मधील तक्रारी आणि केलेले बदल:
+
+1. **Side view मधील पाय (Report 1):** `camera_data.py` मध्ये side framing च्या `pose_default` मध्ये पाय सरळ आणि नैसर्गिकरित्या वेगळे असणे स्पष्ट केले, ज्यामुळे profile view मध्ये दोन्ही पाय आणि पावले स्पष्ट राहतात.
+2. **Side view + pocket_walk धावल्यासारखे दिसणे (Report 2 & 5):** `prompt_builder.py` मधील `_own_model_pose_text` मध्ये `pocket_walk` आणि `camera_view="side"` एकत्र आल्यास चालण्याचा वेग मंद व पावले जवळ (not a wide stride, not running) आणि दोनच हात राहतील असा side walking prompt दिला.
+3. **वाकलेला पाय (Report 3):** `pose_data.py` मध्ये `("kurti_pant", None, "rail_wide_arm_side_look")` साठी स्वतंत्र override जोडला, ज्यामध्ये पाय नैसर्गिक रित्या थोडे मागे आणि गुडघ्यामध्ये जास्त वाक नसणे स्पष्ट केले.
+4. **मुलीचे वय मोठे दिसणे आणि चेहरा बदलणे (Report 4 & 6):** `_build_person_pose_kurti_prompt` मध्ये hardcoded "woman" काढून "person" केले आणि चेहऱ्याची रचना जपणे तसेच मूळ फोटो जर लहान मुलीचा/मुलाचा असेल तर प्रौढ न करता तिचे मूळ वय राखणे स्पष्ट केले.
+5. **Gender girl साठी body_type "plus" लागू न होणे (Report 7 & 8):** `_is_child` मुळे मुलांसाठी `body_type` वगळला जात होता. आता `_person_description`, `_build_own_model_prompt` आणि `_build_own_model_spec_prompt` मध्ये लहान मुलांसाठी `body_type="plus"` दिल्यास स्पष्ट chubby/plus-size build सूचना जोडली जाते.
+6. **हात 3 येणे (Report 9 & 10):** `pose_data.py` मधील `sleeve_adjust_stand` आणि `three_quarter_hand_adjust` मध्ये "exactly two arms and two hands in total, never a third hand" स्पष्ट केले आणि `_build_own_model_prompt` मध्ये kurti_pant साठी `OWN_MODEL_LIMBS_LINE` जोडली.
+
 ## Saree issue (अजून बदललेले नाही)
 
 Saree + person image + pose: long shared prompt, pallu instructions ची पुनरावृत्ती आणि blank-canvas reconstruction यामुळे pose कमकुवत. Saree code मध्ये कोणताही बदल केलेला नाही. पुढील वेळी बदल करायचा असल्यास फक्त `saree + person_pose` route साठी छोटा dedicated prompt बनवावा.

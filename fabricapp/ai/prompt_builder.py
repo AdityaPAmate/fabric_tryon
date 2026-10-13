@@ -641,6 +641,12 @@ def _own_model_pose_text(
     No pose requested -> the default pose of the camera view.
     """
     sentence = get_pose_sentence(pose, garment_type, garment_style, garment_details)
+    if sentence and camera_view == "side" and pose == "pocket_walk":
+        return (
+            "walking at a relaxed, gentle pace viewed from a side angle, taking a small natural step "
+            "with feet close together (not a wide stride, not running), exactly two arms and two hands in total, "
+            "the left elbow bent with the hand resting on the hip, the right arm hanging relaxed beside the torso"
+        )
     return sentence or get_framing(camera_view)["pose_default"]
 
 
@@ -715,10 +721,15 @@ def _build_word(body_type):
 
 
 def _person_description(gender, body_type):
-    """Who the model must generate. Children get a clear age and no body_type."""
+    """Who the model must generate. Children get a clear age and support body_type."""
     if _is_child(gender):
+        build_desc = ""
+        if body_type == "plus":
+            build_desc = ", with a noticeably chubby, plus-size build"
+        elif body_type in ("slim", "trim"):
+            build_desc = ", with a slim build"
         return (
-            f"a {CHILD_AGE}-year-old Indian {_gender_word(gender)} — clearly "
+            f"a {CHILD_AGE}-year-old Indian {_gender_word(gender)}{build_desc} — clearly "
             "a child, with a child's soft rounded face, a short child's "
             "height and small child's body proportions; not a teenager and "
             "not an adult"
@@ -1225,10 +1236,9 @@ def _build_own_model_prompt(
     else:
         subject = _subject_block(gender, body_type, pose_text, framing)
 
-    # NEW (kurta / blazer, report 7): the limbs rule is stated right after
-    # the POSE line when a pose is requested.
+    # NEW: the limbs rule is stated right after the POSE line when a pose is requested.
     pose_part = _pose_line(pose_text)
-    if garment_type in KURTA_BLAZER and pose:
+    if pose and garment_type in ("kurta", "blazer", "kurti_pant"):
         pose_part += OWN_MODEL_LIMBS_LINE
 
     # The garment and the role of every image come FIRST.
@@ -1261,6 +1271,11 @@ def _build_own_model_prompt(
     # person_pose has no gender field (the person comes from the photo).
     if _is_child(gender):
         prompt += CHILD_GARMENT_LINE
+        if body_type == "plus":
+            prompt += (
+                "BODY BUILD: the child has a noticeably chubby, plus-size build with fuller "
+                "cheeks, a rounded belly and thicker arms and legs, fitted in comfortably loose-fitting clothing. "
+            )
     return prompt
 
 
@@ -1537,7 +1552,7 @@ def _build_base(
 
 
 def _build_person_pose_kurti_prompt(
-    pose, camera_view=None, background=None,
+    pose, camera_view=None, background=None, gender=None,
 ):
     """Short, priority-ordered instructions for person-photo kurti edits."""
     pose_text = _own_model_pose_text(
@@ -1569,21 +1584,24 @@ def _build_person_pose_kurti_prompt(
         else ""
     )
     prompt += (
-        "POSE PRIORITY: Change the woman's posture to exactly the pose above. "
-        "Do not retain her original posture. "
+        "POSE PRIORITY: Change the person's posture to exactly the pose above. "
+        "Do not retain their original posture. "
         "LIMBS: Do not copy the arms, hands, legs or feet from image 2. Draw "
         "exactly two arms, two hands, two legs and two feet in the pose above; "
         "never add, duplicate or leave an extra hand, arm, leg or foot. "
         "SUBJECT: Generate one realistic " + framing["shot"]
-        + " photograph of the same woman in image 2, "
-        + framing["shown"] + ". Preserve her recognizable "
-        "face, hair, skin tone, age, accessories and natural body build. Keep "
-        "her original shoulder, waist and hip widths, torso length, height-to-"
-        "width ratio, and arm and leg thickness; do not slim or widen her. "
-        "Replace the clothes in image 2 completely; do not copy their color, "
-        "print or garment design. "
+        + " photograph of the same person in image 2, "
+        + framing["shown"] + ". Copy the face accurately from image 2 — "
+        "same eyes, eyebrows, nose, lips and face shape — preserving their "
+        "recognizable face, exact age (if image 2 is a child or girl, keep her "
+        "clearly as a child/girl, do not age her into an adult), hair, skin "
+        "tone, accessories and natural body build. Keep their original "
+        "shoulder, waist and hip widths, torso length, height-to-width ratio, "
+        "and arm and leg thickness; do not slim or widen them. Replace the "
+        "clothes in image 2 completely; do not copy their color, print or "
+        "garment design. "
         + cross_leg_identity_lock +
-        "OUTFIT: Dress her in a modest Indian kurti with full-length sleeves "
+        "OUTFIT: Dress this person in a modest Indian kurti with full-length sleeves "
         "reaching the wrists, paired with plain, solid white, full-length "
         "pants visible below the kurti and reaching the ankles. The pants are "
         "white and have no print. " + dupatta_rule +
@@ -1844,6 +1862,11 @@ def _build_own_model_spec_prompt(
         )
         if not _is_child(gender):
             prompt += _body_line(body_type)
+        elif body_type == "plus":
+            prompt += (
+                "BODY BUILD: the child has a noticeably chubby, plus-size build with fuller "
+                "cheeks, a rounded belly and thicker arms and legs, while remaining clearly a 12-year-old child. "
+            )
     else:
         prompt += (
             "SUBJECT: image 0 is only a blank canvas (frame size). Generate "
@@ -2056,7 +2079,7 @@ def build_prompt(
         and not use_garment_image
     ):
         prompt = _build_person_pose_kurti_prompt(
-            pose, camera_view=camera_view, background=background
+            pose, camera_view=camera_view, background=background, gender=gender
         )
         prompt = apply_garment_details(
             prompt, garment_type, garment_style, garment_details, MODE_OWN

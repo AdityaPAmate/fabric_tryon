@@ -244,6 +244,7 @@ POSE_OVERRIDES = {
     ("kurti_pant", None, "sleeve_adjust_stand"): (
         "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
         " and the head turned to look toward the viewer's left,"
+        " exactly two arms and two hands in total, never a third hand,"
         " the right elbow bent with the right forearm diagonally across the torso and the right fingers visibly pinching the left sleeve cuff at the left wrist,"
         " the left arm hanging naturally beside the body with the left hand open beside the left thigh,"
         " both hands separate and visible, legs nearly straight with the feet slightly apart"
@@ -251,11 +252,21 @@ POSE_OVERRIDES = {
     ("kurti_pant", None, "three_quarter_hand_adjust"): (
         "standing nearly front-facing with the torso turned slightly toward the model's right,"
         " head tilted down with the eyes looking at the hands,"
+        " exactly two arms and two hands in total, never a third hand,"
         " the right elbow bent with the right forearm raised diagonally across the upper torso and the right hand loosely closed at chest height,"
         " the left forearm crossing the lower abdomen with the left hand visibly holding the right wrist from below,"
         " both hands separate and visible below the chin, away from the hair and face,"
         " legs naturally separated, with the right leg nearly straight and the left leg slightly relaxed,"
         " both feet flat on the ground, with the left foot slightly forward"
+    ),
+    ("kurti_pant", None, "rail_wide_arm_side_look"): (
+        "standing upright facing the camera directly with the body squared to the viewer,"
+        " head turned to look in profile toward the viewer's left,"
+        " exactly two arms and two hands in total,"
+        " both arms extended down and out to the sides with hands resting flat on the top edge"
+        " of a low wall or ledge at hip height,"
+        " both legs nearly straight with one foot resting naturally slightly behind the other,"
+        " gentle natural stance without extreme knee bend, weight settled evenly against the ledge"
     ),
     ("kurti_pant", None, "pocket_walk"): (
         "walking toward the camera in a relaxed mid-stride with the body facing forward and the head upright looking straight ahead,"

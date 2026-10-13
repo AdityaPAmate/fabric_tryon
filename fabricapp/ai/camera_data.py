@@ -65,7 +65,8 @@ CAMERA_FRAMING = {
         "output_rule_person": _FULL_RULE_PERSON,
         "pose_default": (
             "standing in a natural, relaxed pose with the body turned to a "
-            "clear side or three-quarter side view"
+            "clear side or three-quarter side view, with both legs straight and "
+            "naturally separated so both pant legs and feet remain distinct and visible"
         ),
     },
     "close_up": {
