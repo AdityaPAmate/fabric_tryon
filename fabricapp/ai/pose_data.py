@@ -289,7 +289,33 @@ POSE_OVERRIDES = {
         " exactly two legs in total, one leg crossed over the other at the knee"
         " with the top foot pointing toward the viewer's left,"
         " the hem of the long garment resting over the thighs and knees,"
+        " the lower pant legs visible below the hem completely plain and solid without pattern,"
         " with the complete chair, both legs and both feet visible"
+    ),
+    ("kurta", None, "sleeve_adjust_stand"): (
+        "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
+        " and the head turned to look toward the viewer's left,"
+        " exactly two arms and two hands in total, never a third hand:"
+        " the right elbow bent with the right forearm diagonally across the torso and the right hand visibly adjusting the left sleeve cuff at the left wrist,"
+        " the left arm hanging naturally beside the body with the left hand open beside the left thigh"
+        " — no third hand, no extra arm hangs anywhere,"
+        " both hands separate and visible, legs nearly straight with the feet slightly apart, the sleeve staying fully down"
+    ),
+    ("kurta", None, "rail_wide_arm_side_look"): (
+        "standing upright facing the camera directly with the body squared to the viewer,"
+        " head turned to look in profile toward the viewer's left,"
+        " exactly two arms and two hands in total, never a third hand:"
+        " exactly two hands resting flat on the top edge of a low wall or ledge at hip height, one on each side,"
+        " no extra or hanging hand anywhere,"
+        " both legs nearly straight with one foot resting naturally slightly behind the other,"
+        " gentle natural stance without extreme knee bend, weight settled evenly against the ledge"
+    ),
+    ("kurta", None, "pocket_walk"): (
+        "walking toward the camera in a relaxed, natural stride with the body facing forward and the head upright looking straight ahead,"
+        " exactly two arms and two hands in total, never a third hand:"
+        " the left arm bent with its hand resting naturally in the side pocket or at the hip,"
+        " the right arm hanging down at the side with the hand relaxed and slightly open,"
+        " and one leg stepping forward naturally ahead of the other"
     ),
 }
 

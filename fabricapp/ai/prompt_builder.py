@@ -446,10 +446,15 @@ def _garment_text_for_pose(garment_text, garment_type, pose):
 
 
 def _apply_kurta_edit_changes(prompt, garment_type, garment_style, use_garment_image):
-    """person_photo (edit) route: kurta length and trouser colour phrases."""
+    """person_photo (edit) route: kurta length, two-hands lock, and trouser colour phrases."""
     if use_garment_image or garment_type != "kurta":
         return prompt
-    pairs = []
+    pairs = [
+        (
+            "hands, arms, background, and body pose from image 0 completely unchanged",
+            "background and body pose from image 0 completely unchanged, with exactly two arms and two hands in total and never a third or duplicate hand",
+        ),
+    ]
     if garment_style == "plain":
         pairs.append((KURTA_PLAIN_LENGTH_OLD, KURTA_PLAIN_LENGTH_NEW))
     pairs += KURTA_PANT_COLOUR_EDIT.get(garment_style, [])
@@ -598,7 +603,8 @@ KURTA_PANT_WHITE_LINE = (
     "TROUSER COLOUR (replaces any earlier instruction about the trouser or "
     "pajama): the pajama below the kurta is plain, solid WHITE, "
     "straight-cut and full-length down to the ankles, with no pattern, and "
-    "it is not made from image 1's fabric. "
+    "it is not made from image 1's fabric; the person's legs must be fully "
+    "covered down to the ankles, never bare legs or shorts. "
 )
 
 # Added on own-model scenarios when the person is a child.
@@ -935,13 +941,15 @@ GARMENT_SPECS = {
         # off-white, or a solid shade from the kurta's palette").
         "garment": (
             "a traditional Indian men's kurta — a straight-cut garment "
-            "ending just above the knee (the hem a few inches above the "
-            "kneecap, not mid-thigh, not below the knee), with a simple "
-            "mandarin/band collar, a short front placket with two or three "
-            "buttons near the neck, and straight side slits at the hem, "
-            "loose-fitting. Below it, a matching plain straight-cut "
-            "kurta-pajama reaching the ankles, in plain solid WHITE, "
-            "never patterned and never made from image 1's fabric. "
+            "extending down to the knee (the hem ending level with the "
+            "kneecap, fully covering both thighs, clearly below mid-thigh), "
+            "with a simple mandarin/band collar, a short front placket with "
+            "two or three buttons near the neck, straight side slits at the "
+            "hem, and full-length long sleeves reaching down to the wrists "
+            "covering both arms completely, loose-fitting. Below it, a "
+            "matching plain straight-cut kurta-pajama reaching the ankles, "
+            "in plain solid WHITE, never patterned and never made from "
+            "image 1's fabric. "
         ),
     },
     # CHANGED (report 3): the churidar is a plain solid in the main colour of
@@ -962,12 +970,14 @@ GARMENT_SPECS = {
             "toward mid-calf (this length is the most important feature; a "
             "hem at or above the knee is wrong), with a stand-up "
             "mandarin/bandhgala collar, a full column of small decorative "
-            "buttons from neck to hem, and a fitted, tailored torso with "
-            "visible waist suppression. Below it, a matching churidar — "
-            "fitted through the leg, gathering into soft folds above the "
-            "ankle — in a plain solid color that is exactly the main colour "
-            "of the sherwani fabric from image 1 (never black, grey or "
-            "white unless that is image 1's main colour), with no pattern. "
+            "buttons from neck to hem, full-length structured sleeves "
+            "reaching down to the wrists covering both arms completely, "
+            "and a fitted, tailored torso with visible waist suppression. "
+            "Below it, a matching churidar — fitted through the leg, "
+            "gathering into soft folds above the ankle — in a plain solid "
+            "color that is exactly the main colour of the sherwani fabric "
+            "from image 1 (never black, grey or white unless that is "
+            "image 1's main colour), with no pattern. "
         ),
     },
     # CHANGED (report 3): same idea for the Pathani salwar.
@@ -984,13 +994,14 @@ GARMENT_SPECS = {
             "a Pathani-style kurta — loose, relaxed, straight-cut, to "
             "roughly mid-thigh or knee, with a classic SHIRT-style pointed "
             "collar (not a round or mandarin collar), two rectangular "
-            "chest patch pockets with flaps, and a short button placket. "
-            "Below it, a Pathani salwar — VERY LOOSE, voluminous and "
-            "pleated, dramatically wider than a normal kurta-pajama, "
-            "narrowing to a cuffed ankle — in a plain solid color that is "
-            "exactly the main colour of the kurta fabric from image 1 "
-            "(never black or grey unless that is image 1's main colour), "
-            "never patterned. "
+            "chest patch pockets with flaps, a short button placket, "
+            "and full-length sleeves reaching down to the wrists covering "
+            "both arms completely. Below it, a Pathani salwar — VERY LOOSE, "
+            "voluminous and pleated, dramatically wider than a normal "
+            "kurta-pajama, narrowing to a cuffed ankle — in a plain solid "
+            "color that is exactly the main colour of the kurta fabric "
+            "from image 1 (never black or grey unless that is image 1's "
+            "main colour), never patterned. "
         ),
     },
     ("kurta", "jodhpuri"): {
@@ -1006,12 +1017,14 @@ GARMENT_SPECS = {
             "a Jodhpuri bandhgala jacket — structured, single-breasted, "
             "sharply tailored shoulders, stand-up mandarin/bandhgala "
             "collar (no lapel), a full column of small buttons, one small "
-            "chest pocket and two flap hip pockets, hip-length hem, fitted "
-            "closely, with a crisp, smooth, almost flat finish (creases "
-            "only at the elbow bend). No extra kurta or tunic layer may "
-            "show below the jacket hem — it goes straight into the "
-            "trouser at the waist. Below it, a fitted straight-cut formal "
-            "trouser in a PLAIN SOLID color matching the jacket's color "
+            "chest pocket and two flap hip pockets, full-length tailored "
+            "sleeves reaching down to the wrists covering both arms "
+            "completely, hip-length hem, fitted closely, with a crisp, "
+            "smooth, almost flat finish (creases only at the elbow bend). "
+            "No extra kurta or tunic layer may show below the jacket hem "
+            "— it goes straight into the trouser at the waist. Below it, "
+            "a fitted straight-cut formal trouser in a PLAIN SOLID color "
+            "matching the jacket's color "
             "tone, crisply pressed, with no pattern or texture. "
         ),
     },
@@ -1835,8 +1848,8 @@ def _build_person_pose_spec_prompt(
     prompt += (
         "FABRIC: Use image 1 only as the " + target + " fabric reference. "
         "Apply its actual colours, print, motif size and density across "
-        "the entire " + target + ", with its original hue, brightness and "
-        "saturation. " + _fabric_forbidden_text(spec)
+        "the entire " + target + " (including the full body and both full-length sleeves all the way to the wrists), "
+        "with its original hue, brightness and saturation. " + _fabric_forbidden_text(spec)
         + FABRIC_RULES.format(target=target)
     )
     if spec["border"]:
@@ -1926,7 +1939,8 @@ def _build_own_model_spec_prompt(
     prompt += spec.get("color_note", "")
     prompt += (
         "FABRIC: Use image 1 only as the " + target + " fabric reference, "
-        "with its actual colours, print, motif size and density. "
+        "with its actual colours, print, motif size and density across the "
+        "entire " + target + " (including the full body and both full-length sleeves all the way to the wrists). "
         + _fabric_forbidden_text(spec) + FABRIC_RULES.format(target=target)
     )
     if spec["border"]:
@@ -2001,10 +2015,11 @@ def _fabric_forbidden_text(spec):
         )
     if spec.get("pant_colour_from_fabric"):
         return (
-            "Do not use image 1's pattern on the churidar, salwar or "
-            "trousers, footwear, accessories, skin or background. The "
-            "lower garment uses only the main colour of image 1 as a "
-            "plain solid, with no pattern. "
+            "Do not use image 1's pattern, motifs or print on the churidar, "
+            "salwar or trousers, footwear, accessories, skin or background. The "
+            "lower garment (churidar, salwar or trousers) must be 100% PLAIN and "
+            "SOLID with ZERO pattern, ZERO motifs, and ZERO print — taking ONLY "
+            "the single plain matching solid colour from image 1, completely unpatterned. "
         )
     return (
         "Do not use image 1's fabric, pattern or colour on the trousers "
