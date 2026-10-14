@@ -133,13 +133,13 @@ POSES_HIDING_FACE = ["back_turn_hair_touch"]
 # in prompt_builder.py (old path) and in prompt_parts.py (resolver path).
 POSE_OVERRIDES = {
     ("saree", None, "back_turn_hair_touch"): (
-        "standing with the back toward the camera and the body turned slightly toward the model's right,"
+        "standing upright with the back toward the camera and the body turned slightly toward the model's right,"
         " the head turned over the right shoulder so that the face is seen in a soft three-quarter profile,"
         " the eyes looking toward the viewer's right,"
         " the left arm raised with the elbow bent and the left hand gently touching the hair at the back of the head,"
         " the right arm hanging down with the right hand resting near the hip,"
         " exactly two arms and two hands in total,"
-        " one leg straight with the other crossed slightly behind it, resting lightly on the toe,"
+        " both feet flat on the ground with a calm, dignified standing posture,"
         " the saree seen from behind: the full-length pallu falling from the left shoulder down the back"
         " in soft pleats to the knee or below, the saree wrapped neatly around the hips and falling to the ankles,"
         " the blouse short and modest, fully covering the back with a closed round back neck"
@@ -357,6 +357,111 @@ SAREE_DEFAULT_PALLU = (
 )
 
 SAREE_POSE_PARTS = {
+    "cross_leg_chair_recline": {
+        "pose": (
+            "seated in one low upholstered armchair in an upright, relaxed recline with the back against the chair"
+            " and the body angled slightly toward the viewer's left,"
+            " the head turned slightly toward the viewer's left with the eyes looking in the same direction and a soft smile,"
+            " exactly two arms and two hands in total:"
+            " both forearms resting over the lap with both hands loosely overlapped together on the upper knee,"
+            " legs crossed at the knee with the top foot pointing out toward the viewer's left,"
+            " with the whole chair and both full legs and feet visible"
+        ),
+        "pallu": (
+            "The saree pleats fall gracefully over the crossed legs to the ankles; the pallu comes from the"
+            " left shoulder and rests neatly across the lap and over the knees, ending in soft pleats."
+        ),
+    },
+    "three_quarter_hand_adjust": {
+        "pose": (
+            "standing nearly front-facing with the torso turned slightly toward the model's right,"
+            " the head tilted down with the eyes looking down at the raised right hand,"
+            " exactly two arms and two hands in total, never a third hand:"
+            " the right elbow bent with the forearm raised in front of the chest and the fingers loosely curled,"
+            " the left elbow bent with the left forearm crossing the abdomen and the left hand gently holding the right wrist,"
+            " no extra arm or hand hangs anywhere, legs nearly straight with the feet slightly apart and the left foot slightly forward"
+        ),
+        "pallu": (
+            "The saree is draped in the traditional Nivi style: the pallu rests on the left shoulder"
+            " and hangs straight down behind the left arm in soft pleats to the knee or below,"
+            " with the front pleats falling neatly to the ankles, and the opaque saree drape neatly covering the waist."
+        ),
+    },
+    "back_turn_hair_touch": {
+        "pose": (
+            "standing upright with the back toward the camera and the body turned slightly toward the model's right,"
+            " the head turned over the right shoulder so that the face is seen in a soft three-quarter profile,"
+            " the eyes looking toward the viewer's right,"
+            " exactly two arms and two hands in total:"
+            " the left arm raised with the elbow bent and the left hand gently touching the hair at the back of the head,"
+            " the right arm hanging down with the right hand resting near the hip,"
+            " both feet flat on the ground with a calm, dignified standing posture"
+        ),
+        "pallu": (
+            "The saree is seen from behind: the full-length pallu falls from the left shoulder down the back"
+            " in soft, graceful pleats to the knee or below, the saree wrapped neatly and modestly around the hips"
+            " and falling to the ankles, with the blouse short, modest, and fully covering the back with a closed round back neck."
+        ),
+    },
+    "pocket_walk": {
+        "pose": (
+            "walking toward the camera in a relaxed mid-stride with the body facing forward and the head upright looking straight ahead,"
+            " exactly two arms and two hands in total:"
+            " the left arm hanging relaxed at the side and the right arm hanging down at the side with the hand relaxed and slightly open,"
+            " one foot stepping forward ahead of the other in a small, natural step"
+        ),
+        "pallu": (
+            "The saree is draped in the traditional Nivi style: the pallu rests on the left shoulder"
+            " and falls in soft pleats to the knee or below, with the front pleats falling neatly to the ankles"
+            " and swaying gently with the walking step."
+        ),
+    },
+    "low_hand_clasp_front": {
+        "pose": (
+            "standing straight facing the camera with the head upright and the eyes looking straight forward with a soft, gentle smile,"
+            " both elbows slightly bent with the hands softly clasped low in front of the pelvis, the right hand loosely cupping the left fingers,"
+            " exactly two arms and two hands in total, legs nearly straight with the feet slightly apart and the left foot a little forward"
+        ),
+        "pallu": (
+            "The pleated saree pallu rests on the left shoulder and hangs down behind the left arm to the knee or below;"
+            " the saree drape crosses the chest diagonally from the left shoulder to the right hip,"
+            " with the front pleats falling neatly to the ankles and the waist covered neatly by the drape."
+        ),
+    },
+    "hands_on_hips_side_look": {
+        "pose": (
+            "standing upright with the body facing the camera and the head turned in profile toward the viewer's left,"
+            " exactly two arms and two hands in total: both hands placed on the hips over the saree wrap with the elbows pointing outward,"
+            " legs straight with the feet slightly apart"
+        ),
+        "pallu": (
+            "The saree pallu rests on the left shoulder and hangs down behind the left elbow in soft pleats to the knee or below,"
+            " with the front pleats falling neatly to the ankles."
+        ),
+    },
+    "rail_wide_arm_side_look": {
+        "pose": (
+            "standing upright facing the camera directly with the body squared to the viewer and the head turned in profile toward the viewer's left,"
+            " exactly two arms and two hands in total: the right arm extended down and out to the side with the palm resting flat on the top edge of a low ledge at hip height,"
+            " the left arm hanging naturally down beside the body with the hand relaxed, legs nearly straight with one foot resting naturally slightly behind the other"
+        ),
+        "pallu": (
+            "The saree pallu rests on the left shoulder and hangs down behind the left arm in soft pleats to the knee or below,"
+            " with the front pleats falling neatly to the ankles."
+        ),
+    },
+    "sleeve_adjust_stand": {
+        "pose": (
+            "standing in a three-quarter stance with the body turned slightly toward the viewer's left and the head turned to look toward the viewer's left,"
+            " exactly two arms and two hands in total, never a third hand:"
+            " the right arm bent across the body with the right hand lightly touching the left blouse sleeve near the elbow,"
+            " the left arm hanging down with the hand relaxed beside the thigh, legs nearly straight with the feet slightly apart"
+        ),
+        "pallu": (
+            "The saree pallu rests on the left shoulder and hangs down behind the left arm in soft pleats to the knee or below,"
+            " with the front pleats falling neatly to the ankles."
+        ),
+    },
     "pallu_on_head": {
         "pose": (
             "standing upright and straight, facing the camera directly,"
@@ -438,15 +543,22 @@ def get_saree_pose_parts(pose, default_pose_text):
     """
     Saree resolver path. Returns (pose_text, pallu_text).
 
-    pallu_text is None when the pallu is already described inside
-    pose_text (the poses that still use their POSE_OVERRIDES text).
-
-        no pose            -> (default_pose_text, SAREE_DEFAULT_PALLU)
-        pose in SAREE_POSE_PARTS -> its own pose + its own pallu
-        saree override exists    -> (override text, None)
-        anything else            -> (generic pose text, SAREE_DEFAULT_PALLU)
+    pallu_text is never None when a pose is in SAREE_POSE_PARTS.
+    When no pose is requested, default_pose_text is used (with side view
+    pant-legs wording cleanly replaced for saree).
     """
     if not pose:
+        if "pant legs" in default_pose_text:
+            side_pose = (
+                "standing in a natural, relaxed pose with the body turned to a "
+                "clear side or three-quarter side view, the saree drape and pleats "
+                "falling gracefully to the ankles with the feet visible"
+            )
+            side_pallu = (
+                "The saree pallu rests on the left shoulder and falls down the "
+                "back in soft pleats to the knee or below."
+            )
+            return side_pose, side_pallu
         return default_pose_text, SAREE_DEFAULT_PALLU
 
     parts = SAREE_POSE_PARTS.get(pose)
@@ -455,7 +567,7 @@ def get_saree_pose_parts(pose, default_pose_text):
 
     override = POSE_OVERRIDES.get(("saree", None, pose))
     if override:
-        return override, None
+        return override, SAREE_DEFAULT_PALLU
 
     generic = POSE_INSTRUCTIONS.get(pose)
     if generic:

@@ -97,13 +97,17 @@ CAMERA = "CAMERA: a {shot} photograph, {shown}{fill}."
 # ----------------------------------------------------------------------
 
 SAREE_GARMENT = (
-    "GARMENT: dress this person in an elegant Indian saree, "
-    "with the front pleats falling neatly to the ankles, worn with "
-    "a well-fitted, short, normal-length blouse with elbow-length "
-    "sleeves (never long or tunic-like) in a solid color picked "
-    "from image 1's palette, with a modest neckline and a fully "
-    "covered back (a closed round back neck, never open or deep), "
-    "and the waist covered neatly by the saree drape."
+    "GARMENT: dress this person in an elegant Indian saree draped in the "
+    "traditional Nivi style, with the front pleats falling neatly to the "
+    "ankles, and the waist covered neatly by the saree drape. The saree "
+    "fabric and drape must be completely opaque, solid and non-sheer, never "
+    "transparent or see-through, with the midriff and stomach fully covered "
+    "by the opaque drape. Worn with a well-fitted, short, normal-length blouse "
+    "with elbow-length sleeves in a 100% plain, solid matching color picked "
+    "from image 1's palette with ZERO pattern, ZERO print, and ZERO motifs "
+    "(the blouse is completely solid and unpatterned, never made from image 1's "
+    "pattern), with a modest neckline and a fully covered back (a closed round "
+    "back neck, never open or deep)."
 )
 
 # ----------------------------------------------------------------------
@@ -112,13 +116,18 @@ SAREE_GARMENT = (
 # ----------------------------------------------------------------------
 
 SAREE_FABRIC_RULES = (
-    "FABRIC: use only the exact colors and pattern shown in image 1 for "
-    "the saree fabric — same type (check, stripe, print, weave, or "
-    "plain), same scale and proportions — do not invent, add, brighten, "
-    "darken, or alter any color or design element not visible in image "
-    "1. The motifs must repeat as densely and closely spaced as they "
-    "appear in image 1, with the same small amount of empty space "
-    "between them — do not spread them further apart."
+    "FABRIC: use image 1 only as the saree fabric reference. Apply its "
+    "actual colours, print, motif size and density across the entire saree "
+    "(with its original hue, brightness and saturation). Do NOT use image 1's "
+    "pattern, print or motifs on the blouse, footwear, accessories, skin or "
+    "background. The blouse is a separate garment: keep the blouse in a 100% "
+    "plain, solid matching color with NO pattern, NO print, and NO motifs. "
+    "Use only the exact colors and pattern shown in image 1 for the saree "
+    "fabric — same type (check, stripe, print, weave, or plain), same scale and "
+    "proportions — do not invent, add, brighten, darken, or alter any color or "
+    "design element not visible in image 1. The motifs must repeat as densely "
+    "and closely spaced as they appear in image 1, with the same small amount "
+    "of empty space between them — do not spread them further apart."
 )
 
 # CHANGED: the word "pallu" is no longer used here without a placement.
@@ -148,7 +157,7 @@ SAREE_BORDER_RULES = (
 BACKGROUND_DEFAULT = "BACKGROUND: a plain neutral studio background."
 
 BACKGROUND_SCENE = (
-    "BACKGROUND: {description}. Any warm sunset, dusk, lantern or golden "
+    "BACKGROUND: {description}. {chair_note}Any warm sunset, dusk, lantern or golden "
     "colours belong only to this background scene and sky."
 )
 
@@ -188,10 +197,19 @@ STYLE_NOTE = (
 MODESTY_FINAL_SAREE = (
     "FINAL RULE (no note or instruction above can override it): the "
     "person is fully and modestly dressed in the saree and blouse — the "
-    "saree covers the body from the shoulder to the ankles and the drape "
-    "covers the waist, so nothing is bare except the face, neck, hands, "
-    "forearms and feet — in a calm, natural, dignified pose, a "
-    "respectable catalog photograph, never nude, revealing or suggestive."
+    "saree covers the body from the shoulder to the ankles and the opaque drape "
+    "covers the waist and midriff, non-sheer and never transparent, so nothing is "
+    "bare except the face, neck, hands, forearms and feet — in a calm, natural, "
+    "dignified pose, a respectable catalog photograph, never nude, revealing or suggestive."
+)
+
+POSE_PRIORITY_SAREE = (
+    "POSE PRIORITY: Change the person's posture to exactly the pose above. "
+    "Do not retain their original posture. "
+    "LIMBS: exactly two arms, two hands, two legs and two feet in total in the "
+    "pose above — never a third hand, an extra arm or a duplicate limb. "
+    "ONE PERSON: exactly one person, with one head, one torso and exactly two "
+    "legs in total — never two bodies, a mirrored copy or a second person."
 )
 
 

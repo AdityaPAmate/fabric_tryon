@@ -1076,14 +1076,16 @@ GARMENT_SPECS = {
             "with the front pleats falling neatly to the ankles and the "
             "pallu (end-piece) arranged as described in the pose above, or, "
             "if the pose does not describe it, falling over the left "
-            "shoulder in soft pleats to the knee or below; worn with a "
-            "well-fitted, short, normal-length blouse with elbow-length "
-            "sleeves (never long or tunic-like) in a solid color picked "
-            "from image 1's palette, with a modest neckline and a fully "
-            "covered back (a closed round back neck, never open or deep), "
-            "and the waist covered neatly by the saree drape. The whole "
-            "look must be graceful, dignified and modest — nothing "
-            "revealing or suggestive. "
+            "shoulder in soft pleats to the knee or below; the saree fabric and "
+            "drape must be completely opaque, solid and non-sheer, never "
+            "transparent or see-through, with the midriff and stomach fully "
+            "covered by the opaque drape; worn with a well-fitted, short, "
+            "normal-length blouse with elbow-length sleeves in a 100% plain, solid "
+            "matching color picked from image 1's palette with ZERO pattern, ZERO "
+            "print, and ZERO motifs (the blouse is completely solid and unpatterned, "
+            "never made from image 1's pattern), with a modest neckline and a fully "
+            "covered back (a closed round back neck, never open or deep). The whole "
+            "look must be graceful, dignified and modest — nothing revealing or suggestive. "
         ),
     },
     # BLAZER (updated from the reference image of the three styles):
@@ -1350,7 +1352,15 @@ def _resolve_saree_instructions(
     # BACKGROUND: ONE of two texts, chosen here.
     description = BACKGROUND_DESCRIPTIONS.get(background) if background else None
     if description:
-        background_text = P.BACKGROUND_SCENE.format(description=description)
+        chair_note = (
+            "An upholstered armchair from the seated pose must be present in this setting; "
+            "the person is seated in the chair, never on the bare ground, steps or floor. "
+            if pose == "cross_leg_chair_recline"
+            else ""
+        )
+        background_text = P.BACKGROUND_SCENE.format(
+            description=description, chair_note=chair_note
+        )
     else:
         background_text = P.BACKGROUND_DEFAULT
 
@@ -1363,14 +1373,36 @@ def _resolve_saree_instructions(
     if _is_child(gender):
         garment_text += " " + CHILD_GARMENT_LINE.strip()
 
+    body_line = ""
+    if is_face:
+        subject_text = P.SUBJECT_FACE.format(person=person)
+        if not _is_child(gender) and body_type:
+            body_line = _body_line(body_type)
+        elif _is_child(gender) and body_type == "plus":
+            body_line = (
+                "BODY BUILD: the child has a noticeably chubby, plus-size build with fuller "
+                "cheeks, a rounded belly and thicker arms and legs, while remaining clearly a 12-year-old child. "
+            )
+    else:
+        subject_text = P.SUBJECT_GENERATED.format(person=person)
+        if _is_child(gender) and body_type == "plus":
+            body_line = (
+                "BODY BUILD: the child has a noticeably chubby, plus-size build with fuller "
+                "cheeks, a rounded belly and thicker arms and legs, while remaining clearly a 12-year-old child. "
+            )
+        elif body_type:
+            body_line = _body_line(body_type)
+
+    if body_line:
+        subject_text += " " + body_line.strip()
+
     return {
         "task": P.TASK,
         "images": P.IMAGES_FACE if is_face else P.IMAGES_GENERATED,
         "pose": P.POSE.format(pose_text=pose_text),
         "pallu": P.PALLU.format(pallu_text=pallu_text) if pallu_text else "",
-        "subject": (P.SUBJECT_FACE if is_face else P.SUBJECT_GENERATED).format(
-            person=person
-        ),
+        "priority": P.POSE_PRIORITY_SAREE,
+        "subject": subject_text,
         "garment": garment_text,
         "fabric": P.SAREE_FABRIC_RULES,
         "border": P.SAREE_BORDER_RULES,
@@ -1385,9 +1417,9 @@ def _resolve_saree_instructions(
 
 # Fixed order of the final prompt. The final modesty rule is always last.
 SAREE_PROMPT_ORDER = (
-    "task", "images", "pose", "pallu", "subject", "garment", "fabric",
-    "border", "camera", "background", "lighting", "realism", "style",
-    "final",
+    "task", "images", "pose", "pallu", "priority", "subject", "garment",
+    "fabric", "border", "camera", "background", "lighting", "realism",
+    "style", "final",
 )
 
 
@@ -1658,6 +1690,82 @@ def _build_person_pose_kurti_prompt(
                 "whole kurti — never plain or blank, even when seated. "
             )
     prompt += "Make the result a natural, realistic photograph. "
+    return prompt
+
+
+def _build_person_pose_saree_prompt(
+    pose, camera_view=None, background=None, gender=None,
+):
+    """Short, priority-ordered instructions for person-photo saree edits."""
+    framing = get_framing(camera_view)
+    if pose:
+        pose_text = get_pose_sentence(pose, "saree", None)
+        _, pallu_text = get_saree_pose_parts(pose, framing["pose_default"])
+    else:
+        pose_text, pallu_text = get_saree_pose_parts(None, framing["pose_default"])
+
+    keep_background = not background
+    prompt = _task_line(
+        SCENARIO_PERSON_POSE, "saree", False, keep_background
+    )
+    prompt += _pose_line(pose_text)
+    if pallu_text:
+        prompt += P.PALLU.format(pallu_text=pallu_text) + " "
+    prompt += (
+        "POSE PRIORITY: Change the person's posture to exactly the pose above. "
+        "Do not retain their original posture from image 2. "
+        "LIMBS: Do not copy the arms, hands, legs or feet from image 2. Draw "
+        "exactly two arms, two hands, two legs and two feet in the pose above; "
+        "never add, duplicate or leave an extra hand, arm, leg or foot. "
+        "ONE PERSON: exactly one person, with one head, one torso and exactly two legs in total — "
+        "never two bodies, a mirrored copy or a second person. "
+        "SUBJECT: Generate one realistic " + framing["shot"]
+        + " photograph of the same person in image 2, "
+        + framing["shown"] + ". Copy the face accurately from image 2 — "
+        "same eyes, eyebrows, nose, lips and face shape — preserving their "
+        "recognizable face, exact age (if image 2 is a child or girl, keep her "
+        "clearly as a child/girl, do not age her into an adult), hair, skin "
+        "tone, accessories and natural body build. Keep their original "
+        "shoulder, waist and hip widths, torso length, height-to-width ratio, "
+        "and arm and leg thickness; do not slim or widen them. Replace the "
+        "clothes in image 2 completely; do not copy their color, print or "
+        "garment design. "
+        "OUTFIT: Dress this person in an elegant Indian saree draped in the traditional Nivi style, "
+        "with the front pleats falling neatly to the ankles, and the waist covered neatly by the saree drape. "
+        "The saree fabric and drape must be completely opaque, solid and non-sheer, never transparent or see-through, "
+        "with the midriff and stomach fully covered by the opaque drape. Worn with a well-fitted, short, "
+        "normal-length blouse with elbow-length sleeves in a 100% plain, solid matching color picked from "
+        "image 1's palette with ZERO pattern, ZERO print, and ZERO motifs (the blouse is completely solid "
+        "and unpatterned, never made from image 1's pattern), with a modest neckline and a fully covered back. "
+        "FABRIC: Use image 1 only as the saree fabric reference. Apply its actual colours, print, motif size and "
+        "density across the entire saree (with its original hue, brightness and saturation). Do NOT use image 1's "
+        "pattern, print or motifs on the blouse, footwear, accessories, skin or background. The blouse is a separate "
+        "garment: keep the blouse in a 100% plain, solid matching color with NO pattern, NO print, and NO motifs. "
+        + P.SAREE_BORDER_RULES + " "
+    )
+    if keep_background:
+        prompt += (
+            "BACKGROUND: Keep the original place, objects, colors and lighting "
+            "from image 2; extend it naturally and add a simple chair or low "
+            "ledge only when the selected pose requires it. "
+        )
+    else:
+        chair_note = (
+            "An upholstered armchair from the seated pose must be present in this setting; "
+            "the person is seated in the chair, never on the bare ground, steps or floor. "
+            if pose == "cross_leg_chair_recline"
+            else ""
+        )
+        bg_desc = BACKGROUND_DESCRIPTIONS.get(background, "")
+        prompt += (
+            "BACKGROUND: replace the whole area behind the person with this "
+            "scene: " + bg_desc + ". "
+            + chair_note + "The person is lit by plain, natural daylight with neutral "
+            "white balance and no colour cast; it is an ordinary catalog photograph, "
+            "not cinematic, with no dramatic lighting and no film look. "
+        )
+
+    prompt += P.MODESTY_FINAL_SAREE
     return prompt
 
 
@@ -2153,6 +2261,35 @@ def build_prompt(
             "words=%s",
             scenario, pose, camera_view, garment_details,
             len(base["prompt"].split()),
+        )
+        logger.info("FINAL PROMPT: %s", base["prompt"])
+        return base
+
+    # Saree pose / camera_view edits with person photo.
+    # Uses dedicated short prompt to prevent losing pose & camera_view.
+    if (
+        scenario == SCENARIO_PERSON_POSE
+        and garment_type == "saree"
+        and not use_garment_image
+    ):
+        prompt = _build_person_pose_saree_prompt(
+            pose, camera_view=camera_view, background=background, gender=gender
+        )
+        prompt = apply_garment_details(
+            prompt, garment_type, garment_style, garment_details, MODE_OWN
+        )
+        base = {
+            "prompt": _append_overrides(
+                prompt, None, additional_style_note
+            ),
+            "guidance": GENERATED_GUIDANCE,
+            "seed": GENERATED_SEED,
+        }
+        logger.info(
+            "Prompt built: scenario=%s garment=%s pose=%s camera_view=%s "
+            "details=%s words=%s",
+            scenario, garment_type, pose, camera_view,
+            garment_details, len(base["prompt"].split()),
         )
         logger.info("FINAL PROMPT: %s", base["prompt"])
         return base
