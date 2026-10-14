@@ -1750,22 +1750,9 @@ def _build_person_pose_saree_prompt(
             "ledge only when the selected pose requires it. "
         )
     else:
-        chair_note = (
-            "An upholstered armchair from the seated pose must be present in this setting; "
-            "the person is seated in the chair, never on the bare ground, steps or floor. "
-            if pose == "cross_leg_chair_recline"
-            else ""
-        )
         bg_desc = BACKGROUND_DESCRIPTIONS.get(background, "")
-        prompt += (
-            "BACKGROUND: replace the whole area behind the person with this "
-            "scene: " + bg_desc + ". "
-            + chair_note + "The person is lit by plain, natural daylight with neutral "
-            "white balance and no colour cast; it is an ordinary catalog photograph, "
-            "not cinematic, with no dramatic lighting and no film look. "
-        )
-
-    prompt += P.MODESTY_FINAL_SAREE
+        if bg_desc:
+            prompt += _short_background(bg_desc, pose=pose)
     return prompt
 
 

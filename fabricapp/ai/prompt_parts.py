@@ -67,22 +67,15 @@ PALLU = "PALLU (part of the pose, follow it exactly): {pallu_text}"
 # ----------------------------------------------------------------------
 
 SUBJECT_GENERATED = (
-    "SUBJECT: image 0 is only a blank, plain neutral canvas that sets the "
-    "frame size — there is no person on it. Generate a brand-new, "
-    "realistic photograph of {person}, with a natural, realistic, sharp "
-    "face with clearly visible eyes."
+    "SUBJECT: image 0 is only a blank frame canvas. Generate a brand-new, "
+    "realistic, full-body photograph of {person} standing or sitting in full view."
 )
 
 SUBJECT_FACE = (
-    "SUBJECT: image 0 is only a blank, plain neutral canvas that sets the "
-    "frame size — there is no person on it. Image 2 is a reference photo "
-    "of a real person's face. Generate a brand-new, realistic photograph "
-    "of this SAME person, {person}. FACE AND HAIR MUST BE COPIED EXACTLY "
-    "FROM IMAGE 2: same facial structure, eyes, eyebrows, nose, lips, "
-    "same skin tone and brightness, same hair colour, hair length and "
-    "hairstyle, and the same facial hair if any (if image 2 has jet-black "
-    "hair, the output must have jet-black hair, not brown), sharp, with "
-    "clearly visible eyes."
+    "SUBJECT: image 0 is a blank canvas frame. Image 2 is a reference photo of a real "
+    "person's face. Generate a brand-new, realistic full-body photograph of this SAME "
+    "person ({person}). Copy their face accurately from image 2 — same eyes, eyebrows, "
+    "nose, lips, face shape, skin tone and hair."
 )
 
 # ----------------------------------------------------------------------
@@ -116,18 +109,11 @@ SAREE_GARMENT = (
 # ----------------------------------------------------------------------
 
 SAREE_FABRIC_RULES = (
-    "FABRIC: use image 1 only as the saree fabric reference. Apply its "
-    "actual colours, print, motif size and density across the entire saree "
-    "(with its original hue, brightness and saturation). Do NOT use image 1's "
-    "pattern, print or motifs on the blouse, footwear, accessories, skin or "
-    "background. The blouse is a separate garment: keep the blouse in a 100% "
-    "plain, solid matching color with NO pattern, NO print, and NO motifs. "
-    "Use only the exact colors and pattern shown in image 1 for the saree "
-    "fabric — same type (check, stripe, print, weave, or plain), same scale and "
-    "proportions — do not invent, add, brighten, darken, or alter any color or "
-    "design element not visible in image 1. The motifs must repeat as densely "
-    "and closely spaced as they appear in image 1, with the same small amount "
-    "of empty space between them — do not spread them further apart."
+    "FABRIC: use image 1 only as the saree fabric reference. Apply its actual "
+    "colors, print, motif size and density across the saree. Do NOT use image 1's "
+    "pattern on the blouse, footwear, skin or background. The blouse is a separate "
+    "garment: keep the blouse in a 100% plain, solid matching color picked from "
+    "image 1's palette with NO pattern, NO print, and NO motifs."
 )
 
 # CHANGED: the word "pallu" is no longer used here without a placement.
