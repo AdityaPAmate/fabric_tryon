@@ -14,7 +14,7 @@ list each subtype as its own key instead of "default". This keeps the
 lookup logic in views.py identical for every garment_type, whether or
 not it has subtypes.
 """
-
+#
 # Which garment types require a garment_style, and what values are
 # valid for each. Garment types NOT listed here do not need/accept a
 # garment_style value at all.
