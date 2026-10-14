@@ -126,7 +126,7 @@ warm/dark colour cast from the background scene.
 """
 
 import logging
-
+from .saree import build_saree_prompt
 from . import prompt_parts as P
 from .prompts import (
     GARMENT_STYLE_OPTIONS,
@@ -2111,6 +2111,22 @@ def build_prompt(
     """
     # Reference photo of the pose -> edit prompt (fabric only; optional
     # camera_view, face and background on top of the photo).
+    # Saree has its own prompt route (fabricapp/ai/saree/).
+    # person_photo (plain edit) returns None and keeps the old path below.
+    if garment_type == "saree" and not use_garment_image:
+        saree_config = build_saree_prompt(
+            scenario,
+            gender=gender,
+            body_type=body_type,
+            pose=pose,
+            camera_view=camera_view,
+            background=background,
+            additional_style_note=additional_style_note,
+            use_face_reference=use_face_reference,
+        )
+        if saree_config is not None:
+            return saree_config
+
     if scenario == SCENARIO_POSE_REFERENCE:
         return _build_pose_reference_prompt(
             garment_type, use_face_reference, background, additional_style_note,
