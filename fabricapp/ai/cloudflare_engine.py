@@ -80,6 +80,18 @@ def _load_face_buffer(face_choice):
         raise CloudflareGenerationError(f"Face image file not found on disk: {path}")
 
 
+def _load_uploaded_face_buffer(face_image):
+    """Prepare the user-uploaded face photo as the reference image."""
+    if face_image is None:
+        return None
+    # Read into a fresh stream so earlier validation/resizing cannot leave
+    # the uploaded file pointer at EOF.
+    face_image.seek(0)
+    image_bytes = face_image.read()
+    face_image.seek(0)
+    return resize_to_fit(io.BytesIO(image_bytes), max_dim=MAX_INPUT_DIM)
+
+
 def _load_pose_reference_bytes(path):
     """Reads the pose reference photo; a missing file gives a clear error."""
     try:
@@ -91,7 +103,7 @@ def _load_pose_reference_bytes(path):
         )
 
 
-def _build_pose_reference_subject(pose_reference_path, face_choice, max_output_side):
+def _build_pose_reference_subject(pose_reference_path, face_choice, face_image, max_output_side):
     """
     pose_reference scenario: image_0 is the reference PHOTO itself (it is
     edited), so the output has the same shape as the photo. The chosen face
@@ -107,12 +119,16 @@ def _build_pose_reference_subject(pose_reference_path, face_choice, max_output_s
         io.BytesIO(photo_bytes), max_side=max_output_side
     )
 
-    reference_buffer = _load_face_buffer(face_choice) if face_choice else None
+    reference_buffer = (
+        _load_face_buffer(face_choice) if face_choice
+        else _load_uploaded_face_buffer(face_image) if face_image
+        else None
+    )
     return subject_buffer, reference_buffer, out_w, out_h
 
 
 def _build_subject(
-    scenario, person_image, face_choice, max_output_side, pose_reference_path=None,
+    scenario, person_image, face_choice, face_image, max_output_side, pose_reference_path=None,
 ):
     """
     Prepares image_0 (subject), the optional reference image (image_2)
@@ -121,7 +137,7 @@ def _build_subject(
     """
     if scenario == SCENARIO_POSE_REFERENCE:
         return _build_pose_reference_subject(
-            pose_reference_path, face_choice, max_output_side
+            pose_reference_path, face_choice, face_image, max_output_side
         )
 
     if scenario == SCENARIO_PERSON_PHOTO:
@@ -141,10 +157,12 @@ def _build_subject(
         # The uploaded person photo goes in as a REFERENCE (image_2):
         # editing it directly would keep its original pose.
         reference_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
-    elif face_choice:
-        # The chosen face goes in as a REFERENCE image (image_2),
-        # not as image_0, so the model builds a full-body photo.
-        reference_buffer = _load_face_buffer(face_choice)
+    elif face_choice or face_image:
+        # The selected or uploaded face goes in image_2 as a reference.
+        reference_buffer = (
+            _load_face_buffer(face_choice) if face_choice
+            else _load_uploaded_face_buffer(face_image)
+        )
     return subject_buffer, reference_buffer, out_w, out_h
 
 
@@ -170,6 +188,7 @@ def generate_tryon_image(
     gender=None,
     body_type=None,
     face_choice=None,
+    face_image=None,
     camera_view=None,
     background=None,
     additional_style_note=None,
@@ -192,19 +211,19 @@ def generate_tryon_image(
     )
     scenario = detect_scenario(
         person_image is not None,
-        face_choice,
+        bool(face_choice or face_image),
         pose,
         camera_view,
         use_pose_reference=pose_reference_path is not None,
     )
     logger.info(
-        "Scenario=%s gender=%s body_type=%s face_choice=%s pose=%s "
+        "Scenario=%s gender=%s body_type=%s face_choice=%s face_image=%s pose=%s "
         "camera_view=%s pose_reference=%s",
-        scenario, gender, body_type, face_choice, pose, camera_view,
+        scenario, gender, body_type, face_choice, bool(face_image), pose, camera_view,
         pose_reference_path,
     )
     subject_buffer, reference_buffer, out_w, out_h = _build_subject(
-        scenario, person_image, face_choice, max_output_side, pose_reference_path
+        scenario, person_image, face_choice, face_image, max_output_side, pose_reference_path
     )
 
     # Stage 1: prepare the garment source image (image_1)
@@ -228,7 +247,7 @@ def generate_tryon_image(
         additional_style_note=additional_style_note,
         pose=pose,
         garment_details=garment_details,
-        use_face_reference=bool(face_choice),
+        use_face_reference=bool(face_choice or face_image),
     )
     if prompt_config is None:
         raise CloudflareGenerationError(

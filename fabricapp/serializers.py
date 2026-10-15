@@ -105,6 +105,9 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         choices=FACE_CHOICES, required=False, allow_blank=True
     )
 
+    # Optional user-uploaded face reference image.
+    face_image = serializers.ImageField(required=False)
+
     additional_style_note = serializers.CharField(
         required=False, allow_blank=False, max_length=300
     )
@@ -194,13 +197,18 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         gender = data.get("gender")
         body_type = data.get("body_type")
         face_choice = data.get("face_choice")
+        face_image = data.get("face_image")
+
+        if face_choice and face_image:
+            raise serializers.ValidationError(
+                {"face_image": "Send either face_choice or face_image, not both."}
+            )
 
         if person_image:
-            # A real person photo is given: the person's own body and
-            # face must not be changed, so these must not be sent.
-            if gender or body_type or face_choice:
+            # A real person photo already contains the face and body to preserve.
+            if gender or body_type or face_choice or face_image:
                 raise serializers.ValidationError(
-                    {"gender": "gender/body_type/face_choice are not applicable when person_image is uploaded."}
+                    {"person_image": "gender/body_type/face_choice/face_image are not applicable when person_image is uploaded."}
                 )
             return
 
@@ -230,9 +238,10 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         """
         pose = data.get("pose")
         face_choice = data.get("face_choice")
-        if pose in POSES_HIDING_FACE and face_choice:
+        face_image = data.get("face_image")
+        if pose in POSES_HIDING_FACE and (face_choice or face_image):
             raise serializers.ValidationError(
-                {"pose": f"pose '{pose}' hides the face and cannot be combined with face_choice."}
+                {"pose": f"pose '{pose}' hides the face and cannot be combined with face_choice or face_image."}
             )
 
     def _check_pose_camera(self, data):

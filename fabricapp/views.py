@@ -1,8 +1,6 @@
 """
 Stage: API view. Validates the request, calls the engine, uploads the
 generated image to Cloudinary, and returns its delivery URL as JSON.
-This file knows nothing about Cloudflare or image resizing internals —
-that all lives in ai/cloudflare_engine.py.
 """
 
 import logging
@@ -49,6 +47,7 @@ class FabricTryOnView(APIView):
                 gender=data.get("gender"),
                 body_type=data.get("body_type"),
                 face_choice=data.get("face_choice"),
+                face_image=data.get("face_image"),
                 camera_view=camera_view,
                 background=background,
                 additional_style_note=data.get("additional_style_note"),
@@ -86,6 +85,7 @@ class FabricTryOnView(APIView):
             "gender": data.get("gender"),
             "body_type": data.get("body_type") or "default",
             "face_choice": data.get("face_choice"),
+            "face_image_uploaded": bool(data.get("face_image")),
             "images": [{"view": camera_view or pose or "default", **uploaded_image}],
         }
         return Response(response_data, status=status.HTTP_200_OK)
