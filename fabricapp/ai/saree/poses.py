@@ -1,32 +1,8 @@
-"""
-Saree route: POSE and PALLU data (data only, no prompt logic).
+"""Saree-specific body poses and their exact pallu placement instructions.
 
-THIS IS THE ONLY FILE YOU EDIT TO CONTROL A SAREE POSE OR PALLU.
-
-Two separate things:
-    SAREE_POSES   pose name -> body pose text + which pallu style it uses
-    PALLU_STYLES  pallu style name -> the pallu placement text
-
-To change where the pallu goes for ONE pose: change its "pallu" value to
-another style name.
-To change how a pallu style looks for EVERY pose that uses it: edit the
-text in PALLU_STYLES.
-
-Writing rules (FLUX.2 Klein follows these better):
-    1. ONE direction language only: positions IN THE IMAGE
-       ("the arm on the left of the image"), never "model's left".
-    2. Positive wording: say what IS visible on a side, not what must
-       not be there.
-    3. Do NOT write "exactly two arms and two hands" in a pose text:
-       the LIMBS line in the prompt says it once.
-    4. Do not write pleats-to-the-ankle or blouse words here: they belong
-       to the garment text (texts.py).
-    {fall} in a pallu text is filled by Python: " to the knee" on a
-    full-body shot, empty on a close-up (the knee is out of frame).
-
-POSE NAMES must exist in pose_data.POSE_OPTIONS (the serializer uses that
-list). A name that is not in SAREE_POSES falls back to the generic pose
-text and a warning is logged.
+Each pose owns its own pallu geometry. Do not route pose-specific draping
+through a generic style name: that can silently apply the wrong drape.
+Directions below are stated from the VIEWER / IMAGE perspective.
 """
 
 import logging
@@ -38,51 +14,12 @@ logger = logging.getLogger("fabricapp")
 FALL_FULL = " to the knee"
 FALL_CLOSE = ""
 
-# Used when a pose does not name a pallu style.
-DEFAULT_PALLU_STYLE = "nivi_shoulder"
-
-PALLU_STYLES = {
-    # Pallu over the shoulder on the RIGHT of the image (the wearer's left
-    # shoulder when she faces the camera): the normal Nivi drape.
-    "nivi_shoulder": (
-        "the pallu, the loose end of the saree, rests on the shoulder on "
-        "the right of the image and hangs down that side of the body in "
-        "soft, even pleats{fall}. The left of the image shows only the "
-        "blouse sleeve, the arm and the saree wrap."
-    ),
-    # Gujarati seedha pallu: the pallu comes from the back, over the
-    # shoulder on the LEFT of the image, to the front.
-    "seedha_front": (
-        "the saree is draped in the Gujarati seedha pallu style: the "
-        "pallu comes from behind the back over the shoulder on the left "
-        "of the image and falls to the front, hanging down that side of "
-        "the body in soft pleats{fall}. The right of the image shows only "
-        "the blouse sleeve, the arm and the saree wrap."
-    ),
-    # Pallu drawn over the head like a soft veil (tested wording).
-    "veil_head": (
-        "the saree is draped in the Gujarati seedha pallu style: the loose "
-        "end of the saree comes from behind the back, rises over the top "
-        "of the head and hair like a soft hood framing the face, then "
-        "falls over the shoulder on the left of the image and hangs down "
-        "that side of the body over the outside of the bent arm, ending at "
-        "mid-thigh, with the hand of the bent arm gently touching the "
-        "pallu at waist height. The right of the image shows only the "
-        "straight arm, the blouse sleeve and the saree wrap."
-    ),
-    # Seated: the pallu rests across the lap.
-    "lap_drape": (
-        "the pallu rests on the shoulder on the right of the image and its "
-        "soft pleats fall across the lap and over the knees, with the "
-        "saree pleats falling over the crossed legs to the ankles."
-    ),
-    # Seen from behind.
-    "back_fall": (
-        "seen from behind, the pallu falls from the shoulder on the left "
-        "of the image down the back in soft pleats{fall}, and the saree is "
-        "wrapped neatly around the hips and falls to the ankles."
-    ),
-}
+# Only the no-pose/default-camera path uses this generic drape.
+DEFAULT_PALLU_STYLE = (
+    "the loose end of the saree rests over the shoulder on the right of "
+    "the image and hangs down that same side in soft pleats{fall}; the "
+    "left side of the image shows the blouse sleeve, arm and saree wrap"
+)
 
 PROP_CHAIR = (
     "An upholstered armchair is present in the scene and the person is "
@@ -99,32 +36,39 @@ PROP_LEDGE = (
 SAREE_POSES = {
     "back_turn_hair_touch": {
         "pose": (
-            "standing with her back to the camera, the body turned slightly "
-            "toward the right of the image, the head turned over the "
-            "shoulder on the right of the image so that her face is seen in "
-            "a soft three-quarter profile with the eyes looking toward the "
-            "right of the image, the arm on the left of the image raised "
-            "with the elbow bent and the hand gently touching the hair at "
-            "the back of the head, the arm on the right of the image "
-            "hanging down with the hand resting near the hip, one leg "
-            "straight and the other crossed slightly behind it, resting "
-            "lightly on the toe"
+            "standing upright with her back mostly toward the camera and "
+            "the torso turned only slightly toward the right of the image, "
+            "head turned over the right shoulder for a natural three-quarter "
+            "profile, the left arm raised with elbow bent and fingers gently "
+            "touching the hair at the back of the head, the right arm relaxed "
+            "straight beside the hip, legs close together with one foot "
+            "slightly behind the other; shoulders level, hips neutral and "
+            "back not arched"
         ),
-        "pallu": "back_fall",
+        "pallu": (
+            "the pallu starts at the shoulder on the left of the image and "
+            "falls down the back as one continuous panel in soft pleats{fall}; "
+            "the back and waist remain fully covered, with no loose panel "
+            "crossing onto the front of the body"
+        ),
     },
     "cross_leg_chair_recline": {
         "pose": (
-            "seated in one low upholstered armchair in a relaxed, upright "
-            "recline with the back against the chair and the body angled "
-            "slightly toward the left of the image, the head turned "
-            "slightly toward the left of the image with the eyes looking in "
-            "the same direction and a soft smile, both forearms resting "
-            "over the lap with the hands loosely overlapped, the legs "
-            "crossed at the knee with the top foot pointing out toward the "
-            "left of the image, the whole chair and both full legs and feet "
-            "visible"
+            "seated in one upholstered armchair, back supported by the "
+            "backrest and torso upright with a gentle relaxed recline, body "
+            "angled slightly toward the left of the image, head and eyes "
+            "looking toward the left of the image with a soft smile, both "
+            "forearms resting on the lap and both hands relaxed together, "
+            "legs crossed once at the knees with the upper foot pointing "
+            "toward the left of the image, both legs and both feet visible"
         ),
-        "pallu": "lap_drape",
+        "pallu": (
+            "the pallu rests over the shoulder on the right of the image, "
+            "then lies naturally across the lap and over the crossed knees; "
+            "it follows the seated pose without covering the hands or forming "
+            "a separate cloth panel; the saree pleats continue over both legs "
+            "to the ankles"
+        ),
         "prop": PROP_CHAIR,
         "one_person": True,
     },
@@ -136,7 +80,12 @@ SAREE_POSES = {
             "over the saree wrap with the elbows pointing outward, the legs "
             "straight with the feet slightly apart"
         ),
-        "pallu": "nivi_shoulder",
+        "pallu": (
+            "the pallu rests on the shoulder on the right of the image and "
+            "hangs down that same side in soft, continuous pleats{fall}; "
+            "the left side of the image shows only the blouse sleeve, arm "
+            "and saree wrap"
+        ),
     },
     "low_hand_clasp_front": {
         "pose": (
@@ -147,18 +96,31 @@ SAREE_POSES = {
             "cupping the fingers of the other hand, the legs nearly "
             "straight with the feet slightly apart"
         ),
-        "pallu": "nivi_shoulder",
+        "pallu": (
+            "the pallu rests on the shoulder on the right of the image and "
+            "hangs down that same side in soft, continuous pleats{fall}; "
+            "the left side of the image shows only the blouse sleeve, arm "
+            "and saree wrap"
+        ),
     },
     "pallu_on_head": {
         "pose": (
             "standing upright and straight, facing the camera directly, "
             "head upright with the eyes looking forward and a soft smile, "
-            "the arm on the right of the image hanging straight down with "
-            "the elbow straight and the hand relaxed beside the thigh, the "
-            "arm on the left of the image gently bent at the elbow with the "
-            "hand held lightly at waist height"
+            "both elbows gently bent and both hands softly clasped together "
+            "low in front of the waist, the hand on the left of the image "
+            "resting loosely over the fingers of the other hand"
         ),
-        "pallu": "veil_head",
+        "pallu": (
+            "one single continuous pallu rises from behind the shoulder on "
+            "the left of the image, passes over the top of the head and hair, "
+            "frames the face, then descends only over the shoulder on the left "
+            "of the image and hangs beside that arm{fall}; "
+            "the right side of the image shows the blouse sleeve, arm and saree "
+            "wrap only; both hands remain softly clasped low in front of the "
+            "waist and do not hold the pallu; the pallu is opaque and remains "
+            "one continuous piece, not a two-sided veil or a separate dupatta"
+        ),
     },
     "pocket_walk": {
         "pose": (
@@ -168,20 +130,28 @@ SAREE_POSES = {
             "at the sides with the hands slightly open, one foot stepping "
             "forward ahead of the other with the saree hem swaying gently"
         ),
-        "pallu": "nivi_shoulder",
+        "pallu": (
+            "the pallu rests on the shoulder on the right of the image and "
+            "hangs down that same side in soft, continuous pleats{fall}; "
+            "the left side of the image shows only the blouse sleeve, arm "
+            "and saree wrap"
+        ),
     },
     "rail_wide_arm_side_look": {
         "pose": (
-            "standing upright with the body facing the camera at a slight "
-            "angle and the head turned in profile to look toward the left "
-            "of the image, the eyes looking in the same direction, the arm "
-            "on the left of the image extended down and out to the side "
-            "with the palm resting flat on the top edge of a low wall or "
-            "ledge at hip height, the arm on the right of the image hanging "
-            "naturally beside the body with the hand relaxed, one leg "
-            "straight and the other slightly bent"
+            "standing with the torso at a slight three-quarter angle to the "
+            "camera and the head turned toward the left of the image, eyes "
+            "looking left; the left arm extends down and outward, with its "
+            "single palm resting flat on the top of a low ledge at hip height; "
+            "the right arm hangs naturally beside the body with its hand "
+            "visible near the thigh; one leg straight and the other slightly bent"
         ),
-        "pallu": "nivi_shoulder",
+        "pallu": (
+            "the pallu rests on the shoulder on the right of the image and "
+            "hangs down that same side in soft, continuous pleats{fall}; "
+            "the left side of the image shows only the blouse sleeve, arm "
+            "and saree wrap"
+        ),
         "prop": PROP_LEDGE,
     },
     "sleeve_adjust_stand": {
@@ -195,21 +165,29 @@ SAREE_POSES = {
             "image hanging down with the hand relaxed beside the thigh, the "
             "legs nearly straight with the feet slightly apart"
         ),
-        "pallu": "nivi_shoulder",
+        "pallu": (
+            "the pallu rests on the shoulder on the right of the image and "
+            "hangs down that same side in soft, continuous pleats{fall}; "
+            "the left side of the image shows only the blouse sleeve, arm "
+            "and saree wrap"
+        ),
     },
     "three_quarter_hand_adjust": {
         "pose": (
-            "standing nearly front-facing with the torso turned slightly "
-            "toward the left of the image, the head tilted down with the "
-            "eyes looking at the raised hand, the arm on the left of the "
-            "image bent with the forearm raised in front of the chest and "
-            "the fingers loosely curled, the arm on the right of the image "
-            "bent with the forearm crossing the abdomen and its hand gently "
-            "holding the wrist of the raised arm, the legs nearly straight "
-            "with the feet slightly apart and the foot on the left of the "
-            "image slightly forward"
+            "standing in a clear three-quarter front stance, torso turned "
+            "slightly toward the left of the image, head tilted slightly down "
+            "to look at the raised hand; the left arm is bent with its hand "
+            "held in front of the upper chest, fingers relaxed; the right arm "
+            "is bent across the abdomen and the right hand gently holds the "
+            "left wrist; both hands are clearly separate and visible, legs "
+            "straight with feet slightly apart and the left foot slightly forward"
         ),
-        "pallu": "nivi_shoulder",
+        "pallu": (
+            "the pallu rests on the shoulder on the right of the image and "
+            "hangs down that same side in soft, continuous pleats{fall}; "
+            "the left side of the image shows only the blouse sleeve, arm "
+            "and saree wrap"
+        ),
     },
 }
 
@@ -220,56 +198,44 @@ DEFAULT_POSES = {
     None: "standing straight in a natural, relaxed pose facing the camera directly",
     "front": "standing straight in a natural, relaxed pose facing the camera directly",
     "side": (
-        "standing in a natural, relaxed pose with the body turned to a "
-        "clear side or three-quarter side view, both feet visible below "
-        "the saree hem"
+        "standing upright in a clear side profile, torso and hips turned "
+        "approximately 80 to 90 degrees away from the camera, head facing "
+        "the same direction as the body, arms relaxed naturally, both feet "
+        "visible below the saree hem"
     ),
     "close_up": "standing in a natural, relaxed pose facing the camera",
 }
 
-# Catches a typo in a pose or pallu-style name as soon as Django starts.
-for _pose_name, _entry in SAREE_POSES.items():
-    if _entry["pallu"] not in PALLU_STYLES:
-        raise ValueError(
-            f"SAREE_POSES['{_pose_name}'] uses unknown pallu style "
-            f"'{_entry['pallu']}'"
-        )
-
-
 def get_pose_parts(pose, camera_view=None):
-    """
-    Returns a dict with the resolved pose parts:
-        pose_text   -> reads after "the person is ..."
-        pallu_text  -> ALWAYS filled (every pose owns its pallu)
-        prop        -> sentence for the background line, or ""
-        one_person  -> True for seated poses
-    """
+    """Resolve body pose and its pallu text for one request."""
     fall = FALL_CLOSE if camera_view == "close_up" else FALL_FULL
 
     if pose and pose in SAREE_POSES:
         entry = SAREE_POSES[pose]
         pose_text = entry["pose"]
-        style = entry["pallu"]
+        pallu_value = entry["pallu"]
+        # Each known pose owns literal pallu placement text.
+        pallu_text = pallu_value.format(fall=fall)
         prop = entry.get("prop", "")
         one_person = entry.get("one_person", False)
     elif pose:
-        logger.warning(
-            "Saree pose '%s' has no entry in saree/poses.py; generic text used",
-            pose,
+        logger.error(
+            "Unknown saree pose '%s'; using generic pose text. Check POSE_OPTIONS "
+            "and add an explicit SAREE_POSES entry.", pose,
         )
         pose_text = POSE_INSTRUCTIONS.get(pose, DEFAULT_POSES[None])
-        style = DEFAULT_PALLU_STYLE
+        pallu_text = DEFAULT_PALLU_STYLE.format(fall=fall)
         prop = ""
         one_person = False
     else:
         pose_text = DEFAULT_POSES.get(camera_view, DEFAULT_POSES[None])
-        style = DEFAULT_PALLU_STYLE
+        pallu_text = DEFAULT_PALLU_STYLE.format(fall=fall)
         prop = ""
         one_person = False
 
     return {
         "pose_text": pose_text,
-        "pallu_text": PALLU_STYLES[style].format(fall=fall),
+        "pallu_text": pallu_text,
         "prop": prop,
         "one_person": one_person,
     }

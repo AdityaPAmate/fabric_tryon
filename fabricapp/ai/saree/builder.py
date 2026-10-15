@@ -50,8 +50,8 @@ CHILD_AGE = 12
 
 # Fixed order of the final prompt. The final modesty rule is always last.
 OWN_MODEL_ORDER = (
-    "task", "images", "pose", "pallu", "limbs", "subject", "body",
-    "garment", "fabric", "border", "camera", "background", "lighting",
+    "task", "images", "subject", "body", "garment", "pose", "pallu",
+    "limbs", "fabric", "border", "camera", "background", "lighting",
     "realism", "style", "final",
 )
 
