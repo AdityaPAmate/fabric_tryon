@@ -67,7 +67,7 @@ for name, entry in poses.SAREE_POSES.items():
 
 # Reported pose failures: explicit pose geometry and supporting props.
 check("upholstered armchair" in poses.SAREE_POSES["cross_leg_chair_recline"]["pose"], "chair pose explicitly retains armchair")
-check("across the lap" in poses.SAREE_POSES["cross_leg_chair_recline"]["pallu"], "seated pallu is explicitly across lap")
+check("across the front of the lap" in poses.SAREE_POSES["cross_leg_chair_recline"]["pallu"], "seated pallu is explicitly across lap")
 check("back not arched" in poses.SAREE_POSES["back_turn_hair_touch"]["pose"], "back-turn pose remains non-suggestive")
 check("both hands softly clasped together" in poses.SAREE_POSES["pallu_on_head"]["pose"], "head pallu pose keeps hands clasped low")
 check("one single continuous pallu" in poses.SAREE_POSES["pallu_on_head"]["pallu"], "head pallu uses one continuous panel")
@@ -124,3 +124,17 @@ check("unless" not in side["prompt"].lower() and "otherwise" not in side["prompt
 print(f"PASS: {len(checks)} saree prompt regression checks")
 for item in checks:
     print(f"  OK  {item}")
+
+
+def check_chair_pallu_spread():
+    from fabricapp.ai.saree.poses import SAREE_POSES
+    entry = SAREE_POSES["cross_leg_chair_recline"]
+    pose_text = entry["pose"].lower()
+    pallu_text = entry["pallu"].lower()
+    assert "both hands resting together" in pose_text
+    assert "broad" in pallu_text and "floor" in pallu_text
+    assert "lower-right corner" in pallu_text
+    assert "gold" not in pallu_text and "border" not in pallu_text
+
+
+check_chair_pallu_spread()

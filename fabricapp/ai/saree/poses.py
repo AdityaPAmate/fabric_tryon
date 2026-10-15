@@ -52,22 +52,26 @@ SAREE_POSES = {
             "crossing onto the front of the body"
         ),
     },
+    # Display name suggestion: Chair Pallu Spread.
+    # Keep the API key unchanged so non-saree pose selection is unaffected.
     "cross_leg_chair_recline": {
         "pose": (
-            "seated in one upholstered armchair, back supported by the "
-            "backrest and torso upright with a gentle relaxed recline, body "
-            "angled slightly toward the left of the image, head and eyes "
-            "looking toward the left of the image with a soft smile, both "
-            "forearms resting on the lap and both hands relaxed together, "
-            "legs crossed once at the knees with the upper foot pointing "
-            "toward the left of the image, both legs and both feet visible"
+            "seated gracefully in one upholstered armchair with the back "
+            "supported by the backrest, torso upright and facing mostly "
+            "toward the camera, head facing forward with a gentle relaxed "
+            "expression, both forearms resting naturally on the lap and "
+            "both hands resting together near the center of the lap, legs "
+            "positioned neatly together and angled slightly toward the "
+            "left of the image"
         ),
         "pallu": (
-            "the pallu rests over the shoulder on the right of the image, "
-            "then lies naturally across the lap and over the crossed knees; "
-            "it follows the seated pose without covering the hands or forming "
-            "a separate cloth panel; the saree pleats continue over both legs "
-            "to the ankles"
+            "the loose end of the saree drapes naturally from the shoulder "
+            "on the right of the image, passes diagonally across the front "
+            "of the lap, then opens into a broad, continuous fan-shaped "
+            "spread across the floor toward the lower-right corner of the "
+            "image. The full length and outer edge of the spread fabric "
+            "remain visible, with the trailing end lying flat on the floor "
+            "and not disappearing behind the chair"
         ),
         "prop": PROP_CHAIR,
         "one_person": True,
