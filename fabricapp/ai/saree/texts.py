@@ -169,28 +169,44 @@ CHILD_GARMENT_LINE = (
 # stay as instructions for the model)
 # ----------------------------------------------------------------------
 
+
 FABRIC_RULES = (
-    "FABRIC MATCH — image 1 is the colour and pattern source. Reproduce "
-    "its actual hue, saturation, brightness, contrast, motif shapes, motif "
-    "size, spacing and pattern density on the saree. Do not desaturate, "
-    "grey out, darken, brighten, recolour, simplify, enlarge or spread the "
-    "motifs. Keep the source fabric's colours vivid to the same degree as "
-    "image 1. Preserve realistic folds and shadows without changing the "
-    "underlying fabric colour. The fabric must be fully opaque, not sheer "
-    "or transparent, including over the stomach, waist and lap."
+    "IMAGE 1 IS THE ONLY SOURCE OF TRUTH FOR THE SAREE FABRIC. "
+    "Reproduce the original fabric faithfully, including its exact base "
+    "colour, hue, saturation, brightness, contrast, texture, motif shapes, "
+    "motif sizes, spacing, density, orientation and distribution. "
+    "Map each visible fabric region to the corresponding saree region. "
+    "Preserve the original distinction between plain fabric, printed body, "
+    "decorative artwork, pallu design and narrow edge border. "
+    "Do not invent, remove, replace, simplify, enlarge, shrink, rotate, "
+    "recolour or redistribute motifs. Never add circular motifs or any "
+    "other pattern to a plain region if it is absent from IMAGE 1. "
+    "Do not leave unintended blank, white, transparent or untextured patches "
+    "where the saree fabric should be visible. Continue the correct source "
+    "pattern naturally across folds and pleats without inventing new motifs. "
+    "Preserve realistic fabric folds, shadows, opacity and natural draping. "
+    "Lighting may change the appearance of shadows, but must not change "
+    "the fabric's underlying colour or design."
 )
+
 
 # The artwork is tied to the loose end named in the PALLU line, which is
 # now ALWAYS present (every pose in poses.py owns a pallu style).
+
 BORDER_RULES = (
-    "BORDER MATCH: copy the border visible in image 1 exactly, including "
-    "its colour, motif, orientation, relative width and position. If image 1 "
-    "has a distinct border strip, keep that strip on the saree edge and pallu "
-    "edge where the fabric construction naturally places it; do not turn it "
-    "into a large panel, move it onto the blouse, or invent a different hem. "
-    "If no border is visible in image 1, do not add one. Preserve any separate "
-    "main-body pattern and border pattern as distinct source regions."
+    "BORDER AND PALLU ARTWORK MATCH: reproduce every visible design "
+    "region from image 1 faithfully. Preserve the exact border colour, "
+    "motifs, orientation, width, spacing and continuity. Keep the main "
+    "fabric body pattern, any large decorative pallu artwork, and the "
+    "narrow edge border as distinct regions. Map each region to its "
+    "corresponding saree area according to the source design and natural "
+    "garment construction. Do not replace a large pallu design with a "
+    "plain area or a narrow border. Do not turn a narrow border into a "
+    "large panel. Never move border artwork onto the blouse or sleeves. "
+    "Do not invent, omit, duplicate, or redistribute motifs. If image 1 "
+    "has no visible border, do not invent one."
 )
+
 
 # ----------------------------------------------------------------------
 # CAMERA

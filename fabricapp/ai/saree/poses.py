@@ -193,6 +193,46 @@ SAREE_POSES = {
             "and saree wrap"
         ),
     },
+
+    "back_showing_pallu": {
+        "pose": (
+            "Describe the exact back-facing body orientation, "
+            "head direction, arm placement, hand position and stance "
+            "shown in the reference image."
+        ),
+        "pallu": (
+            "Describe the exact pallu starting point, direction, "
+            "back coverage, folds and visible trailing edge shown "
+            "in the reference image."
+        ),
+    },
+
+    "seated_floor_spread": {
+        "pose": (
+            "Describe the exact seated floor pose, torso orientation, "
+            "arm and hand placement, leg position and body posture "
+            "shown in the reference image."
+        ),
+        "pallu": (
+            "Describe how the pallu spreads across the floor, "
+            "its direction, full visible length and outer edge, "
+            "matching the reference image."
+        ),
+        "one_person": True,
+    },
+
+    "royal_standing_front": {
+        "pose": (
+            "Describe the exact front-facing standing posture, "
+            "head direction, arm and hand placement and foot position "
+            "shown in the reference image."
+        ),
+        "pallu": (
+            "Describe the exact shoulder placement, pallu direction, "
+            "folds and hanging length shown in the reference image."
+        ),
+    },
+
 }
 
 # Pose used when no pose is requested, by camera_view (None = not sent).
