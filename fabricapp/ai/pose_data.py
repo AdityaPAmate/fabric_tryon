@@ -114,7 +114,7 @@ POSE_INSTRUCTIONS = {
         " both feet flat on the ground, with the left foot slightly forward"
     ),
 
-    "back_pallu_showing": (
+    "back_showing_pallu": (
         "Follow the supplied pose reference image closely."
         "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette." 
         "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."

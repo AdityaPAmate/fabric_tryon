@@ -25,7 +25,7 @@ POSE_REFERENCE_EXTENSION = ".jpg"
 # (garment_type, pose) pairs that have a reference photo.
 POSE_REFERENCE_KEYS = {
     ("saree", "pallu_on_head"),
-    ("saree", "back_pallu_showing"),
+    ("saree", "back_showing_pallu"),
     ("saree", "seated_floor_spread"),
     ("saree", "royal_standing_front"),
 }
