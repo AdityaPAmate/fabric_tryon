@@ -113,6 +113,22 @@ POSE_INSTRUCTIONS = {
         " legs naturally separated, with the right leg nearly straight and the left leg slightly relaxed,"
         " both feet flat on the ground, with the left foot slightly forward"
     ),
+
+    "back_pallu_showing": (
+        "Follow the supplied pose reference image closely."
+        "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette." 
+        "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
+    ),
+    "seated_floor_spread": (
+        "Follow the supplied pose reference image closely."
+        "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette." 
+        "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
+    ),
+    "royal_stand_front": (
+        "Follow the supplied pose reference image closely."
+        "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette." 
+        "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
+    ),
 }
 
 POSE_OPTIONS = list(POSE_INSTRUCTIONS.keys())
