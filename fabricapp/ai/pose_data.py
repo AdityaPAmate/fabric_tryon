@@ -124,7 +124,7 @@ POSE_INSTRUCTIONS = {
         "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette." 
         "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
     ),
-    "royal_stand_front": (
+    "royal_standing_front": (
         "Follow the supplied pose reference image closely."
         "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette." 
         "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
