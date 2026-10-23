@@ -6,6 +6,7 @@ the existing shared prompt builder until the later migration step.
 """
 
 GARMENT_TYPE = 'blazer'
+POSE_LIMBS_RULE = True
 GARMENT_STYLE_OPTIONS = {'blazer': ['business', 'wedding', 'casual']}
 
 # Exact existing edit-mode prompt(s), including seed and guidance.
@@ -316,3 +317,150 @@ SCENARIO_PROMPTS = {
         "generated_person_body": GENERATED_GARMENT_IMAGE_BODY,
     },
 }
+
+BLAZER_LENGTH_DETAIL = (
+    "ending at the base of the seat, about level with the wrists of the "
+    "hanging arms (a short, fitted jacket length, never reaching the "
+    "mid-thigh), with the trousers clearly visible below the hem"
+)
+
+BLAZER_TROUSER_STYLES = ("business", "wedding")
+
+BLAZER_TROUSER_LINE = (
+    "TROUSERS (replace the trousers of image 0): plain, solid, "
+    "straight-cut, full-length trousers down to the ankles, crisply "
+    "pressed, in exactly the main colour of the blazer fabric from "
+    "image 1, with no pattern, check, stripe or texture. Only the colour "
+    "is taken from image 1, never its pattern. "
+)
+
+_WEDDING_INNER_OLD = (
+    "worn OVER a plain white collared dress shirt, with a plain black bow "
+    "tie visible at the collar, and a plain white pocket square in the "
+    "chest pocket"
+)
+
+_WEDDING_INNER_NEW = (
+    "worn OVER a plain mandarin band-collar shirt (a short stand-up band "
+    "collar closed with a row of small buttons, no necktie and no bow tie) "
+    "in a plain solid light tone, with a plain white pocket square folded "
+    "into a small puff-flower shape clearly visible in the chest pocket"
+)
+
+_WEDDING_NEW_ELEMENTS_OLD = (
+    "The white shirt, black bow tie, and white pocket square are NEW "
+    "elements you are adding — plain white (shirt), plain black (bow tie), "
+    "plain white (pocket square), completely unrelated to image 1's "
+    "fabric; do not put image 1's pattern on the shirt, bow tie, or "
+    "pocket square"
+)
+
+_WEDDING_NEW_ELEMENTS_NEW = (
+    "The band-collar shirt and the pocket square are NEW elements you are "
+    "adding — plain, solid and unpatterned, unrelated to image 1's "
+    "pattern; do not put image 1's pattern on the shirt or the pocket "
+    "square"
+)
+
+_WEDDING_RESULT_OLD = "over a white shirt with a black bow tie and pocket square"
+
+_WEDDING_RESULT_NEW = "over a plain band-collar shirt with a pocket square"
+
+BLAZER_TIE_EDIT_REPLACEMENTS = [
+    (
+        "with a plain dark solid-color necktie visible at the collar",
+        "with a plain solid necktie visible at the collar, in exactly the "
+        "main colour of image 1's fabric",
+    ),
+    (
+        "plain white (shirt) and a plain dark solid color (tie), completely "
+        "unrelated to image 1's fabric; do not put image 1's pattern on the "
+        "shirt or tie",
+        "plain white (shirt) and a plain solid tie in the main colour of "
+        "image 1's fabric; the shirt is unrelated to image 1, and image 1's "
+        "pattern must never appear on the shirt or on the tie",
+    ),
+    (
+        "over a white shirt and dark tie",
+        "over a white shirt and a plain tie in the blazer's main colour",
+    ),
+]
+
+BLAZER_TIE_LINE = (
+    "TIE (replaces any earlier instruction about the tie colour): the "
+    "necktie is plain and solid, in exactly the main colour of the blazer "
+    "fabric from image 1, with no pattern, stripe, check or texture. Only "
+    "the colour is taken from image 1, never its pattern. "
+)
+
+BLAZER_EDIT_REPLACEMENTS = {
+    "business": [
+        ("hitting at roughly hip length",
+         "with the hem " + BLAZER_LENGTH_DETAIL),
+    ] + BLAZER_TIE_EDIT_REPLACEMENTS,
+    "wedding": [
+        ("hitting at roughly hip length",
+         "with the hem " + BLAZER_LENGTH_DETAIL),
+        (_WEDDING_INNER_OLD, _WEDDING_INNER_NEW),
+        (_WEDDING_NEW_ELEMENTS_OLD, _WEDDING_NEW_ELEMENTS_NEW),
+        (_WEDDING_RESULT_OLD, _WEDDING_RESULT_NEW),
+    ],
+    "casual": [
+        ("a hem reaching roughly hip length", "a hem " + BLAZER_LENGTH_DETAIL),
+    ],
+}
+
+
+
+# Garment-specific back-view detail rules migrated from scenario_composer.py.
+BACK_VIEW_POSES = ("back_turn_hair_touch",)
+
+BACK_VIEW_REPLACEMENTS = [
+    ("a full column of small decorative buttons from neck to hem",
+     "a plain, smooth, completely button-free back"),
+    ("a full column of small buttons, one small chest pocket and two flap "
+     "hip pockets",
+     "a smooth plain back"),
+    ("two rectangular chest patch pockets with flaps, and a short button "
+     "placket",
+     "a smooth plain back"),
+    ("a short front placket with two or three buttons near the neck",
+     "a plain smooth back"),
+]
+
+BACK_VIEW_NOTE = (
+    "BACK VIEW: the camera sees only the BACK of the person, so the front of "
+    "the garment is hidden: no buttons, button column, placket, chest "
+    "pocket, hip pocket flaps or lapels are drawn anywhere. The back of the "
+    "garment is one smooth, plain surface of image 1's fabric (a jacket may "
+    "show a single centre vent). "
+)
+
+def garment_text_for_pose(garment_text, pose):
+    if pose not in BACK_VIEW_POSES:
+        return garment_text
+    for old_text, new_text in BACK_VIEW_REPLACEMENTS:
+        garment_text = garment_text.replace(old_text, new_text, 1)
+    return garment_text + BACK_VIEW_NOTE
+
+
+def fabric_forbidden_text(spec):
+    if spec.get("tie_colour_from_fabric"):
+        return (
+            "Do not use image 1's pattern on the shirt, pocket square, "
+            "footwear, accessories, skin or background. The necktie and "
+            "the trousers use only the main colour of image 1 as a plain "
+            "solid, with no pattern. "
+        )
+    if spec.get("trouser_colour_from_fabric"):
+        return (
+            "Do not use image 1's pattern on the shirt, tie, pocket "
+            "square, footwear, accessories, skin or background. The "
+            "trousers use only the main colour of image 1 as a plain "
+            "solid, with no pattern. "
+        )
+    return (
+        "Do not use image 1's fabric, pattern or colour on the trousers "
+        "or pajama, any shirt or tie, footwear, accessories, skin or "
+        "background. "
+    )

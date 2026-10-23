@@ -194,9 +194,26 @@ def get_pose_prompt(pose, garment_style=None, detail_keys=None):
     for variant in variants:
         override = POSE_OVERRIDES.get((GARMENT_TYPE, variant, pose))
         if override is not None:
-            return override
+            sentence = override
+            break
+    else:
+        sentence = POSE_PROMPTS.get(pose)
+    return sentence
 
-    return POSE_PROMPTS.get(pose)
+
+def get_spec_pose_prompt(pose, garment_style=None, detail_keys=None):
+    """Adjust only the shared short spec route's pose/detail conflicts."""
+    if pose == "pallu_on_head":
+        return (
+            "standing upright facing the camera with the head upright and "
+            "looking forward, both hands softly clasped together in front of "
+            "the lower waist, with exactly two arms and two hands in total, "
+            "and no head covering"
+        )
+    sentence = get_pose_prompt(pose, garment_style, detail_keys)
+    if pose == "sleeve_adjust_stand" and "folded_sleeves" in (detail_keys or []):
+        sentence = sentence.replace(", the sleeve staying fully down", "")
+    return sentence
 
 
 def get_pose_metadata(pose):

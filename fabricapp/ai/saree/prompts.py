@@ -20,6 +20,17 @@ Placeholders ({person}, {shot}, ...) are filled by builder.py.
 PROMPT_VERSION = "saree-v3"
 REFERENCE_PROMPT_VERSION = "saree-ref-v4"
 
+# Used by the common legacy person-photo assembly path; owned here because
+# saree modesty wording must not imply trousers, churidar, or pajama.
+MODESTY_RULE = (
+    "The person is fully and modestly dressed in the saree and blouse: the "
+    "saree covers the body from the shoulder to the ankles and the drape "
+    "covers the waist, so nothing is bare except the face, neck, hands, "
+    "forearms and feet. "
+    "The expression and posture are calm, natural and dignified, like a "
+    "respectable catalog photograph. "
+)
+
 # ----------------------------------------------------------------------
 # TASK + IMAGE roles
 # ----------------------------------------------------------------------
@@ -447,3 +458,23 @@ GARMENT_PROMPTS = {'saree': {'default': {'prompt': 'Edit image 0. Keep the same 
                                  "draped new saree made exactly from image 1's fabric.",
                        'guidance': 7.0,
                        'seed': 42}}}
+
+
+# Saree-only closing and artwork rules migrated from shared composition.
+SAREE_BORDER_RULES = (
+    "First examine image 1: if it has one uniform pattern, apply it evenly "
+    "over the whole saree, pallu included. If it has two distinct zones — "
+    "a main body pattern plus a special decorative artwork or denser strip "
+    "— put the main pattern on the body of the saree and put that artwork "
+    "ONLY on the pallu, with its own colors and motifs exactly as in "
+    "image 1; along the bottom hem use only a plain, narrow border that "
+    "follows the border shown in image 1 (a plain hem if image 1 has no "
+    "border), and do not repeat the large artwork there. "
+)
+
+CLOSING_SAREE = (
+    "Generate realistic shading, folds, and shadows. The result must look "
+    "like one real, unedited photograph. "
+)
+
+CLOSING = CLOSING_SAREE

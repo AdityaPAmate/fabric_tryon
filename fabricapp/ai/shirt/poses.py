@@ -181,6 +181,16 @@ POSES_HIDING_FACE = {"back_turn_hair_touch"}
 
 POSE_OPTIONS = tuple(POSE_PROMPTS)
 
+POSE_SUFFIXES = {
+    "three_quarter_hand_adjust": (
+        " POSE HAND LOCK: The right elbow is bent and the right hand is "
+        "held at upper-chest height. The left elbow is bent across the "
+        "abdomen, and the left hand visibly holds the right wrist. Both "
+        "hands must meet at the right wrist; do not leave the right hand "
+        "raised alone or replace this with clasped hands."
+    ),
+}
+
 
 def get_pose_prompt(pose, garment_style=None, detail_keys=None):
     """Return this garment's current pose wording, including its overrides."""
@@ -194,9 +204,17 @@ def get_pose_prompt(pose, garment_style=None, detail_keys=None):
     for variant in variants:
         override = POSE_OVERRIDES.get((GARMENT_TYPE, variant, pose))
         if override is not None:
-            return override
+            sentence = override
+            break
+    else:
+        sentence = POSE_PROMPTS.get(pose)
 
-    return POSE_PROMPTS.get(pose)
+    if not sentence:
+        return None
+    if pose == "sleeve_adjust_stand" and "folded_sleeves" in (detail_keys or []):
+        sentence = sentence.replace(", the sleeve staying fully down", "")
+    suffix = POSE_SUFFIXES.get(pose)
+    return f"{sentence}{suffix}" if suffix else sentence
 
 
 def get_pose_metadata(pose):

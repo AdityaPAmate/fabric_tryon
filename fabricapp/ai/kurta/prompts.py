@@ -6,6 +6,7 @@ the existing shared prompt builder until the later migration step.
 """
 
 GARMENT_TYPE = 'kurta'
+POSE_LIMBS_RULE = True
 GARMENT_STYLE_OPTIONS = {'kurta': ['plain', 'sherwani', 'pathani', 'jodhpuri']}
 
 # Exact existing edit-mode prompt(s), including seed and guidance.
@@ -483,3 +484,121 @@ SCENARIO_PROMPTS = {
         "generated_person_body": GENERATED_GARMENT_IMAGE_BODY,
     },
 }
+
+KURTA_WHITE_PANT_STYLES = ("plain",)
+
+KURTA_PANT_OLD_PHRASE = (
+    "white, off-white, or a solid shade picked from the kurta's own "
+    "color palette"
+)
+
+KURTA_PANT_NEW_PHRASE = "plain solid WHITE"
+
+KURTA_PLAIN_LENGTH_OLD = (
+    "extending down to just above the knee (NOT mid-thigh, NOT below the "
+    "knee — the hem must end a few inches above the kneecap)"
+)
+
+KURTA_PLAIN_LENGTH_NEW = (
+    "extending down to the knee (the hem ends level with the middle of the "
+    "kneecaps, clearly below mid-thigh)"
+)
+
+KURTA_PLAIN_LENGTH_LINE = (
+    "KURTA LENGTH (replaces any earlier length instruction): the plain kurta "
+    "is long, its hem ending level with the knees and fully covering both "
+    "thighs, never short or mid-thigh. "
+)
+
+KURTA_EDIT_LIMBS_LINE = (
+    "ARMS AND HANDS: the person has exactly two arms and two hands in total — "
+    "never a third hand or a leftover arm at the lower side of the frame. "
+    "Hands, fingers and wrists keep their bare skin exactly as in image 0: "
+    "image 1's fabric, its border or any patch of it appears only on the "
+    "kurta body, collar and sleeves (a cuff band stops at the sleeve edge), "
+    "never on the hands, skin or background. "
+)
+
+KURTA_COLOURED_PANT_STYLES = ("sherwani", "pathani")
+
+KURTA_PANT_COLOUR_EDIT = {
+    "sherwani": [(
+        "(white, off-white, or a solid shade picked from the sherwani's own "
+        "color palette), never patterned or bright",
+        "(exactly the main colour of the sherwani fabric from image 1, as a "
+        "plain solid), never patterned",
+    )],
+    "pathani": [(
+        "(commonly the same tone as the kurta itself, or a solid shade "
+        "picked from the kurta's own color palette), never patterned or "
+        "bright",
+        "(exactly the main colour of the kurta fabric from image 1, as a "
+        "plain solid), never patterned",
+    )],
+}
+
+KURTA_PANT_COLOUR_LINE = (
+    "TROUSER COLOUR (replaces any earlier instruction about the trouser "
+    "colour): the churidar / salwar below is a plain solid in exactly the "
+    "main colour of image 1's fabric, with no pattern, print, check or "
+    "border. It is never black, grey or any dark colour unless that is the "
+    "main colour of image 1, and it does not keep the trouser colour of "
+    "image 0. "
+)
+
+KURTA_PANT_WHITE_LINE = (
+    "TROUSER COLOUR (replaces any earlier instruction about the trouser or "
+    "pajama): the pajama below the kurta is plain, solid WHITE, "
+    "straight-cut and full-length down to the ankles, with no pattern, and "
+    "it is not made from image 1's fabric; the person's legs must be fully "
+    "covered down to the ankles, never bare legs or shorts. "
+)
+
+
+
+# Garment-specific back-view detail rules migrated from scenario_composer.py.
+BACK_VIEW_POSES = ("back_turn_hair_touch",)
+
+BACK_VIEW_REPLACEMENTS = [
+    ("a full column of small decorative buttons from neck to hem",
+     "a plain, smooth, completely button-free back"),
+    ("a full column of small buttons, one small chest pocket and two flap "
+     "hip pockets",
+     "a smooth plain back"),
+    ("two rectangular chest patch pockets with flaps, and a short button "
+     "placket",
+     "a smooth plain back"),
+    ("a short front placket with two or three buttons near the neck",
+     "a plain smooth back"),
+]
+
+BACK_VIEW_NOTE = (
+    "BACK VIEW: the camera sees only the BACK of the person, so the front of "
+    "the garment is hidden: no buttons, button column, placket, chest "
+    "pocket, hip pocket flaps or lapels are drawn anywhere. The back of the "
+    "garment is one smooth, plain surface of image 1's fabric (a jacket may "
+    "show a single centre vent). "
+)
+
+def garment_text_for_pose(garment_text, pose):
+    if pose not in BACK_VIEW_POSES:
+        return garment_text
+    for old_text, new_text in BACK_VIEW_REPLACEMENTS:
+        garment_text = garment_text.replace(old_text, new_text, 1)
+    return garment_text + BACK_VIEW_NOTE
+
+
+def fabric_forbidden_text(spec):
+    if spec.get("pant_colour_from_fabric"):
+        return (
+            "Do not use image 1's pattern, motifs or print on the churidar, "
+            "salwar or trousers, footwear, accessories, skin or background. The "
+            "lower garment (churidar, salwar or trousers) must be 100% PLAIN and "
+            "SOLID with ZERO pattern, ZERO motifs, and ZERO print — taking ONLY "
+            "the single plain matching solid colour from image 1, completely unpatterned. "
+        )
+    return (
+        "Do not use image 1's fabric, pattern or colour on the trousers "
+        "or pajama, any shirt or tie, footwear, accessories, skin or "
+        "background. "
+    )

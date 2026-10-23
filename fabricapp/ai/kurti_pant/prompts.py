@@ -6,6 +6,10 @@ the existing shared prompt builder until the later migration step.
 """
 
 GARMENT_TYPE = 'kurti_pant'
+POSE_LIMBS_RULE = True
+TASK_PHRASE = (
+    "a kurti made from the fabric in image 1, paired with plain white pants"
+)
 GARMENT_STYLE_OPTIONS = {}
 
 # Exact existing edit-mode prompt(s), including seed and guidance.

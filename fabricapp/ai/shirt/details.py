@@ -10,6 +10,11 @@ SLEEVES_FOLDED = (
     "visible on each arm, both sleeves folded identically, and the "
     "forearms below the fold bare and natural. "
 )
+SLEEVES_FULL = (
+    "The new shirt's sleeves must be full-length and fully extended down "
+    "to the wrist in a natural, straight, unrolled state — never folded, "
+    "cuffed, or rolled up at the forearm or elbow. "
+)
 SHIRT_UNTUCKED = (
     "The new shirt must be worn untucked, with its straight hem hanging "
     "naturally outside the trousers over the hips, not tucked into the "
@@ -34,13 +39,9 @@ DETAIL_RULES = [
         "slot": "sleeves",
         "garment": GARMENT_TYPE,
         "mode": MODE_EDIT,
-        "anchor": (
-            "The new shirt's sleeves must be full-length and fully extended "
-            "down to the wrist in a natural, straight, unrolled state — never "
-            "folded, cuffed, or rolled up at the forearm or elbow. "
-        ),
+        "anchor": SLEEVES_FULL,
         "options": {"folded_sleeves": SLEEVES_FOLDED},
-        "default": None,
+        "default": SLEEVES_FULL,
         "styles": None,
         "noun": "shirt",
     },
@@ -50,7 +51,7 @@ DETAIL_RULES = [
         "mode": MODE_OWN,
         "anchor": SLEEVES_OWN_ANCHOR,
         "options": {"folded_sleeves": SLEEVES_FOLDED},
-        "default": None,
+        "default": SLEEVES_FULL,
         "styles": None,
         "noun": "shirt",
     },

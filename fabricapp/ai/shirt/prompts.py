@@ -8,6 +8,39 @@ the existing shared prompt builder until the later migration step.
 GARMENT_TYPE = 'shirt'
 GARMENT_STYLE_OPTIONS = {}
 
+# Shirt-only final constraint, applied by shirt/builder.py after the shared
+# scenario composition so later style/background notes cannot override it.
+SHIRT_FABRIC_FINAL_RULE = (
+    "FINAL FABRIC CHECK: image 1's colors and pattern must cover the new "
+    "shirt clearly and accurately, with the same hue, brightness, saturation, "
+    "motif scale and density. The fabric from image 1 must appear nowhere "
+    "else. The background is a separate scene, never a fabric surface: do "
+    "not copy, repeat, blend, or transfer any part of image 1 onto the wall, "
+    "floor, water, plants, flowers, objects, or any other background area. "
+    "Keep the background free of image 1's colors and motifs. Never put the "
+    "fabric on trousers, footwear, skin or accessories. If image 1 has a main repeating pattern plus a large "
+    "decorative picture, artwork or border, preserve every part: use the main "
+    "pattern across the shirt, place the complete artwork once as a scaled "
+    "print centered on the shirt front, and use the border only as narrow hem "
+    "or sleeve-cuff trim. Do not omit the artwork. "
+)
+
+SHIRT_FACE_BODY_LINES = {
+    "plus": (
+        "BODY BUILD (image 2 gives only the face and hair, never the body): "
+        "the body is clearly PLUS-SIZE — a heavy, broad build with a full "
+        "rounded belly, wide chest and shoulders, thick arms and thick "
+        "thighs. The face keeps image 2's features and may look "
+        "proportionally fuller. The garment is cut larger to fit this body. "
+    ),
+    "trim": (
+        "BODY BUILD (image 2 gives only the face and hair, never the body): "
+        "the body is clearly ATHLETIC and toned — broad shoulders, a "
+        "V-shaped torso, defined arms and a flat stomach. The garment fits "
+        "this body. "
+    ),
+}
+
 # Exact existing edit-mode prompt(s), including seed and guidance.
 GARMENT_PROMPTS = {
     GARMENT_TYPE: {

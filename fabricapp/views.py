@@ -64,10 +64,27 @@ class FabricTryOnView(APIView):
             )
         except CloudflareGenerationError as exc:
             logger.error("Generation failed: %s", exc)
+            if exc.provider_code == 3030:
+                return Response(
+                    {
+                        "success": False,
+                        "error": (
+                            "The image provider rejected this prompt and image "
+                            "combination (Cloudflare error 3030). Try a different "
+                            "source image or adjust the generation instructions."
+                        ),
+                        "provider": "cloudflare",
+                        "provider_code": exc.provider_code,
+                        "failure_type": "input_combination_rejected",
+                    },
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
             return Response(
                 {
                     "success": False,
                     "error": "Image generation failed. Please try again.",
+                    "provider": "cloudflare",
+                    "provider_code": exc.provider_code,
                 },
                 status=status.HTTP_502_BAD_GATEWAY,
             )

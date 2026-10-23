@@ -63,7 +63,11 @@ FINAL_OUTPUT_SIDE = 1536  # draft_mode=false साठी output ची मो�
 
 class CloudflareGenerationError(Exception):
     """Raised when Cloudflare fails to generate an image after retries."""
-    pass
+
+    def __init__(self, message, *, status_code=None, provider_code=None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.provider_code = provider_code
 
 
 def _load_face_buffer(face_choice):
@@ -299,7 +303,11 @@ def generate_tryon_image(
             "Cloudflare request failed. status=%s code=%s body=%s",
             response.status_code, internal_code, response.text[:500],
         )
-        raise CloudflareGenerationError(f"Cloudflare request failed with status {response.status_code}")
+        raise CloudflareGenerationError(
+            f"Cloudflare request failed with status {response.status_code}",
+            status_code=response.status_code,
+            provider_code=internal_code,
+        )
 
     logger.info("Stage 4: parsing Cloudflare response")
     content_type = response.headers.get("Content-Type", "")
