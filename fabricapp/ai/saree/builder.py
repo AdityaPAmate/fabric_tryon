@@ -1,31 +1,15 @@
-"""
-Saree route: prompt builder (logic only; wording is in texts.py, pose and
-pallu data are in poses.py).
+"""Prompt entry point for saree requests.
 
-Two steps, always:
-    1. RESOLVE: Python decides every known condition (pose, pallu,
-       camera, background, lighting, face, body build, style note) and
-       produces ONE final text per requirement.
-    2. COMPOSE: the resolved texts are joined in a fixed order.
-
-Scenarios handled here (names are the same strings prompt_builder.py uses;
-they are repeated here so this package never imports prompt_builder.py):
-    generated_person  no person photo, no face
-    face_photo        no person photo, a predefined face (image 2)
-    person_pose       person photo (image 2) + a pose and/or a camera_view
-    pose_reference    a reference PHOTO of the pose is edited (image 0)
-
-Not handled here (returns None, prompt_builder.py keeps its old path):
-    person_photo      plain edit of the uploaded photo, no pose/camera_view
-
-Public entry point: build_saree_prompt().
+This package owns its prompt data, pose definitions, detail rules, and
+generation settings. The shared scenario composer handles common assembly.
 """
 
 import logging
 
 from ..camera_data import get_framing
-from ..prompts import BACKGROUND_DESCRIPTIONS, get_camera_view_instruction
-from . import texts as T
+from ..backgrounds import BACKGROUND_DESCRIPTIONS
+from ..camera_data import get_camera_view_instruction
+from . import prompts as T
 from .poses import get_pose_parts
 
 logger = logging.getLogger("fabricapp")
@@ -334,3 +318,46 @@ def build_saree_prompt(
             additional_style_note,
         )
     return None
+
+
+def build_prompt(
+    *, scenario, garment_type=None, garment_style=None,
+    use_garment_image=False, context=None, seed=None, guidance=None,
+):
+    """Expose the common garment-builder interface to the prompt router."""
+    from .settings import get_generation_settings
+
+    context = context or {}
+    config = build_saree_prompt(
+        scenario,
+        gender=context.get("gender"),
+        body_type=context.get("body_type"),
+        pose=context.get("pose"),
+        camera_view=context.get("camera_view"),
+        background=context.get("background"),
+        additional_style_note=context.get("additional_style_note"),
+        use_face_reference=context.get("use_face_reference", False),
+    )
+    if config is None:
+        # The existing person-photo route remains the source of truth until
+        # its prompt data is migrated without changing the wording.
+        from ..scenario_composer import build_prompt as build_composed_prompt
+        config = build_composed_prompt(
+            scenario=scenario,
+            garment_type="saree",
+            garment_style=garment_style,
+            use_garment_image=use_garment_image,
+            gender=context.get("gender"),
+            body_type=context.get("body_type"),
+            camera_view=context.get("camera_view"),
+            background=context.get("background"),
+            additional_style_note=context.get("additional_style_note"),
+            pose=context.get("pose"),
+            garment_details=context.get("garment_details") or [],
+            use_face_reference=context.get("use_face_reference", False),
+        )
+    if config is None:
+        return None
+    result = dict(config)
+    result.update(get_generation_settings(seed=seed, guidance=guidance))
+    return result

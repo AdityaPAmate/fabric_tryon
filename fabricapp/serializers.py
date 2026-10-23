@@ -1,19 +1,19 @@
 """
-Stage: Request validation.
-Defines what a valid API request looks like — which fields are
-required, and which garment_type values are currently supported.
+Request validation for the fabric try-on API.
 """
 
 from rest_framework import serializers
 
-from .ai.prompts import (
+from .ai.backgrounds import BACKGROUND_OPTIONS
+from .ai.camera_data import CAMERA_VIEW_OPTIONS
+from .ai.detail_engine import validate_detail_keys
+from .ai.faces import FACE_OPTIONS
+from .ai.pose_registry import get_pose_metadata, get_pose_options
+from .ai.router import (
     GARMENT_STYLE_OPTIONS,
-    CAMERA_VIEW_OPTIONS,
-    BACKGROUND_OPTIONS,
-    FACE_OPTIONS,
+    IMPLEMENTED_GARMENT_TYPES,
 )
-from .ai.pose_data import POSE_OPTIONS, POSES_HIDING_FACE
-from .ai.garment_details import validate_detail_keys
+
 
 GARMENT_TYPE_CHOICES = [
     ("kurta", "Kurta"),
@@ -21,14 +21,9 @@ GARMENT_TYPE_CHOICES = [
     ("pant", "Pant only"),
     ("saree", "Saree"),
     ("shirt", "Shirt"),
-    ("frock", "Frock"),
     ("blazer", "Blazer"),
 ]
 
-# Only these have a working pipeline right now.
-IMPLEMENTED_GARMENT_TYPES = {"kurta", "kurti_pant", "saree", "shirt", "pant", "blazer"}
-
-# Used only when no person_image is given (the model generates the person).
 GENDER_CHOICES = [
     ("men", "Men"),
     ("women", "Women"),
@@ -42,75 +37,78 @@ BODY_TYPE_CHOICES = [
     ("plus", "Plus"),
 ]
 
-# Flat list of every predefined face name (both genders). Which face
-# is allowed with which gender is checked in validate() below.
 FACE_CHOICES = [
     (name, name.capitalize())
     for names in FACE_OPTIONS.values()
     for name in names
 ]
 
-# Built from pose_data.py — adding a new pose there automatically makes
-# it a valid choice here, no other change needed.
-POSE_CHOICES = [(p, p) for p in POSE_OPTIONS]
-
-# Optional keys that Postman/forms sometimes send with an empty value.
-# An empty value is treated exactly like "not sent".
 BLANK_TOLERANT_KEYS = ("face_choice", "body_type", "pose")
 
 
 class FabricTryOnRequestSerializer(serializers.Serializer):
-    # Optional: if not given, the model generates its own person.
     person_image = serializers.ImageField(required=False)
 
-    # Exactly one of fabric_image / garment_image is required
-    # (checked in validate()).
+    # Exactly one of fabric_image or garment_image is required.
     fabric_image = serializers.ImageField(required=False)
     garment_image = serializers.ImageField(required=False)
 
-    # Only used with fabric_image (checked in validate()).
     garment_type = serializers.ChoiceField(
-        choices=GARMENT_TYPE_CHOICES, required=False
+        choices=GARMENT_TYPE_CHOICES,
+        required=False,
     )
-    garment_style = serializers.CharField(required=False, allow_blank=False)
+    garment_style = serializers.CharField(
+        required=False,
+        allow_blank=False,
+    )
 
-    # Movable parts (sleeves, tuck, dupatta). Send the key repeatedly
-    # (garment_details=folded_sleeves & garment_details=tucked) or comma-separated.
     garment_details = serializers.ListField(
-        child=serializers.CharField(allow_blank=True), required=False
+        child=serializers.CharField(allow_blank=True),
+        required=False,
     )
 
-    # Prompt-text overrides. Not sent => original photo's pose /
-    # background is kept.
-    camera_view = serializers.CharField(required=False, allow_blank=False)
-    background = serializers.CharField(required=False, allow_blank=False)
-
-    # NEW — this field was missing entirely, which was the root cause
-    # of "pose is ignored, original pose stays": DRF silently drops any
-    # field that is not declared here, so pose never reached the engine.
-    # Not sent => original pose (person_photo) / default own-model pose
-    # is kept, exactly like before this feature existed.
-    pose = serializers.ChoiceField(
-        choices=POSE_CHOICES, required=False, allow_blank=True
+    camera_view = serializers.CharField(
+        required=False,
+        allow_blank=False,
+    )
+    background = serializers.CharField(
+        required=False,
+        allow_blank=False,
     )
 
-    # Used only when no person_image is given.
-    gender = serializers.ChoiceField(choices=GENDER_CHOICES, required=False)
+    # Pose validity depends on garment_type, so validate it in validate().
+    pose = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+
+    gender = serializers.ChoiceField(
+        choices=GENDER_CHOICES,
+        required=False,
+    )
     body_type = serializers.ChoiceField(
-        choices=BODY_TYPE_CHOICES, required=False, allow_blank=True
+        choices=BODY_TYPE_CHOICES,
+        required=False,
+        allow_blank=True,
     )
 
-    # OPTIONAL. Not sent => the model generates its own face.
     face_choice = serializers.ChoiceField(
-        choices=FACE_CHOICES, required=False, allow_blank=True
+        choices=FACE_CHOICES,
+        required=False,
+        allow_blank=True,
     )
-
-    # Optional user-uploaded face reference image.
     face_image = serializers.ImageField(required=False)
 
     additional_style_note = serializers.CharField(
-        required=False, allow_blank=False, max_length=300
+        required=False,
+        allow_blank=False,
+        max_length=300,
     )
+
+    # Optional testing overrides. If omitted, the garment builder uses
+    # that garment's defaults.
+    seed = serializers.IntegerField(required=False)
+    guidance = serializers.FloatField(required=False)
 
     options = serializers.JSONField(required=False, default=dict)
 
@@ -122,7 +120,7 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         return value
 
     def validate_garment_details(self, value):
-        """Flattens comma-separated values, drops blanks and duplicates."""
+        """Flatten comma-separated values, remove blanks and duplicates."""
         keys = []
         for item in value:
             for part in str(item).split(","):
@@ -131,68 +129,160 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
                     keys.append(part)
         return keys
 
+    def validate_options(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("options must be a JSON object.")
+
+        supported = {"draft_mode", "fabric_crop_box"}
+        unknown = sorted(set(value) - supported)
+        if unknown:
+            raise serializers.ValidationError(
+                f"Unsupported option(s): {unknown}. Supported options: "
+                f"{sorted(supported)}."
+            )
+
+        if "draft_mode" in value and not isinstance(value["draft_mode"], bool):
+            raise serializers.ValidationError(
+                "options.draft_mode must be true or false."
+            )
+
+        if "fabric_crop_box" in value:
+            crop_box = value["fabric_crop_box"]
+            if (
+                not isinstance(crop_box, list)
+                or len(crop_box) != 4
+                or any(type(coordinate) is not int for coordinate in crop_box)
+            ):
+                raise serializers.ValidationError(
+                    "options.fabric_crop_box must be a list of four integers: "
+                    "[left, upper, right, lower]."
+                )
+            left, upper, right, lower = crop_box
+            if left < 0 or upper < 0 or right <= left or lower <= upper:
+                raise serializers.ValidationError(
+                    "options.fabric_crop_box must have non-negative left/upper "
+                    "coordinates and right/lower greater than left/upper."
+                )
+        return value
 
     def validate_camera_view(self, value):
         if value not in CAMERA_VIEW_OPTIONS:
             raise serializers.ValidationError(
-                f"'{value}' is not a valid camera_view. Valid values: {CAMERA_VIEW_OPTIONS}."
+                f"'{value}' is not a valid camera_view. "
+                f"Valid values: {CAMERA_VIEW_OPTIONS}."
             )
         return value
 
     def validate_background(self, value):
         if value not in BACKGROUND_OPTIONS:
             raise serializers.ValidationError(
-                f"'{value}' is not a valid background. Valid values: {BACKGROUND_OPTIONS}."
+                f"'{value}' is not a valid background. "
+                f"Valid values: {BACKGROUND_OPTIONS}."
             )
         return value
 
     def _drop_blank_optional_keys(self, data):
-        """Treat an empty face_choice / body_type / pose as 'not sent'."""
         for key in BLANK_TOLERANT_KEYS:
             if data.get(key) == "":
                 data.pop(key)
 
     def _check_garment_source(self, data):
-        """Rules for fabric_image / garment_image / garment_type / garment_style."""
         fabric_image = data.get("fabric_image")
         garment_image = data.get("garment_image")
         garment_type = data.get("garment_type")
         garment_style = data.get("garment_style")
 
         if bool(fabric_image) == bool(garment_image):
-            raise serializers.ValidationError(
-                {"fabric_image": "Provide exactly one of fabric_image or garment_image — not both, and not neither."}
-            )
+            raise serializers.ValidationError({
+                "fabric_image": (
+                    "Provide exactly one of fabric_image or garment_image."
+                )
+            })
 
         if garment_image:
             if garment_type or garment_style:
-                raise serializers.ValidationError(
-                    {"garment_type": "garment_type/garment_style are not used when garment_image is provided."}
-                )
+                raise serializers.ValidationError({
+                    "garment_type": (
+                        "garment_type and garment_style are not used "
+                        "when garment_image is provided."
+                    )
+                })
+            if "fabric_crop_box" in data.get("options", {}):
+                raise serializers.ValidationError({
+                    "options": (
+                        "fabric_crop_box can only be used with fabric_image."
+                    )
+                })
             return
 
-        # fabric_image path
         if not garment_type:
-            raise serializers.ValidationError(
-                {"garment_type": "garment_type is required when fabric_image is used."}
-            )
+            raise serializers.ValidationError({
+                "garment_type": "garment_type is required with fabric_image."
+            })
+
         valid_styles = GARMENT_STYLE_OPTIONS.get(garment_type)
         if valid_styles is not None:
             if not garment_style:
-                raise serializers.ValidationError(
-                    {"garment_style": f"garment_style is required for garment_type '{garment_type}'. Valid values: {valid_styles}."}
-                )
+                raise serializers.ValidationError({
+                    "garment_style": (
+                        f"garment_style is required for '{garment_type}'. "
+                        f"Valid values: {valid_styles}."
+                    )
+                })
             if garment_style not in valid_styles:
-                raise serializers.ValidationError(
-                    {"garment_style": f"'{garment_style}' is not valid for garment_type '{garment_type}'. Valid values: {valid_styles}."}
-                )
+                raise serializers.ValidationError({
+                    "garment_style": (
+                        f"'{garment_style}' is not valid for '{garment_type}'. "
+                        f"Valid values: {valid_styles}."
+                    )
+                })
         elif garment_style:
-            raise serializers.ValidationError(
-                {"garment_style": f"garment_type '{garment_type}' does not accept a garment_style value."}
-            )
+            raise serializers.ValidationError({
+                "garment_style": (
+                    f"'{garment_type}' does not accept garment_style."
+                )
+            })
+
+    def _check_pose(self, data):
+        pose = data.get("pose")
+        if not pose:
+            return
+
+        garment_type = data.get("garment_type")
+        valid_poses = get_pose_options(garment_type)
+
+        if pose not in valid_poses:
+            raise serializers.ValidationError({
+                "pose": (
+                    f"'{pose}' is not a valid pose for "
+                    f"'{garment_type or 'this request'}'."
+                )
+            })
+
+        metadata = get_pose_metadata(garment_type, pose) or {}
+
+        if metadata.get("hides_face") and (
+            data.get("face_choice") or data.get("face_image")
+        ):
+            raise serializers.ValidationError({
+                "pose": (
+                    f"Pose '{pose}' hides the face and cannot be combined "
+                    "with face_choice or face_image."
+                )
+            })
+
+        if (
+            data.get("camera_view") == "close_up"
+            and metadata.get("requires_full_body")
+        ):
+            raise serializers.ValidationError({
+                "pose": (
+                    f"Pose '{pose}' requires a full-body view and cannot "
+                    "be used with camera_view 'close_up'."
+                )
+            })
 
     def _check_person_source(self, data):
-        """Rules for person_image / gender / body_type / face_choice."""
         person_image = data.get("person_image")
         gender = data.get("gender")
         body_type = data.get("body_type")
@@ -200,73 +290,56 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         face_image = data.get("face_image")
 
         if face_choice and face_image:
-            raise serializers.ValidationError(
-                {"face_image": "Send either face_choice or face_image, not both."}
-            )
+            raise serializers.ValidationError({
+                "face_image": "Send either face_choice or face_image, not both."
+            })
 
         if person_image:
-            # A real person photo already contains the face and body to preserve.
             if gender or body_type or face_choice or face_image:
-                raise serializers.ValidationError(
-                    {"person_image": "gender/body_type/face_choice/face_image are not applicable when person_image is uploaded."}
-                )
+                raise serializers.ValidationError({
+                    "person_image": (
+                        "gender, body_type, face_choice, and face_image "
+                        "cannot be used with person_image."
+                    )
+                })
             return
 
-        # No person photo: the model generates the person.
         if not gender:
-            raise serializers.ValidationError(
-                {"gender": "gender is required when no person_image is uploaded, so a model can be AI-generated."}
-            )
+            raise serializers.ValidationError({
+                "gender": (
+                    "gender is required when person_image is not provided."
+                )
+            })
 
-        # face_choice is OPTIONAL. Only if it IS sent, it must match the gender.
         if face_choice:
-            valid_faces = FACE_OPTIONS.get(gender)
-            if valid_faces is None:
-                raise serializers.ValidationError(
-                    {"face_choice": f"No predefined faces exist for gender '{gender}'. Do not send face_choice — the model will generate its own face."}
-                )
+            valid_faces = FACE_OPTIONS.get(gender, [])
             if face_choice not in valid_faces:
-                raise serializers.ValidationError(
-                    {"face_choice": f"'{face_choice}' is not a valid face for gender '{gender}'. Valid faces for '{gender}': {valid_faces}."}
-                )
-
-    def _check_pose(self, data):
-        """
-        A pose that hides the face (see pose_data.POSES_HIDING_FACE)
-        cannot be combined with face_choice — the generated face would
-        never be visible, so there would be nothing to verify it against.
-        """
-        pose = data.get("pose")
-        face_choice = data.get("face_choice")
-        face_image = data.get("face_image")
-        if pose in POSES_HIDING_FACE and (face_choice or face_image):
-            raise serializers.ValidationError(
-                {"pose": f"pose '{pose}' hides the face and cannot be combined with face_choice or face_image."}
-            )
-
-    def _check_pose_camera(self, data):
-        """Leg poses need the full body, so they cannot use close_up."""
-        if data.get("camera_view") == "close_up" and data.get("pose") in (
-            "cross_leg_chair_recline", "pocket_walk",
-        ):
-            raise serializers.ValidationError(
-                {"pose": f"pose '{data.get('pose')}' shows the legs and cannot be used with camera_view 'close_up'."}
-            )
+                raise serializers.ValidationError({
+                    "face_choice": (
+                        f"'{face_choice}' is not a valid face for '{gender}'. "
+                        f"Valid faces: {valid_faces}."
+                    )
+                })
 
     def _check_garment_details(self, data):
         keys = data.get("garment_details") or []
         if not keys:
             return
+
         if data.get("garment_image"):
-            raise serializers.ValidationError(
-                {"garment_details": "garment_details are not used when garment_image is provided."}
-            )
+            raise serializers.ValidationError({
+                "garment_details": (
+                    "garment_details cannot be used with garment_image."
+                )
+            })
+
         error = validate_detail_keys(
-            data.get("garment_type"), data.get("garment_style"), keys
+            data.get("garment_type"),
+            data.get("garment_style"),
+            keys,
         )
         if error:
             raise serializers.ValidationError({"garment_details": error})
-
 
     def validate(self, data):
         self._drop_blank_optional_keys(data)
@@ -274,5 +347,4 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
         self._check_garment_details(data)
         self._check_person_source(data)
         self._check_pose(data)
-        self._check_pose_camera(data)
         return data

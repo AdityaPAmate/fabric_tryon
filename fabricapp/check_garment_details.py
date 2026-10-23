@@ -1,9 +1,9 @@
 """
-Offline check for garment_details.py (does not call Cloudflare).
+Offline check for the garment-specific detail modules (does not call Cloudflare).
 
 For every rule it builds the raw prompt (without any garment detail
 applied) and checks that the rule's anchor phrase is really inside it.
-If prompts.py or prompt_builder.py wording is edited later and an anchor
+If garment prompts.py wording or scenario_composer.py anchors are changed later and an anchor
 stops matching, this script shows MISSING.
 
 Run from the project folder (where manage.py is):
@@ -11,20 +11,32 @@ Run from the project folder (where manage.py is):
     python manage.py shell -c "from fabricapp.check_garment_details import run; run()"
 """
 
-from .ai.garment_details import (
-    DETAIL_RULES,
+from importlib import import_module
+
+from .ai.detail_engine import (
+    DETAIL_MODULES,
     MODE_EDIT,
+    MODE_OWN,
     apply_garment_details,
     validate_detail_keys,
 )
-from .ai.prompts import GARMENT_STYLE_OPTIONS
-from .ai.prompt_builder import (
+GARMENT_STYLE_OPTIONS = {
+    garment: getattr(import_module(f"fabricapp.ai.{garment}.prompts"), "GARMENT_STYLE_OPTIONS", {}).get(garment, [])
+    for garment in DETAIL_MODULES
+}
+from .ai.scenario_composer import (
     SCENARIO_GENERATED_PERSON,
     SCENARIO_PERSON_PHOTO,
     _build_base,
 )
 
 OWN_MODEL_GENDER = {"shirt": "men", "kurta": "men", "kurti_pant": "women"}
+
+DETAIL_RULES = [
+    rule
+    for module_path in DETAIL_MODULES.values()
+    for rule in getattr(import_module(module_path), "DETAIL_RULES", [])
+]
 
 
 def _raw_prompt(garment, style, mode):

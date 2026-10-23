@@ -47,10 +47,16 @@ def upload_generated_image(image_bytes):
         logger.exception("Cloudinary upload failed")
         raise CloudinaryUploadError("Could not upload generated image.") from exc
 
+    if not isinstance(result, dict) or not result.get("secure_url"):
+        raise CloudinaryUploadError(
+            "Cloudinary did not return a secure delivery URL."
+        )
+
+    uploaded_format = (result.get("format") or extension).lower()
     return {
         "url": result["secure_url"],
-        "public_id": result["public_id"],
-        "format": result.get("format", extension).lower(),
+        "public_id": result.get("public_id"),
+        "format": uploaded_format,
         "mime_type": content_type,
         "width": result.get("width"),
         "height": result.get("height"),

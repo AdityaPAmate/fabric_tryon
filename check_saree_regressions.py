@@ -35,6 +35,7 @@ def get_framing(camera_view=None):
         return {"shot": "full-body", "shown": "the whole person", "fill": " from head to feet", "output_rule_face": "", "output_rule_person": ""}
     return {"shot": "full-body", "shown": "the whole person", "fill": " from head to feet", "output_rule_face": "", "output_rule_person": ""}
 camera_data.get_framing = get_framing
+camera_data.get_camera_view_instruction = lambda camera_view: (f"camera {camera_view}" if camera_view else None)
 
 prompts = types.ModuleType("fabricapp.ai.prompts")
 prompts.BACKGROUND_DESCRIPTIONS = {
@@ -83,11 +84,11 @@ result = builder.build_saree_prompt(
 )
 prompt = result["prompt"]
 check("BODY BUILD: the body is clearly PLUS-SIZE" in prompt, "plus body type is present with selected face")
-check("BACKGROUND: a white marble terrace" in prompt, "selected background is present with face choice")
+check("BACKGROUND: a bright, sunlit white marble terrace" in prompt, "selected background is present with face choice")
 check("same solid colour" not in prompt, "no stale blouse wording overrides solid-colour rule")
 check("Do not copy image 2's crop, body, clothes, pose or background" in prompt, "face reference is identity-only")
 check("no print, motifs, woven pattern or decorative border" in prompt, "blouse is solid and pattern-free")
-check("Do not desaturate" in prompt, "fabric saturation is protected")
+check("saturation, brightness, contrast" in prompt, "fabric saturation is protected")
 check("fully opaque" in prompt, "fabric opacity and stomach coverage are specified")
 check(prompt.index("GARMENT:") < prompt.index("POSE (") < prompt.index("PALLU"), "garment then pose then pallu priority order is correct")
 check(prompt.rstrip().endswith("Only the face, neck, hands, forearms and feet may remain uncovered."), "final modesty rule remains last")
@@ -108,7 +109,7 @@ plus_generated = builder.build_saree_prompt(
     background="white_marble_terrace",
 )
 check("plus-size" in plus_generated["prompt"].lower(), "plus body type is present without face choice")
-check("BACKGROUND: a white marble terrace" in plus_generated["prompt"], "background is present without face choice")
+check("BACKGROUND: a bright, sunlit white marble terrace" in plus_generated["prompt"], "background is present without face choice")
 
 person_pose = builder.build_saree_prompt(
     "person_pose", gender="women", pose="three_quarter_hand_adjust",

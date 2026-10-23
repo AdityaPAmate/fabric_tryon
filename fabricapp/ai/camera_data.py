@@ -19,7 +19,7 @@ NOTE: "front" and "close_up" follow the requirement. "side" is a first
 draft and still to be checked against real output.
 """
 
-from .pose_data import DEFAULT_OWN_MODEL_POSE
+DEFAULT_OWN_MODEL_POSE = "standing in a natural, relaxed pose facing the camera"
 
 _FULL_RULE_FACE = (
     "Do NOT output only a face or a close-up, and do not copy the crop of "
@@ -91,6 +91,47 @@ CAMERA_FRAMING = {
         "pose_default": "standing in a natural, relaxed pose facing the camera",
     },
 }
+
+# Public API choices; framing data remains the source of truth.
+CAMERA_VIEW_OPTIONS = tuple(CAMERA_FRAMING)
+
+
+CAMERA_VIEW_INSTRUCTIONS = {
+    "front": (
+        "CAMERA VIEW OVERRIDE: regardless of the camera angle or body "
+        "orientation already present in image 0, render the final output as "
+        "a front-facing, full-body shot — the person must be shown from "
+        "head to feet, facing the camera directly (or nearly directly), "
+        "with the entire body and the full length of the new garment "
+        "clearly visible in frame."
+    ),
+    "side": (
+        "CAMERA VIEW OVERRIDE: regardless of the camera angle or body "
+        "orientation already present in image 0, render the final output "
+        "as a side-profile, full-body shot — the person's body must be "
+        "turned to show a clear side or three-quarter side angle relative "
+        "to the camera, with the entire body and the full length of the "
+        "new garment clearly visible in frame, including the side "
+        "silhouette and drape of the garment."
+    ),
+    "close_up": (
+        "CAMERA VIEW OVERRIDE: regardless of the camera angle or framing "
+        "already present in image 0, render the final output as a tight "
+        "close-up shot showing only the head, shoulders, and upper chest "
+        "area down to roughly mid-chest. Crop the frame so that the waist, "
+        "legs, and any lower-body garment (pant, salwar, churidar, "
+        "trouser) are NOT visible at all in this shot — only the upper "
+        "portion of the new garment (collar, upper chest, shoulders, "
+        "visible upper sleeves) should be shown."
+    ),
+}
+
+
+def get_camera_view_instruction(camera_view):
+    """Return the exact camera override text for a supported view."""
+    if not camera_view:
+        return None
+    return CAMERA_VIEW_INSTRUCTIONS.get(camera_view)
 
 
 def get_framing(camera_view):

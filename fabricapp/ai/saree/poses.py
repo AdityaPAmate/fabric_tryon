@@ -7,7 +7,6 @@ Directions below are stated from the VIEWER / IMAGE perspective.
 
 import logging
 
-from ..pose_data import POSE_INSTRUCTIONS
 
 logger = logging.getLogger("fabricapp")
 
@@ -267,7 +266,7 @@ def get_pose_parts(pose, camera_view=None):
             "Unknown saree pose '%s'; using generic pose text. Check POSE_OPTIONS "
             "and add an explicit SAREE_POSES entry.", pose,
         )
-        pose_text = POSE_INSTRUCTIONS.get(pose, DEFAULT_POSES[None])
+        pose_text = DEFAULT_POSES.get(camera_view, DEFAULT_POSES[None])
         pallu_text = DEFAULT_PALLU_STYLE.format(fall=fall)
         prop = ""
         one_person = False

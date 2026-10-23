@@ -18,15 +18,15 @@ Image-slot convention:
                     - pose_reference : the chosen face photo (only when a
                                        face_choice was sent)
 
-Which prompt is used is decided entirely by prompt_builder.py — this
-module only sends images + the prompt and returns the result.
+Which prompt is used is decided by the request coordinator and the selected
+garment builder — this module only prepares images, calls Cloudflare, and
+returns the generated result.
 
 Pose reference photos (pose_reference.py): for a garment + pose that has a
 reference photo (today saree + pallu_on_head) and no person_image, the
 photo is sent as image 0 instead of describing the pose in the prompt.
-A camera_view does NOT switch this off: the camera_view text is added to
-the reference prompt by prompt_builder.py and the original background of
-the photo is kept.
+A camera_view does NOT switch this off: the selected prompt builder controls
+the reference prompt, while the original background of the photo is kept.
 """
 
 import base64
@@ -38,15 +38,12 @@ import time
 import requests
 from django.conf import settings
 
-from .prompts import get_face_image_path
-from .prompt_builder import (
+from .faces import get_face_image_path
+from .router import (
     SCENARIO_PERSON_PHOTO,
     SCENARIO_PERSON_POSE,
     SCENARIO_POSE_REFERENCE,
-    detect_scenario,
-    build_prompt,
 )
-from .pose_reference import get_pose_reference_path
 from .image_utils import (
     resize_to_fit,
     get_output_dimensions,
@@ -166,19 +163,6 @@ def _build_subject(
     return subject_buffer, reference_buffer, out_w, out_h
 
 
-def _find_pose_reference_path(person_image, garment_image, garment_type, pose):
-    """
-    Returns the pose reference photo path, or None when the normal
-    prompt-only path must be used. A reference photo is used only for a
-    fabric request (no garment_image) without a person_image.
-    camera_view, face_choice and background do not change this: they are
-    applied on top of the reference photo by prompt_builder.py.
-    """
-    if person_image is not None or garment_image is not None:
-        return None
-    return get_pose_reference_path(garment_type, pose)
-
-
 def generate_tryon_image(
     person_image=None,
     fabric_image=None,
@@ -195,6 +179,9 @@ def generate_tryon_image(
     pose=None,
     garment_details=None,
     options=None,
+    scenario=None,
+    pose_reference_path=None,
+    prompt_config=None,
 ):
     """
     Main entry point. The serializer has already validated the
@@ -205,17 +192,14 @@ def generate_tryon_image(
     max_output_side = 512 if draft_mode else FINAL_OUTPUT_SIDE
     use_garment_image = garment_image is not None
 
-    # Stage 0: decide the scenario and prepare the subject image (image_0)
-    pose_reference_path = _find_pose_reference_path(
-        person_image, garment_image, garment_type, pose
-    )
-    scenario = detect_scenario(
-        person_image is not None,
-        bool(face_choice or face_image),
-        pose,
-        camera_view,
-        use_pose_reference=pose_reference_path is not None,
-    )
+    # Routing and prompt selection belong to ai.main/router. This module
+    # only prepares the model inputs and sends the already selected config.
+    if not scenario or not isinstance(prompt_config, dict):
+        raise CloudflareGenerationError(
+            "The generation coordinator must provide scenario and prompt_config."
+        )
+
+    # Stage 0: prepare the subject image (image_0) for the chosen scenario.
     logger.info(
         "Scenario=%s gender=%s body_type=%s face_choice=%s face_image=%s pose=%s "
         "camera_view=%s pose_reference=%s",
@@ -232,26 +216,6 @@ def generate_tryon_image(
     else:
         garment_source_buffer = resize_to_fit(
             fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box")
-        )
-
-    # Stage 2: build the prompt (all prompt logic lives in prompt_builder.py)
-    prompt_config = build_prompt(
-        scenario=scenario,
-        garment_type=garment_type,
-        garment_style=garment_style,
-        use_garment_image=use_garment_image,
-        gender=gender,
-        body_type=body_type,
-        camera_view=camera_view,
-        background=background,
-        additional_style_note=additional_style_note,
-        pose=pose,
-        garment_details=garment_details,
-        use_face_reference=bool(face_choice or face_image),
-    )
-    if prompt_config is None:
-        raise CloudflareGenerationError(
-            f"No prompt available for garment_type='{garment_type}' garment_style='{garment_style}'"
         )
 
     # Debug file names include the pose so different poses do not overwrite each other.
