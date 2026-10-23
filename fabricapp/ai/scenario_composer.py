@@ -991,7 +991,7 @@ def _build_base(
         return {
             "prompt": GARMENT_IMAGE_PROMPT,
             "guidance": 7.0,
-            "seed": 24,
+            "seed": 42,
         }
 
     from importlib import import_module

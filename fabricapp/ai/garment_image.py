@@ -15,7 +15,7 @@ GARMENT_IMAGE_PROMPT = (
     "real, unedited photograph."
 )
 
-DEFAULT_SEED = 24
+DEFAULT_SEED = 42
 DEFAULT_GUIDANCE = 7.0
 
 

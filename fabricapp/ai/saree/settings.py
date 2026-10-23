@@ -1,6 +1,6 @@
 """Default image-generation settings for saree requests."""
 
-DEFAULT_SEED = 24
+DEFAULT_SEED = 42
 DEFAULT_GUIDANCE = 7.0
 
 
