@@ -13,6 +13,7 @@ from ..scenario_composer import (
 import re
 
 from .prompts import SHIRT_FACE_BODY_LINES, SHIRT_FABRIC_FINAL_RULE
+from .poses import get_camera_pose_prompt, requires_full_body_framing
 from .settings import get_generation_settings
 
 
@@ -74,6 +75,9 @@ def _build_person_pose_prompt(
         pose, garment_type="shirt", garment_details=garment_details,
         camera_view=camera_view,
     )
+    camera_pose_text = get_camera_pose_prompt(pose, camera_view)
+    if camera_pose_text:
+        pose_text = camera_pose_text
     # pallu_on_head describes a saree veil. For a shirt, retain the usable
     # standing / hand position but remove the contradictory head-covering
     # instruction, which can otherwise change the identity into a woman.
@@ -133,8 +137,15 @@ def _build_person_pose_prompt(
 
 
 def _compose_person_pose_prompt(core, **context):
+    camera_view = context.get("camera_view")
+    if camera_view == "close_up" and requires_full_body_framing(
+        context.get("pose")
+    ):
+        # Keep the requested pose legible instead of giving the model
+        # incompatible full-body-pose and head-to-hip-crop instructions.
+        camera_view = None
     prompt = _build_person_pose_prompt(
-        context.get("pose"), camera_view=context.get("camera_view"),
+        context.get("pose"), camera_view=camera_view,
         background=context.get("background"),
         garment_details=context.get("garment_details"),
     )
@@ -206,6 +217,7 @@ def build_prompt(
         garment_details=request_context.get("garment_details") or [],
         use_face_reference=request_context.get("use_face_reference", False),
         person_pose_hook=_compose_person_pose_prompt,
+        use_short_own_model=True,
     )
 
     if not isinstance(config, dict) or not config.get("prompt"):

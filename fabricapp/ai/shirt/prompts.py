@@ -11,19 +11,20 @@ GARMENT_STYLE_OPTIONS = {}
 # Shirt-only final constraint, applied by shirt/builder.py after the shared
 # scenario composition so later style/background notes cannot override it.
 SHIRT_FABRIC_FINAL_RULE = (
-    "FINAL FABRIC CHECK: image 1's colors and pattern must cover the new "
-    "shirt clearly and accurately, with the same hue, brightness, saturation, "
-    "motif scale and density. The fabric from image 1 must appear nowhere "
-    "else. The background is a separate scene, never a fabric surface: do "
-    "not copy, repeat, blend, or transfer any part of image 1 onto the wall, "
-    "floor, water, plants, flowers, objects, or any other background area. "
-    "Keep the background free of image 1's colors and motifs. Never put the "
-    "fabric on trousers, footwear, skin or accessories. If image 1 has a main repeating pattern plus a large "
-    "decorative picture, artwork or border, preserve every part: use the main "
-    "pattern across the shirt, place the complete artwork once as a scaled "
-    "print centered on the shirt front, and use the border only as narrow hem "
-    "or sleeve-cuff trim. Do not omit the artwork. "
+    "FINAL FABRIC RULE: Apply image 1 only to the shirt, preserving its "
+    "colors, pattern, scale and density. Keep image 1 completely off the "
+    "background, trousers, footwear, accessories and skin. Follow any "
+    "shirt artwork or border placement instructions already given. "
 )
+
+
+def fabric_forbidden_text(spec):
+    """Keep image 1 off non-shirt regions without contradicting its target."""
+    return (
+        "Do not use image 1's fabric, pattern or colours on the trousers "
+        "or pajama, footwear, accessories, skin or background. The shirt "
+        "is the only fabric target. "
+    )
 
 SHIRT_FACE_BODY_LINES = {
     "plus": (

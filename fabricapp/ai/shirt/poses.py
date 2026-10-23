@@ -191,6 +191,35 @@ POSE_SUFFIXES = {
     ),
 }
 
+# These poses are only meaningful when the complete action fits in frame.
+# In particular, the chair-recline prompt explicitly requires the chair,
+# legs and feet; a close-up crop makes that request impossible.
+POSES_REQUIRING_FULL_BODY = {
+    "cross_leg_chair_recline",
+    "pocket_walk",
+    "rail_wide_arm_side_look",
+}
+
+POSE_CAMERA_VARIANTS = {
+    ("low_hand_clasp_front", "close_up"): (
+        "standing facing the camera with the head upright and directed "
+        "forward, both elbows slightly bent, with both hands clearly visible "
+        "together at the lower abdomen just above the waistband: the right "
+        "hand loosely cups the left fingers and the left hand rests over the "
+        "right; keep both forearms and the clasped hands inside the crop"
+    ),
+}
+
+
+def requires_full_body_framing(pose):
+    """Whether the selected shirt pose cannot be represented in a close-up."""
+    return pose in POSES_REQUIRING_FULL_BODY
+
+
+def get_camera_pose_prompt(pose, camera_view):
+    """Return wording adapted to a camera crop when the pose has a variant."""
+    return POSE_CAMERA_VARIANTS.get((pose, camera_view))
+
 
 def get_pose_prompt(pose, garment_style=None, detail_keys=None):
     """Return this garment's current pose wording, including its overrides."""
@@ -224,6 +253,7 @@ def get_pose_metadata(pose):
 
     return {
         "hides_face": pose in POSES_HIDING_FACE,
+        "requires_full_body": pose in POSES_REQUIRING_FULL_BODY,
     }
 
 
