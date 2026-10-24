@@ -93,86 +93,57 @@ POSE_PROMPTS = {
 
 # Existing garment-specific wording from pose_data.py.
 # The keys are (garment_type, style_or_detail, pose_name).
-POSE_OVERRIDES = {
-    ("kurti_pant", None, "cross_leg_chair_recline"): (
-        "seated in one low upholstered armchair in an upright, relaxed recline with the back supported by the chair"
-        " and the torso angled slightly toward the viewer's left, head upright and turned slightly toward the viewer's left,"
-        " both forearms resting separately across the lap with both relaxed hands together on the upper knee,"
-        " one leg crossed over the other at the knee with the top foot pointing toward the viewer's left,"
-        " with the complete chair, both legs and both feet visible"
-    ),
-    ("kurti_pant", None, "sleeve_adjust_stand"): (
-        "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
-        " and the head turned to look toward the viewer's left,"
-        " exactly two arms and two hands in total, never a third hand:"
-        " the right hand pinching the left sleeve cuff at the left wrist,"
-        " and the left hand open beside the left thigh"
-        " — no other hand is visible anywhere, no extra arm hangs at either side,"
-        " both hands are separate and clearly visible,"
-        " legs nearly straight with the feet slightly apart"
-    ),
-    ("kurti_pant", None, "three_quarter_hand_adjust"): (
-        "standing nearly front-facing with the torso turned slightly toward the model's right,"
-        " head tilted down with the eyes looking at the hands,"
-        " exactly two arms and two hands in total, never a third hand:"
-        " the right hand raised in front of the upper body at chest height,"
-        " and the left hand holding the right wrist from below"
-        " — no other hand hangs at the side or appears anywhere, no extra arm,"
-        " both feet flat on the ground with the left foot slightly forward"
-    ),
-    ("kurti_pant", None, "rail_wide_arm_side_look"): (
-        "standing upright facing the camera directly with the body squared to the viewer,"
-        " head turned to look in profile toward the viewer's left,"
-        " exactly two arms and two hands in total, never a third hand:"
-        " exactly two hands resting flat on the top edge of a low wall or ledge at hip height, one on each side,"
-        " no extra or hanging hand anywhere,"
-        " both legs nearly straight with one foot resting naturally slightly behind the other,"
-        " gentle natural stance without extreme knee bend, weight settled evenly against the ledge"
-    ),
-    ("kurti_pant", None, "pocket_walk"): (
-        "walking toward the camera in a relaxed mid-stride with the body facing forward and the head upright looking straight ahead,"
-        " exactly two arms and two hands in total,"
-        " the left elbow bent with the left hand resting firmly on the left hip,"
-        " the right arm hanging down at the side with the hand relaxed and slightly open,"
-        " and the left leg stepping forward ahead of the right leg"
-    ),
-    ("kurta", None, "cross_leg_chair_recline"): (
-        "seated on ONE low upholstered armchair, one person only, in an upright, relaxed recline"
-        " with the back supported by the chair and the torso angled slightly toward the viewer's left,"
-        " head upright and turned slightly toward the viewer's left,"
-        " both forearms resting across the lap with both hands together on the upper knee,"
-        " exactly two legs in total, one leg crossed over the other at the knee"
-        " with the top foot pointing toward the viewer's left,"
-        " the hem of the long garment resting over the thighs and knees,"
-        " the lower pant legs visible below the hem completely plain and solid without pattern,"
-        " with the complete chair, both legs and both feet visible"
-    ),
-    ("kurta", None, "sleeve_adjust_stand"): (
-        "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
-        " and the head turned to look toward the viewer's left,"
-        " exactly two arms and two hands in total, never a third hand:"
-        " the right elbow bent with the right forearm diagonally across the torso and the right hand visibly adjusting the left sleeve cuff at the left wrist,"
-        " the left arm hanging naturally beside the body with the left hand open beside the left thigh"
-        " — no third hand, no extra arm hangs anywhere,"
-        " both hands separate and visible, legs nearly straight with the feet slightly apart, the sleeve staying fully down"
-    ),
-    ("kurta", None, "rail_wide_arm_side_look"): (
-        "standing upright facing the camera directly with the body squared to the viewer,"
-        " head turned to look in profile toward the viewer's left,"
-        " exactly two arms and two hands in total, never a third hand:"
-        " exactly two hands resting flat on the top edge of a low wall or ledge at hip height, one on each side,"
-        " no extra or hanging hand anywhere,"
-        " both legs nearly straight with one foot resting naturally slightly behind the other,"
-        " gentle natural stance without extreme knee bend, weight settled evenly against the ledge"
-    ),
-    ("kurta", None, "pocket_walk"): (
-        "walking toward the camera in a relaxed, natural stride with the body facing forward and the head upright looking straight ahead,"
-        " exactly two arms and two hands in total, never a third hand:"
-        " the left arm bent with its hand resting naturally in the side pocket or at the hip,"
-        " the right arm hanging down at the side with the hand relaxed and slightly open,"
-        " and one leg stepping forward naturally ahead of the other"
-    ),
-}
+POSE_OVERRIDES = {('kurti_pant', None, 'cross_leg_chair_recline'): 'seated in one low upholstered armchair in an '
+                                                  'upright, relaxed recline with the back '
+                                                  'supported by the chair and the torso angled '
+                                                  "slightly toward the viewer's left, head upright "
+                                                  "and turned slightly toward the viewer's left, "
+                                                  'both forearms resting separately across the lap '
+                                                  'with both relaxed hands together on the upper '
+                                                  'knee, one leg crossed over the other at the '
+                                                  'knee with the top foot pointing toward the '
+                                                  "viewer's left, with the complete chair, both "
+                                                  'legs and both feet visible',
+ ('kurti_pant', None, 'sleeve_adjust_stand'): 'standing in a three-quarter stance with the body '
+                                              "turned slightly toward the viewer's left and the "
+                                              "head turned to look toward the viewer's left, "
+                                              'exactly two arms and two hands in total, never a '
+                                              'third hand: the right hand pinching the left sleeve '
+                                              'cuff at the left wrist, and the left hand open '
+                                              'beside the left thigh — no other hand is visible '
+                                              'anywhere, no extra arm hangs at either side, both '
+                                              'hands are separate and clearly visible, legs nearly '
+                                              'straight with the feet slightly apart',
+ ('kurti_pant', None, 'three_quarter_hand_adjust'): 'standing nearly front-facing with the torso '
+                                                    "turned slightly toward the model's right, "
+                                                    'head tilted down with the eyes looking at the '
+                                                    'hands, exactly two arms and two hands in '
+                                                    'total, never a third hand: the right hand '
+                                                    'raised in front of the upper body at chest '
+                                                    'height, and the left hand holding the right '
+                                                    'wrist from below — no other hand hangs at the '
+                                                    'side or appears anywhere, no extra arm, both '
+                                                    'feet flat on the ground with the left foot '
+                                                    'slightly forward',
+ ('kurti_pant', None, 'rail_wide_arm_side_look'): 'standing upright facing the camera directly '
+                                                  'with the body squared to the viewer, head '
+                                                  "turned to look in profile toward the viewer's "
+                                                  'left, exactly two arms and two hands in total, '
+                                                  'never a third hand: exactly two hands resting '
+                                                  'flat on the top edge of a low wall or ledge at '
+                                                  'hip height, one on each side, no extra or '
+                                                  'hanging hand anywhere, both legs nearly '
+                                                  'straight with one foot resting naturally '
+                                                  'slightly behind the other, gentle natural '
+                                                  'stance without extreme knee bend, weight '
+                                                  'settled evenly against the ledge',
+ ('kurti_pant', None, 'pocket_walk'): 'walking toward the camera in a relaxed mid-stride with the '
+                                      'body facing forward and the head upright looking straight '
+                                      'ahead, exactly two arms and two hands in total, the left '
+                                      'elbow bent with the left hand resting firmly on the left '
+                                      'hip, the right arm hanging down at the side with the hand '
+                                      'relaxed and slightly open, and the left leg stepping '
+                                      'forward ahead of the right leg'}
 
 
 # Existing legacy rule from pose_data.py.

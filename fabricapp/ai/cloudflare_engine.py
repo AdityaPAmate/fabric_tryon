@@ -34,6 +34,7 @@ import gc
 import io
 import logging
 import time
+from dataclasses import dataclass
 
 import requests
 from django.conf import settings
@@ -56,6 +57,7 @@ logger = logging.getLogger("fabricapp")
 
 MAX_INPUT_DIM = 511
 MAX_ATTEMPTS = 2
+SAFETY_RETRY_COUNT = 1
 REQUEST_TIMEOUT_SECONDS = 180
 FINAL_OUTPUT_SIDE = 1536  # draft_mode=false साठी output ची मोठी बाजू (पूर्वी 1024)
 
@@ -68,6 +70,14 @@ class CloudflareGenerationError(Exception):
         super().__init__(message)
         self.status_code = status_code
         self.provider_code = provider_code
+
+
+@dataclass(frozen=True)
+class GenerationResult:
+    """Generated image bytes together with the seed that produced them."""
+
+    image_bytes: bytes
+    effective_seed: int
 
 
 def _load_face_buffer(face_choice):
@@ -167,6 +177,12 @@ def _build_subject(
     return subject_buffer, reference_buffer, out_w, out_h
 
 
+def _rewind_uploads(files):
+    """Reset in-memory multipart streams before sending another request."""
+    for _, file_tuple in files.items():
+        file_tuple[1].seek(0)
+
+
 def generate_tryon_image(
     person_image=None,
     fabric_image=None,
@@ -259,55 +275,81 @@ def generate_tryon_image(
     }
 
     response = None
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        logger.info("Sending request to Cloudflare (attempt %s/%s)", attempt, MAX_ATTEMPTS)
-        try:
-            response = requests.post(
-                url, headers=headers, files=files, data=data, timeout=REQUEST_TIMEOUT_SECONDS
+    requested_seed = data["seed"]
+    for safety_attempt in range(SAFETY_RETRY_COUNT + 1):
+        # The garment setting remains the configured seed. A different seed is
+        # used only after Cloudflare has rejected the first sampled output.
+        data["seed"] = requested_seed + safety_attempt
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            logger.info(
+                "Sending request to Cloudflare (network attempt %s/%s, generation seed=%s)",
+                attempt, MAX_ATTEMPTS, data["seed"],
             )
-        except requests.exceptions.RequestException as e:
-            if attempt < MAX_ATTEMPTS:
+            try:
+                response = requests.post(
+                    url, headers=headers, files=files, data=data,
+                    timeout=REQUEST_TIMEOUT_SECONDS,
+                )
+            except requests.exceptions.RequestException as e:
+                if attempt < MAX_ATTEMPTS:
+                    wait_seconds = 2 ** attempt
+                    logger.warning(
+                        "Network error calling Cloudflare (%s). Retrying in %s seconds.",
+                        e, wait_seconds,
+                    )
+                    time.sleep(wait_seconds)
+                    _rewind_uploads(files)
+                    continue
+                logger.error("Cloudflare request failed after network error: %s", e)
+                raise CloudflareGenerationError(f"Network error calling Cloudflare: {e}")
+
+            if response.status_code == 200:
+                break
+
+            internal_code = None
+            try:
+                internal_code = response.json().get("errors", [{}])[0].get("code")
+            except Exception:
+                pass
+
+            if response.status_code in (500, 429) and attempt < MAX_ATTEMPTS:
                 wait_seconds = 2 ** attempt
                 logger.warning(
-                    "Network error calling Cloudflare (%s). Retrying in %s seconds.",
-                    e, wait_seconds,
+                    "Cloudflare returned status %s (code %s). Retrying in %s seconds.",
+                    response.status_code, internal_code, wait_seconds,
                 )
                 time.sleep(wait_seconds)
-                for _, file_tuple in files.items():
-                    file_tuple[1].seek(0)
+                _rewind_uploads(files)
                 continue
-            logger.error("Cloudflare request failed after network error: %s", e)
-            raise CloudflareGenerationError(f"Network error calling Cloudflare: {e}")
 
-        if response.status_code == 200:
-            break
+            # Error 3030 means the provider rejected the sampled output. The
+            # inputs and the configured garment defaults are valid; request
+            # one controlled alternate sample before returning an error.
+            if internal_code == 3030 and safety_attempt < SAFETY_RETRY_COUNT:
+                logger.warning(
+                    "Cloudflare rejected generated output (3030) with seed=%s; "
+                    "retrying once with seed=%s.",
+                    data["seed"], requested_seed + safety_attempt + 1,
+                )
+                _rewind_uploads(files)
+                break
 
-        internal_code = None
-        try:
-            internal_code = response.json().get("errors", [{}])[0].get("code")
-        except Exception:
-            pass
-
-        if response.status_code in (500, 429) and attempt < MAX_ATTEMPTS:
-            wait_seconds = 2 ** attempt
-            logger.warning(
-                "Cloudflare returned status %s (code %s). Retrying in %s seconds.",
-                response.status_code, internal_code, wait_seconds,
+            logger.error(
+                "Cloudflare request failed. status=%s code=%s body=%s",
+                response.status_code, internal_code, response.text[:500],
             )
-            time.sleep(wait_seconds)
-            for _, file_tuple in files.items():
-                file_tuple[1].seek(0)
-            continue
+            raise CloudflareGenerationError(
+                f"Cloudflare request failed with status {response.status_code}",
+                status_code=response.status_code,
+                provider_code=internal_code,
+            )
+        else:
+            # The inner loop only exhausts after an exception, which is
+            # raised above. Keep the branch explicit for future changes.
+            raise CloudflareGenerationError("Cloudflare request did not complete")
 
-        logger.error(
-            "Cloudflare request failed. status=%s code=%s body=%s",
-            response.status_code, internal_code, response.text[:500],
-        )
-        raise CloudflareGenerationError(
-            f"Cloudflare request failed with status {response.status_code}",
-            status_code=response.status_code,
-            provider_code=internal_code,
-        )
+        if response is not None and response.status_code == 200:
+            break
 
     logger.info("Stage 4: parsing Cloudflare response")
     content_type = response.headers.get("Content-Type", "")
@@ -331,4 +373,7 @@ def generate_tryon_image(
     gc.collect()
     logger.info("Stage 5: request finished, memory released")
 
-    return image_bytes
+    return GenerationResult(
+        image_bytes=image_bytes,
+        effective_seed=data["seed"],
+    )

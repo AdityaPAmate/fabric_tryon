@@ -43,7 +43,7 @@ class FabricTryOnView(APIView):
         data = serializer.validated_data
 
         try:
-            image_bytes = generate_tryon_image(
+            generation = generate_tryon_image(
                 person_image=data.get("person_image"),
                 fabric_image=data.get("fabric_image"),
                 garment_image=data.get("garment_image"),
@@ -90,7 +90,7 @@ class FabricTryOnView(APIView):
             )
 
         try:
-            uploaded_image = upload_generated_image(image_bytes)
+            uploaded_image = upload_generated_image(generation.image_bytes)
         except CloudinaryUploadError as exc:
             logger.error("Generated image could not be stored: %s", exc)
             return Response(
@@ -119,6 +119,7 @@ class FabricTryOnView(APIView):
             "body_type": data.get("body_type") or "default",
             "face_choice": data.get("face_choice"),
             "face_image_uploaded": bool(data.get("face_image")),
+            "generation_seed": generation.effective_seed,
             "images": [
                 {
                     "view": camera_view or pose or "default",

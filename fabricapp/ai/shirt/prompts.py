@@ -8,6 +8,12 @@ the existing shared prompt builder until the later migration step.
 GARMENT_TYPE = 'shirt'
 GARMENT_STYLE_OPTIONS = {}
 
+# Used by the shared scenario assembly so the first instruction identifies a
+# button-up shirt rather than only the broad word "shirt".
+TASK_PHRASE = (
+    "a properly fitted collared button-up shirt made from the fabric in image 1"
+)
+
 # Shirt-only final constraint, applied by shirt/builder.py after the shared
 # scenario composition so later style/background notes cannot override it.
 SHIRT_FABRIC_FINAL_RULE = (
@@ -107,61 +113,4 @@ GARMENT_SPECS = {
         ),
     }
 }
-
-# Exact common garment-image prompt and generation defaults from prompts.py.
-GARMENT_IMAGE_PROMPT = GARMENT_IMAGE_PROMPT = (
-    "Edit image 0. Keep the same person/subject, face, skin tone, hairstyle, "
-    "expression, hands, arms, background, and body pose from image 0 "
-    "completely unchanged — sharp, fully in focus, not altered in any way. "
-    "Replace whatever garment the subject in image 0 is currently wearing "
-    "with the exact garment shown in image 1 — same cut, style, color, "
-    "pattern, and length as image 1, fitted naturally to the subject's body "
-    "and pose in image 0. Do not invent or alter any design element not "
-    "visible in image 1. Generate realistic new shading, folds, and shadows "
-    "consistent with the lighting in image 0. Result must look like one "
-    "real, unedited photograph."
-)
-GARMENT_IMAGE_GUIDANCE = GARMENT_IMAGE_GUIDANCE = 7.0
-GENERATED_GARMENT_IMAGE_BODY = GENERATED_GARMENT_IMAGE_BODY = (
-    "Dress this new person in the exact garment shown in image 1 — same "
-    "cut, style, color, pattern, and length as image 1 — fitted naturally "
-    "to the body and pose. Do not invent or alter any design element not "
-    "visible in image 1. If the garment in image 1 covers only the upper or "
-    "lower body, complete the outfit with a plain, modest, coordinating "
-    "garment. Generate realistic shading, folds, and shadows. The result "
-    "must look like one real, unedited photograph. "
-)
-GARMENT_IMAGE_SEED = GARMENT_IMAGE_SEED = 42
-
-# Scenario routing/source map from the existing prompt_builder.py.
-# person_pose and own-model outputs are assembled dynamically from shared
-# text plus this garment's GARMENT_SPECS; their prompt wording is not one
-# standalone string in the current project.
-SCENARIO_PROMPTS = {
-    "person_photo": {
-        "prompt_data": GARMENT_PROMPTS[GARMENT_TYPE],
-        "source": "prompts.py: GARMENT_PROMPTS",
-    },
-    "person_pose": {
-        "builder": '_build_person_pose_shirt_prompt',
-        "garment_specs": GARMENT_SPECS,
-        "source": "prompt_builder.py",
-    },
-    "face_photo": {
-        "builder": '_build_own_model_prompt',
-        "garment_specs": GARMENT_SPECS,
-        "source": "prompt_builder.py",
-    },
-    "generated_person": {
-        "builder": '_build_own_model_prompt',
-        "garment_specs": GARMENT_SPECS,
-        "source": "prompt_builder.py",
-    },
-    "pose_reference": None,  # Existing pose-reference route is saree-only.
-    "garment_image": {
-        "edit_prompt": GARMENT_IMAGE_PROMPT,
-        "edit_guidance": GARMENT_IMAGE_GUIDANCE,
-        "edit_seed": GARMENT_IMAGE_SEED,
-        "generated_person_body": GENERATED_GARMENT_IMAGE_BODY,
-    },
-}
+# Garment-image prompting is shared by fabricapp.ai.garment_image.

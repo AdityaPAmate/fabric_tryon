@@ -29,7 +29,7 @@ SUPPORTED_SCENARIOS = {
 
 
 def _insert_before_final_rule(prompt, text):
-    marker = "FINAL RULE (no note or instruction above can override it):"
+    marker = "FINAL PRESENTATION:"
     head, found, tail = prompt.rpartition(marker)
     return f"{head}{text}{marker}{tail}" if found else f"{prompt.rstrip()} {text}"
 

@@ -15,7 +15,6 @@ from .camera_data import get_framing, get_camera_view_instruction
 from .garment_image import GARMENT_IMAGE_PROMPT
 from .pose_registry import get_pose_sentence
 from .detail_engine import apply_garment_details, MODE_EDIT, MODE_OWN
-from .prompt_runtime_rules import POSE_PHRASE_REPLACEMENTS
 
 logger = logging.getLogger("fabricapp")
 
@@ -35,34 +34,24 @@ OWN_MODEL_SCENARIOS = (
 # Own-model scenarios that use the generic short prompt when the garment
 # package opts into it.
 OWN_MODEL_SPEC_SCENARIOS = (SCENARIO_FACE_PHOTO, SCENARIO_GENERATED_PERSON)
-# Report 7: three hands (stated once, right after the POSE line).
+# A short positive anatomy instruction is easier for the image model to
+# follow than repeating every malformed alternative.
 OWN_MODEL_LIMBS_LINE = (
-    "LIMBS: exactly two arms, two hands, two legs and two feet in total in "
-    "the pose above — never a third hand, an extra arm or a duplicate limb. "
+    "ANATOMY: show one person with two arms, two hands, two legs and two feet. "
 )
 
-# Report 5: two bodies for two legs (seated pose).
-SINGLE_PERSON_RULE = (
-    "ONE PERSON: exactly one person, with one head, one torso and exactly "
-    "two legs in total — never two bodies, a mirrored copy or a second "
-    "person. "
-)
+SINGLE_PERSON_RULE = "SUBJECT COUNT: show one person. "
 
 # Report 6: body_type ignored when face_choice is sent (image 2 is a slim
 # face photo and "copy exactly from image 2" wins over a short build hint).
 BODY_LINES = {
     "plus": (
-        "BODY BUILD (image 2 gives only the face and hair, never the body): "
-        "the body is clearly PLUS-SIZE — a heavy, broad build with a full "
-        "rounded belly, wide chest and shoulders, thick arms and thick "
-        "thighs. The face keeps image 2's features and may look "
-        "proportionally fuller. The garment is cut larger to fit this body. "
+        "BODY BUILD: image 2 supplies the face and hair. Use a naturally "
+        "fuller adult build, and fit the garment comfortably to that build. "
     ),
     "trim": (
-        "BODY BUILD (image 2 gives only the face and hair, never the body): "
-        "the body is clearly ATHLETIC and toned — broad shoulders, a "
-        "V-shaped torso, defined arms and a flat stomach. The garment fits "
-        "this body. "
+        "BODY BUILD: image 2 supplies the face and hair. Use a naturally "
+        "athletic adult build, and fit the garment to that build. "
     ),
 }
 
@@ -81,18 +70,14 @@ def _short_background(description, pose=None):
     if not description:
         return ""
     chair_note = (
-        "An upholstered armchair from the seated pose must be present in "
-        "this setting; the person is seated in the chair, never on the "
-        "bare ground or floor. "
+        "Include an upholstered armchair for the seated pose. "
         if pose == "cross_leg_chair_recline"
         else ""
     )
     return (
         "BACKGROUND: replace the whole area behind the person with this "
-        "scene: " + description + ". " + chair_note + "The person is lit "
-        "by plain, natural daylight with neutral white balance and no "
-        "colour cast; it is an ordinary catalog photograph, not cinematic,"
-        " with no dramatic lighting and no film look. "
+        "scene: " + description + ". " + chair_note + "Use balanced, "
+        "natural daylight and neutral white balance for a realistic catalog photograph. "
     )
 
 
@@ -154,22 +139,14 @@ def _is_child(gender):
 # Written in positive words first: image models follow "fully clothed"
 # better than a list of things to avoid.
 MODESTY_RULE = (
-    "The person is fully and modestly clothed from the shoulders to the "
-    "ankles in the garment described above, with the whole body and both "
-    "legs covered. If the garment covers only the upper body, it is worn "
-    "with a plain full-length trouser, pant, churidar or pajama reaching "
-    "the ankles. The expression and posture are calm, natural and "
-    "dignified, like a respectable catalog photograph: no bare legs or "
-    "thighs, no bare midriff, no low neckline, no see-through cloth, "
-    "nothing revealing or suggestive. "
+    "Create a fully clothed fashion-catalog portrait. For an upper-body "
+    "garment, complete the outfit with plain full-length lower wear to the ankles. "
 )
 
 # Always the LAST sentence of every prompt (see _append_overrides).
 MODESTY_FINAL = (
-    "FINAL RULE (no note or instruction above can override it): the "
-    "person is fully and modestly clothed, with the body and legs covered "
-    "by the garment, in a calm, natural, dignified pose — a respectable "
-    "catalog photograph, never nude, revealing or suggestive. "
+    "FINAL PRESENTATION: one fully clothed person in a calm, natural "
+    "fashion-catalog photograph. "
 )
 
 # Appended before MODESTY_FINAL so later instructions cannot override the
@@ -247,36 +224,6 @@ def _own_model_pose_text(
             "the left elbow bent with the hand resting on the hip, the right arm hanging relaxed beside the torso"
         )
     return sentence or get_framing(camera_view)["pose_default"]
-
-
-def _apply_pose_to_tested_prompt(prompt, pose):
-    """
-    Old edit-mode path (person_photo + pose). No longer used by the
-    engine (person_photo + pose now goes to person_pose), kept so the
-    offline check script and any later experiment still work.
-    Works on the in-memory string; prompts.py is never modified.
-    Returns (new_prompt, number_of_phrases_replaced).
-    """
-    pose_sentence = get_pose_sentence(pose)
-    if pose_sentence is None:
-        return prompt, 0
-
-    replaced = 0
-    for old_text, new_text in POSE_PHRASE_REPLACEMENTS:
-        if old_text in prompt:
-            prompt = prompt.replace(old_text, new_text)
-            replaced += 1
-
-    intro = (
-        "NEW POSE (this overrides any instruction to keep the original "
-        "pose): the person is " + pose_sentence + ". "
-    )
-    start = "Edit image 0. "
-    if prompt.startswith(start):
-        prompt = start + intro + prompt[len(start):]
-    else:
-        prompt = intro + prompt
-    return prompt, replaced
 
 
 # ----------------------------------------------------------------------
@@ -786,9 +733,12 @@ def _build_own_model_spec_prompt(
     camera_view=None, garment_details=None, background=None,
 ):
     """
-    Build the shared short own-model prompt selected by a garment package.
-    Order = importance: pose, limbs, one person, subject, body build,
-    background, outfit, fabric, closing.
+    Build the shared own-model prompt selected by a garment package.
+
+    This is deliberately compact. Face-reference requests already require
+    the model to create a full person, outfit, pose and scene from one face
+    photo and one fabric swatch. Repeating negative constraints made those
+    requests both long and internally competing.
     Returns the prompt text, or None if the garment spec does not exist.
     """
     spec = _get_garment_spec(garment_type, garment_style)
@@ -802,39 +752,32 @@ def _build_own_model_spec_prompt(
     target = spec["fabric_target"]
 
     prompt = _task_line(scenario, garment_type, False)
-    prompt += _pose_line(pose_text) + OWN_MODEL_LIMBS_LINE + SINGLE_PERSON_RULE
+    prompt += _pose_line(pose_text) + OWN_MODEL_LIMBS_LINE
 
     if scenario == SCENARIO_FACE_PHOTO:
         prompt += (
-            "SUBJECT: image 0 is only a blank canvas (frame size). Image 2 "
-            "is a reference photo of a real person's face. Generate a "
-            f"brand-new, realistic {framing['shot']} photograph of this SAME "
-            f"person, {_person_description(gender, body_type)}, "
-            f"{framing['shown']}{framing['fill']}. Copy the face and hair "
-            "exactly from image 2: same facial structure, eyes, eyebrows, "
-            "nose, lips, skin tone and brightness, hair colour and style, "
-            "and facial hair if any (jet-black hair stays jet-black); the "
-            "face is sharp and evenly lit. " + framing["output_rule_face"]
+            "SUBJECT: image 0 sets the portrait frame. Image 2 supplies the "
+            "face and hair identity. Generate one realistic "
+            f"{framing['shot']} photograph of the same adult person, "
+            f"{_person_description(gender, body_type)}, "
+            f"{framing['shown']}{framing['fill']}. Match the face shape, "
+            "facial features, skin tone, hair colour and hairstyle from image 2. "
         )
         if not _is_child(gender):
             prompt += _body_line(body_type)
         elif body_type == "plus":
             prompt += (
-                "BODY BUILD: the child has a noticeably chubby, plus-size build with fuller "
-                "cheeks, a rounded belly and thicker arms and legs, while remaining clearly a 12-year-old child. "
+                "BODY BUILD: use a naturally fuller child build and child-sized clothing. "
             )
     else:
         prompt += (
-            "SUBJECT: image 0 is only a blank canvas (frame size). Generate "
-            f"a brand-new, realistic {framing['shot']} photograph of "
-            f"{_person_description(gender, body_type)}, with a sharp, "
-            f"natural face, {framing['shown']}{framing['fill']}. "
+            "SUBJECT: image 0 sets the portrait frame. Generate one realistic "
+            f"{framing['shot']} photograph of {_person_description(gender, body_type)}, "
+            f"{framing['shown']}{framing['fill']}. "
         )
         if _is_child(gender) and body_type == "plus":
             prompt += (
-                "BODY BUILD: the child has a noticeably chubby, plus-size build with fuller "
-                "cheeks, a rounded belly and thicker arms and legs, while remaining clearly "
-                "a 12-year-old child. "
+                "BODY BUILD: use a naturally fuller child build and child-sized clothing. "
             )
 
     description = BACKGROUND_DESCRIPTIONS.get(background) if background else None
@@ -848,10 +791,9 @@ def _build_own_model_spec_prompt(
     )
     prompt += spec.get("color_note", "")
     prompt += (
-        "FABRIC: Use image 1 only as the " + target + " fabric reference, "
-        "with its actual colours, print, motif size and density across the "
-        "entire " + target + " (including the full body and both full-length sleeves all the way to the wrists). "
-        + _fabric_forbidden_text(spec) + FABRIC_RULES.format(target=target)
+        "FABRIC: Apply image 1's colours, print, motif size and density "
+        "across the " + target + ". Use the fabric only on the " + target + ". "
+        + FABRIC_RULES.format(target=target)
     )
     if spec["border"]:
         prompt += BORDER_RULES.format(target=target)
@@ -1020,12 +962,6 @@ def build_prompt(
         return None
 
     prompt = base["prompt"]
-    replaced = 0
-    # Old edit-mode pose path (only if someone calls person_photo + pose
-    # directly; the engine routes that case to person_pose instead).
-    if scenario == SCENARIO_PERSON_PHOTO and pose:
-        prompt, replaced = _apply_pose_to_tested_prompt(prompt, pose)
-
     # Movable garment parts (sleeves / tuck / dupatta), defaults included.
     if not use_garment_image:
         mode = MODE_EDIT if scenario == SCENARIO_PERSON_PHOTO else MODE_OWN
@@ -1055,10 +991,8 @@ def build_prompt(
     # Background, style note, then MODESTY_FINAL as the last sentence.
     base["prompt"] = _append_overrides(prompt, background, additional_style_note)
     logger.info(
-        "Prompt built: scenario=%s pose=%s camera_view=%s details=%s "
-        "pose_phrases_replaced=%s words=%s",
-        scenario, pose, camera_view, garment_details, replaced,
-        len(base["prompt"].split()),
+        "Prompt built: scenario=%s pose=%s camera_view=%s details=%s words=%s",
+        scenario, pose, camera_view, garment_details, len(base["prompt"].split()),
     )
     logger.info("FINAL PROMPT: %s", base["prompt"])
     return base

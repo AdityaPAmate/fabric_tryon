@@ -55,6 +55,8 @@ def build_prompt(
         pose=request_context.get("pose"),
         garment_details=request_context.get("garment_details") or [],
         use_face_reference=request_context.get("use_face_reference", False),
+        use_spec_person_pose=True,
+        use_short_own_model=True,
     )
 
     if not isinstance(config, dict) or not config.get("prompt"):
