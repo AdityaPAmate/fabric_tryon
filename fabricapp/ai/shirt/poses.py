@@ -18,10 +18,11 @@ POSE_PROMPTS = {
         " one leg straight while the other leg crosses slightly behind it with the foot resting lightly on the toe"
     ),
     "cross_leg_chair_recline": (
-        "seated in a low upholstered armchair in a relaxed recline with the back against the chair"
-        " and the body angled slightly toward the viewer's left, head upright and turned slightly toward the viewer's left,"
-        " both forearms resting forward over the lap with the hands loosely overlapped on the upper thigh,"
-        " legs crossed at the knee with the top foot pointing out toward the viewer's left,"
+        "seated upright in a low upholstered armchair with a straight, composed posture,"
+        " the body angled slightly toward the viewer's left and the back resting lightly against the chair,"
+        " head upright with the eyes looking slightly away toward the viewer's left,"
+        " both forearms resting naturally over the lap with the hands loosely overlapped on the upper thigh,"
+        " legs crossed neatly at the knee with the top foot pointing toward the viewer's left,"
         " with the whole chair and both full legs and feet visible"
     ),
     "hands_on_hips_side_look": (

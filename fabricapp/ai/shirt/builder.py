@@ -16,7 +16,10 @@ from .prompts import (
     SHIRT_COVERAGE_RULE,
     SHIRT_FACE_BODY_LINES,
     SHIRT_FABRIC_FINAL_RULE,
+    SHIRT_PRESS_FINISH_RULE,
+    SHIRT_PROPORTION_RULE,
     SHIRT_SAFETY_FALLBACK_RULE,
+    SHIRT_UNTUCKED_FINAL_RULE,
 )
 from .poses import get_camera_pose_prompt, requires_full_body_framing
 from .settings import get_generation_settings
@@ -67,6 +70,16 @@ def _apply_shirt_rules(config, scenario, context):
 
     if not context.get("use_garment_image"):
         prompt = _insert_before_final_rule(prompt, SHIRT_FABRIC_FINAL_RULE)
+
+    details = context.get("garment_details") or []
+    if not context.get("use_garment_image") and "tucked" not in details:
+        prompt = _insert_before_final_rule(prompt, SHIRT_UNTUCKED_FINAL_RULE)
+
+    if scenario in {"face_photo", "generated_person", "person_pose"}:
+        prompt = _insert_before_final_rule(prompt, SHIRT_PROPORTION_RULE)
+
+    if "folded_sleeves" not in details:
+        prompt = _insert_before_final_rule(prompt, SHIRT_PRESS_FINISH_RULE)
 
     config["prompt"] = prompt
     if scenario == "face_photo":
