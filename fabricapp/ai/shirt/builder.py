@@ -12,7 +12,12 @@ from ..scenario_composer import (
 )
 import re
 
-from .prompts import SHIRT_FACE_BODY_LINES, SHIRT_FABRIC_FINAL_RULE
+from .prompts import (
+    SHIRT_COVERAGE_RULE,
+    SHIRT_FACE_BODY_LINES,
+    SHIRT_FABRIC_FINAL_RULE,
+    SHIRT_SAFETY_FALLBACK_RULE,
+)
 from .poses import get_camera_pose_prompt, requires_full_body_framing
 from .settings import get_generation_settings
 
@@ -42,6 +47,7 @@ def _apply_shirt_rules(config, scenario, context):
         prompt = _insert_before_final_rule(
             prompt, SHIRT_FACE_BODY_LINES.get(context.get("body_type"), "")
         )
+        prompt = _insert_before_final_rule(prompt, SHIRT_COVERAGE_RULE)
 
     note = context.get("additional_style_note") or ""
     match = re.search(
@@ -63,6 +69,10 @@ def _apply_shirt_rules(config, scenario, context):
         prompt = _insert_before_final_rule(prompt, SHIRT_FABRIC_FINAL_RULE)
 
     config["prompt"] = prompt
+    if scenario == "face_photo":
+        config["safety_fallback_prompt"] = _insert_before_final_rule(
+            prompt, SHIRT_SAFETY_FALLBACK_RULE
+        )
     return config
 
 

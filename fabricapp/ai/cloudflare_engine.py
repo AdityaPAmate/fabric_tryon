@@ -273,17 +273,26 @@ def generate_tryon_image(
         "guidance": prompt_config["guidance"],
         "seed": prompt_config["seed"],
     }
+    safety_fallback_prompt = prompt_config.get("safety_fallback_prompt")
 
     response = None
     requested_seed = data["seed"]
     for safety_attempt in range(SAFETY_RETRY_COUNT + 1):
         # The garment setting remains the configured seed. A different seed is
         # used only after Cloudflare has rejected the first sampled output.
+        # A garment builder may also supply a conservative, route-specific
+        # prompt for this retry. This is needed because 3030 is based on the
+        # sampled output, not on request validation.
         data["seed"] = requested_seed + safety_attempt
+        using_safety_fallback = bool(safety_attempt and safety_fallback_prompt)
+        data["prompt"] = (
+            safety_fallback_prompt if using_safety_fallback else prompt_config["prompt"]
+        )
         for attempt in range(1, MAX_ATTEMPTS + 1):
             logger.info(
-                "Sending request to Cloudflare (network attempt %s/%s, generation seed=%s)",
-                attempt, MAX_ATTEMPTS, data["seed"],
+                "Sending request to Cloudflare (network attempt %s/%s, generation seed=%s, "
+                "safety_fallback=%s)",
+                attempt, MAX_ATTEMPTS, data["seed"], using_safety_fallback,
             )
             try:
                 response = requests.post(

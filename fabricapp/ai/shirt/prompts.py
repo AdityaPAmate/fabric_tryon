@@ -23,6 +23,27 @@ SHIRT_FABRIC_FINAL_RULE = (
     "shirt artwork or border placement instructions already given. "
 )
 
+# Face-reference generation starts from a blank canvas.  State the whole
+# outfit explicitly so a sampled image cannot omit the lower half while the
+# model is also trying to satisfy a full-body pose and a new background.
+SHIRT_COVERAGE_RULE = (
+    "OUTFIT COVERAGE: create a conventional adult menswear catalogue outfit: "
+    "an opaque, buttoned, full-length-sleeve collared shirt closed from collar "
+    "to hem; plain opaque formal trousers from the natural waist to the ankles; "
+    "and ordinary closed footwear. Keep the stance and expression professional. "
+)
+
+# Cloudflare error 3030 is an output-safety rejection, which is known only
+# after the provider samples an image.  The engine uses this deterministic
+# shirt-only fallback on its one alternate-seed retry; it does not change a
+# request that succeeds on the configured seed.
+SHIRT_SAFETY_FALLBACK_RULE = (
+    "RETRY PRESENTATION: render a conventional adult men's business catalogue "
+    "photograph. The opaque button-up shirt is fully buttoned and covers the "
+    "torso to the hips. Plain opaque formal trousers cover from waist to ankles, "
+    "with closed footwear. Keep the pose calm, upright and professional. "
+)
+
 
 def fabric_forbidden_text(spec):
     """Keep image 1 off non-shirt regions without contradicting its target."""
