@@ -76,6 +76,7 @@ class FabricTryOnView(APIView):
                         "provider": "cloudflare",
                         "provider_code": exc.provider_code,
                         "failure_type": "input_combination_rejected",
+                        **({"generation": exc.diagnostics} if exc.diagnostics else {}),
                     },
                     status=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 )
@@ -85,6 +86,7 @@ class FabricTryOnView(APIView):
                     "error": "Image generation failed. Please try again.",
                     "provider": "cloudflare",
                     "provider_code": exc.provider_code,
+                    **({"generation": exc.diagnostics} if exc.diagnostics else {}),
                 },
                 status=status.HTTP_502_BAD_GATEWAY,
             )
@@ -100,6 +102,7 @@ class FabricTryOnView(APIView):
                         "Image was generated but could not be stored. "
                         "Please try again."
                     ),
+                    **({"generation": generation.diagnostics} if generation.diagnostics else {}),
                 },
                 status=status.HTTP_502_BAD_GATEWAY,
             )
@@ -120,6 +123,7 @@ class FabricTryOnView(APIView):
             "face_choice": data.get("face_choice"),
             "face_image_uploaded": bool(data.get("face_image")),
             "generation_seed": generation.effective_seed,
+            **({"generation": generation.diagnostics} if generation.diagnostics else {}),
             "images": [
                 {
                     "view": camera_view or pose or "default",

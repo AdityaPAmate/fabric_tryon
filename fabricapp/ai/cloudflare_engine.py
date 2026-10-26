@@ -31,10 +31,16 @@ the reference prompt, while the original background of the photo is kept.
 
 import base64
 import gc
+import hashlib
 import io
+import json
 import logging
+import os
+import re
 import time
+from uuid import uuid4
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import requests
 from django.conf import settings
@@ -66,18 +72,23 @@ FINAL_OUTPUT_SIDE = 1536  # draft_mode=false साठी output ची मो�
 class CloudflareGenerationError(Exception):
     """Raised when Cloudflare fails to generate an image after retries."""
 
-    def __init__(self, message, *, status_code=None, provider_code=None):
+    def __init__(self, message, *, status_code=None, provider_code=None, diagnostics=None):
         super().__init__(message)
         self.status_code = status_code
         self.provider_code = provider_code
+        self.diagnostics = diagnostics
 
 
 @dataclass(frozen=True)
 class GenerationResult:
-    """Generated image bytes together with the seed that produced them."""
+    """Image bytes and seed submitted on the successful provider attempt.
+
+    Cloudflare does not return its internal sampler seed for this model.
+    """
 
     image_bytes: bytes
     effective_seed: int
+    diagnostics: dict | None = None
 
 
 def _load_face_buffer(face_choice):
@@ -275,6 +286,35 @@ def generate_tryon_image(
     }
     safety_fallback_prompt = prompt_config.get("safety_fallback_prompt")
 
+    # Trace the prepared provider inputs, not only the original uploaded files.
+    # Hashes contain neither image contents nor credentials. Other garments keep
+    # their existing response shape and request behaviour.
+    diagnostics = None
+    if garment_type == "shirt":
+        diagnostics = {
+            "version": "shirt-trace-v1",
+            "request_id": uuid4().hex,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "deployment_revision": os.getenv("RENDER_GIT_COMMIT") or "unknown",
+            "model": settings.CLOUDFLARE_MODEL,
+            "scenario": scenario,
+            "requested_seed": data["seed"],
+            "effective_seed": None,
+            "guidance": data["guidance"],
+            "width": out_w,
+            "height": out_h,
+            "input_hashes": {
+                slot: hashlib.sha256(file_tuple[1].getvalue()).hexdigest()
+                for slot, file_tuple in files.items()
+            },
+            "attempts": [],
+        }
+
+    def generation_error(message, **kwargs):
+        if diagnostics is not None:
+            logger.info("Shirt failed generation trace: %s", json.dumps(diagnostics, sort_keys=True))
+        return CloudflareGenerationError(message, diagnostics=diagnostics, **kwargs)
+
     response = None
     requested_seed = data["seed"]
     for safety_attempt in range(SAFETY_RETRY_COUNT + 1):
@@ -289,6 +329,24 @@ def generate_tryon_image(
             safety_fallback_prompt if using_safety_fallback else prompt_config["prompt"]
         )
         for attempt in range(1, MAX_ATTEMPTS + 1):
+            attempt_trace = None
+            started = time.monotonic()
+            if diagnostics is not None:
+                signature = {
+                    "model": settings.CLOUDFLARE_MODEL,
+                    "inputs": diagnostics["input_hashes"],
+                    "parameters": data,
+                }
+                attempt_trace = {
+                    "seed": data["seed"],
+                    "network_attempt": attempt,
+                    "fallback_prompt": using_safety_fallback,
+                    "prompt_sha256": hashlib.sha256(data["prompt"].encode()).hexdigest(),
+                    "request_sha256": hashlib.sha256(
+                        json.dumps(signature, sort_keys=True).encode()
+                    ).hexdigest(),
+                }
+                diagnostics["attempts"].append(attempt_trace)
             logger.info(
                 "Sending request to Cloudflare (network attempt %s/%s, generation seed=%s, "
                 "safety_fallback=%s)",
@@ -300,6 +358,11 @@ def generate_tryon_image(
                     timeout=REQUEST_TIMEOUT_SECONDS,
                 )
             except requests.exceptions.RequestException as e:
+                if attempt_trace is not None:
+                    attempt_trace.update(
+                        outcome="network_error",
+                        duration_ms=round((time.monotonic() - started) * 1000),
+                    )
                 if attempt < MAX_ATTEMPTS:
                     wait_seconds = 2 ** attempt
                     logger.warning(
@@ -310,9 +373,19 @@ def generate_tryon_image(
                     _rewind_uploads(files)
                     continue
                 logger.error("Cloudflare request failed after network error: %s", e)
-                raise CloudflareGenerationError(f"Network error calling Cloudflare: {e}")
+                raise generation_error(f"Network error calling Cloudflare: {e}")
+
+            if attempt_trace is not None:
+                attempt_trace.update(
+                    http_status=response.status_code,
+                    cf_ray=response.headers.get("cf-ray"),
+                    provider_date=response.headers.get("date"),
+                    duration_ms=round((time.monotonic() - started) * 1000),
+                )
 
             if response.status_code == 200:
+                if attempt_trace is not None:
+                    attempt_trace["outcome"] = "provider_success"
                 break
 
             internal_code = None
@@ -320,6 +393,18 @@ def generate_tryon_image(
                 internal_code = response.json().get("errors", [{}])[0].get("code")
             except Exception:
                 pass
+
+            if attempt_trace is not None:
+                match = re.search(r"\(([0-9a-fA-F-]{36})\)", response.text)
+                attempt_trace.update(
+                    outcome="provider_rejection" if internal_code == 3030 else "provider_error",
+                    provider_code=internal_code,
+                    provider_request_id=match.group(1) if match else None,
+                )
+                logger.info(
+                    "Shirt provider attempt request_id=%s trace=%s",
+                    diagnostics["request_id"], json.dumps(attempt_trace, sort_keys=True),
+                )
 
             if response.status_code in (500, 429) and attempt < MAX_ATTEMPTS:
                 wait_seconds = 2 ** attempt
@@ -347,7 +432,7 @@ def generate_tryon_image(
                 "Cloudflare request failed. status=%s code=%s body=%s",
                 response.status_code, internal_code, response.text[:500],
             )
-            raise CloudflareGenerationError(
+            raise generation_error(
                 f"Cloudflare request failed with status {response.status_code}",
                 status_code=response.status_code,
                 provider_code=internal_code,
@@ -355,7 +440,7 @@ def generate_tryon_image(
         else:
             # The inner loop only exhausts after an exception, which is
             # raised above. Keep the branch explicit for future changes.
-            raise CloudflareGenerationError("Cloudflare request did not complete")
+            raise generation_error("Cloudflare request did not complete")
 
         if response is not None and response.status_code == 200:
             break
@@ -368,13 +453,13 @@ def generate_tryon_image(
         image_b64 = result.get("result", {}).get("image", "")
         if not image_b64:
             logger.error("No image field found in Cloudflare response: %s", result)
-            raise CloudflareGenerationError("Cloudflare response did not contain an image")
+            raise generation_error("Cloudflare response did not contain an image")
         image_bytes = base64.b64decode(image_b64)
     elif "image" in content_type:
         image_bytes = response.content
     else:
         logger.error("Unexpected content type from Cloudflare: %s", content_type)
-        raise CloudflareGenerationError(f"Unexpected response content type: {content_type}")
+        raise generation_error(f"Unexpected response content type: {content_type}")
 
     save_output_copy(image_bytes, f"output_{debug_tag}.png")
 
@@ -382,7 +467,12 @@ def generate_tryon_image(
     gc.collect()
     logger.info("Stage 5: request finished, memory released")
 
+    if diagnostics is not None:
+        diagnostics["effective_seed"] = data["seed"]
+        logger.info("Shirt generation trace: %s", json.dumps(diagnostics, sort_keys=True))
+
     return GenerationResult(
         image_bytes=image_bytes,
         effective_seed=data["seed"],
+        diagnostics=diagnostics,
     )
