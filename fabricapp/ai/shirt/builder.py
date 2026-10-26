@@ -11,6 +11,8 @@ from ..scenario_composer import (
     _pose_line,
 )
 import re
+import hashlib
+import logging
 
 from .prompts import (
     SHIRT_COVERAGE_RULE,
@@ -253,4 +255,12 @@ def build_prompt(
     request_context["use_garment_image"] = use_garment_image
     result = _apply_shirt_rules(result, scenario, request_context)
     result.update(get_generation_settings(seed=seed, guidance=guidance))
+    logging.getLogger("fabricapp").info(
+        "Shirt final prompt version=consistent-details-v1 scenario=%s pose=%s "
+        "camera=%s details=%s words=%s sha256=%s seed=%s guidance=%s",
+        scenario, request_context.get("pose"), request_context.get("camera_view"),
+        request_context.get("garment_details") or [], len(result["prompt"].split()),
+        hashlib.sha256(result["prompt"].encode("utf-8")).hexdigest()[:16],
+        result["seed"], result["guidance"],
+    )
     return result
