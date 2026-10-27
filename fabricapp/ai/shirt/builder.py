@@ -13,6 +13,7 @@ from ..scenario_composer import (
 import re
 import hashlib
 import logging
+from PIL import Image
 
 from .prompts import (
     SHIRT_COVERAGE_RULE,
@@ -44,6 +45,37 @@ def _insert_before_final_rule(prompt, text):
     return f"{head}{text}{marker}{tail}" if found else f"{prompt.rstrip()} {text}"
 
 
+def _fabric_colour_reference(context):
+    """Give the model measured swatch colours without recolouring any image."""
+    source = context.get("fabric_image")
+    if source is None:
+        return ""
+    position = source.tell()
+    try:
+        source.seek(0)
+        with Image.open(source) as image:
+            swatch = image.convert("RGB")
+        crop_box = (context.get("options") or {}).get("fabric_crop_box")
+        if crop_box is not None:
+            swatch = swatch.crop(crop_box)
+        swatch.thumbnail((128, 128), Image.Resampling.LANCZOS)
+        quantized = swatch.quantize(colors=4)
+        palette = quantized.getpalette()
+        colours = []
+        for count, index in sorted(quantized.getcolors(), reverse=True):
+            if count / (swatch.width * swatch.height) < 0.05:
+                continue
+            rgb = palette[index * 3:index * 3 + 3]
+            colours.append("#" + "".join(f"{channel:02X}" for channel in rgb))
+        return (
+            "SWATCH PALETTE: representative shirt fabric colours from image 1 "
+            "are " + ", ".join(colours) + ". Keep these colours in their "
+            "original pattern locations; image 1 defines their distribution. "
+        )
+    finally:
+        source.seek(position)
+
+
 def _apply_shirt_rules(config, scenario, context):
     """Apply shirt-owned constraints after shared scenario assembly."""
     prompt = config["prompt"]
@@ -71,7 +103,9 @@ def _apply_shirt_rules(config, scenario, context):
         )
 
     if not context.get("use_garment_image"):
-        prompt = _insert_before_final_rule(prompt, SHIRT_FABRIC_FINAL_RULE)
+        prompt = _insert_before_final_rule(
+            prompt, SHIRT_FABRIC_FINAL_RULE + _fabric_colour_reference(context)
+        )
 
     details = context.get("garment_details") or []
     if not context.get("use_garment_image") and "tucked" not in details:
@@ -256,7 +290,7 @@ def build_prompt(
     result = _apply_shirt_rules(result, scenario, request_context)
     result.update(get_generation_settings(seed=seed, guidance=guidance))
     logging.getLogger("fabricapp").info(
-        "Shirt final prompt version=consistent-details-v1 scenario=%s pose=%s "
+        "Shirt final prompt version=fabric-colour-v2 scenario=%s pose=%s "
         "camera=%s details=%s words=%s sha256=%s seed=%s guidance=%s",
         scenario, request_context.get("pose"), request_context.get("camera_view"),
         request_context.get("garment_details") or [], len(result["prompt"].split()),

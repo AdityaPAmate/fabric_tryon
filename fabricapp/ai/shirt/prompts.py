@@ -17,10 +17,14 @@ TASK_PHRASE = (
 # Shirt-only final constraint, applied by shirt/builder.py after the shared
 # scenario composition so later style/background notes cannot override it.
 SHIRT_FABRIC_FINAL_RULE = (
-    "FINAL FABRIC RULE: Apply image 1 only to the shirt, preserving its "
-    "colors, saturation, brightness, contrast, pattern, scale and density. "
-    "Use normal neutral exposure: the shirt must retain the source fabric's "
-    "richness and must not look washed out or faded. Keep image 1 completely "
+    "FABRIC COLOUR MATCH: Image 1 is the colour reference for the shirt. "
+    "Match its hue, saturation and midtone brightness, together with its "
+    "pattern, scale and density. A dark or muted swatch stays dark or muted. "
+    "Light the shirt with diffuse neutral light, exposing for the fabric "
+    "rather than brightening it to match the face or background. Preserve "
+    "natural local fold shadows and highlights around the source midtones. "
+    "The background's atmosphere belongs to the scenery; keep its colour "
+    "grading, haze and glow off the shirt. Keep image 1 completely "
     "off the background, trousers, footwear, accessories and skin. Follow any "
     "shirt artwork or border placement instructions already given. "
 )
