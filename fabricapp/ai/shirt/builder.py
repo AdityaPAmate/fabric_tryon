@@ -1,48 +1,21 @@
-"""Prompt entry point for shirt requests.
+"""Compose shirt instructions once, with explicit body, fit and sleeve choices."""
 
-This package owns its prompt data, pose definitions, detail rules, and
-generation settings. The shared scenario composer handles common assembly.
-"""
-
-from ..router import PromptRoutingError
-from ..scenario_composer import build_prompt as _compose_prompt
-from ..scenario_composer import (
-    FABRIC_RULES, _own_model_pose_text, get_framing, _task_line,
-    _pose_line,
-)
-import re
 import hashlib
 import logging
+import re
 from PIL import Image
 
-from .prompts import (
-    SHIRT_COVERAGE_RULE,
-    SHIRT_FACE_BODY_LINES,
-    SHIRT_FABRIC_FINAL_RULE,
-    SHIRT_PRESS_FINISH_RULE,
-    SHIRT_PROPORTION_RULE,
-    SHIRT_SAFETY_FALLBACK_RULE,
-    SHIRT_UNTUCKED_FINAL_RULE,
-)
+from ..backgrounds import BACKGROUND_DESCRIPTIONS
+from ..camera_data import get_framing
+from ..router import PromptRoutingError
+from ..scenario_composer import _own_model_pose_text, _person_description
+from . import prompts
+from .details import get_shirt_detail_prompt
 from .poses import get_camera_pose_prompt, requires_full_body_framing
 from .settings import get_generation_settings
 
-
-GARMENT_TYPE = 'shirt'
-SCENARIO_PERSON_POSE = "person_pose"
-# garment_image is an input mode (use_garment_image=True), not a scenario.
-SUPPORTED_SCENARIOS = {
-    "person_photo",
-    "person_pose",
-    "face_photo",
-    "generated_person",
-}
-
-
-def _insert_before_final_rule(prompt, text):
-    marker = "FINAL PRESENTATION:"
-    head, found, tail = prompt.rpartition(marker)
-    return f"{head}{text}{marker}{tail}" if found else f"{prompt.rstrip()} {text}"
+GARMENT_TYPE = "shirt"
+SUPPORTED_SCENARIOS = {"person_photo", "person_pose", "face_photo", "generated_person"}
 
 
 def _fabric_colour_reference(context):
@@ -76,225 +49,106 @@ def _fabric_colour_reference(context):
         source.seek(position)
 
 
-def _apply_shirt_rules(config, scenario, context):
-    """Apply shirt-owned constraints after shared scenario assembly."""
-    prompt = config["prompt"]
+def build_prompt(
+    *, scenario, garment_type=None, garment_style=None, use_garment_image=False,
+    context=None, seed=None, guidance=None,
+):
+    """Resolve each selected attribute before adding pose and scenery."""
+    if garment_type not in (None, GARMENT_TYPE):
+        raise PromptRoutingError(f"Shirt builder cannot handle '{garment_type}'.")
+    if scenario not in SUPPORTED_SCENARIOS or use_garment_image:
+        raise PromptRoutingError(f"Unsupported shirt scenario '{scenario}'.")
+    context = context or {}
+    camera = context.get("camera_view")
+    pose = context.get("pose")
+    details = context.get("garment_details") or []
+    if camera == "close_up" and requires_full_body_framing(pose):
+        camera = None
+    framing = get_framing(camera)
+    is_person = scenario in {"person_photo", "person_pose"}
+    reference = 0 if scenario == "person_photo" else 2
 
-    if scenario == "face_photo":
-        prompt = _insert_before_final_rule(
-            prompt, SHIRT_FACE_BODY_LINES.get(context.get("body_type"), "")
+    # The selected shirt construction belongs next to the task, before
+    # face, pose and scene instructions compete for model attention.
+    parts = [prompts.TASK, get_shirt_detail_prompt(details)]
+    if scenario == "person_photo":
+        parts.append(prompts.PERSON_EDIT_SUBJECT)
+    elif scenario == "person_pose":
+        parts.append(prompts.PERSON_POSE_SUBJECT)
+    elif scenario == "face_photo":
+        parts.append(prompts.FACE_SUBJECT)
+    else:
+        parts.append("SUBJECT: Generate " + _person_description(
+            context.get("gender"), context.get("body_type")
+        ) + ". ")
+
+    if not is_person:
+        body_type = context.get("body_type") or "slim"
+        child = context.get("gender") in {"boy", "girl"}
+        if child:
+            parts.append(prompts.CHILD_SUBJECT)
+        elif scenario == "face_photo":
+            parts.append("Generate an adult " + {
+                "men": "man", "women": "woman",
+            }.get(context.get("gender"), "person") + ". ")
+        parts.append(prompts.BODY_BUILD[body_type])
+        parts.append(prompts.BODY_FIT)
+        if scenario == "face_photo":
+            parts.append("The face reference determines facial identity only. ")
+
+    parts.append(prompts.OUTFIT)
+    if "folded_sleeves" not in details:
+        parts.append(prompts.PRESSED_SLEEVES)
+    parts.append(prompts.FABRIC)
+    parts.append(_fabric_colour_reference(context))
+
+    if scenario != "person_photo":
+        parts.append("FRAMING: " + framing["shown"] + framing["fill"] + ". ")
+        pose_text = get_camera_pose_prompt(pose, camera) or _own_model_pose_text(
+            pose, garment_type="shirt", garment_details=details, camera_view=camera,
         )
-        prompt = _insert_before_final_rule(prompt, SHIRT_COVERAGE_RULE)
+        parts.append("POSE: the person is " + pose_text + ". ")
+        if camera != "close_up":
+            parts.append(prompts.ANATOMY)
+        if scenario == "person_pose":
+            parts.append("Use the requested pose rather than the posture in image 2. ")
 
-    note = context.get("additional_style_note") or ""
+    background = context.get("background")
+    if background:
+        parts.append("BACKGROUND: " + BACKGROUND_DESCRIPTIONS[background] + ". ")
+    elif is_person:
+        parts.append(f"BACKGROUND: preserve the original setting in image {reference}. ")
+    else:
+        parts.append("BACKGROUND: a plain neutral studio. ")
+    if pose == "cross_leg_chair_recline":
+        parts.append("Include the upholstered armchair supporting the seated person. ")
+    parts.append(prompts.LIGHTING)
+
+    note = (context.get("additional_style_note") or "").strip()
+    # Retain the supported trouser-colour note without allowing it to
+    # silently replace the explicit body, sleeve and tuck selections.
     match = re.search(
         r"\b(?:change|make|set)\s+(?:the\s+)?(?:pants?|trousers?)\s+"
         r"(?:colou?r)\s+(?:to|as)\s+([a-z]+(?:[ -][a-z]+){0,2})",
-        note,
-        flags=re.IGNORECASE,
+        note, flags=re.IGNORECASE,
     )
     if match:
-        color = match.group(1).strip().lower()
-        prompt = _insert_before_final_rule(
-            prompt,
-            "SHIRT OUTFIT OVERRIDE: The formal trousers must be plain "
-            f"{color}, replacing every earlier trouser-colour instruction. "
-            "Keep image 1's fabric exclusively on the shirt. ",
-        )
-
-    if not context.get("use_garment_image"):
-        prompt = _insert_before_final_rule(
-            prompt, SHIRT_FABRIC_FINAL_RULE + _fabric_colour_reference(context)
-        )
-
-    details = context.get("garment_details") or []
-    if not context.get("use_garment_image") and "tucked" not in details:
-        prompt = _insert_before_final_rule(prompt, SHIRT_UNTUCKED_FINAL_RULE)
-
-    if scenario in {"face_photo", "generated_person", "person_pose"}:
-        prompt = _insert_before_final_rule(prompt, SHIRT_PROPORTION_RULE)
-
-    if "folded_sleeves" not in details:
-        prompt = _insert_before_final_rule(prompt, SHIRT_PRESS_FINISH_RULE)
-
-    config["prompt"] = prompt
+        parts = [part.replace("plain dark solid-colour trousers",
+                 "plain " + match.group(1).strip().lower() + " solid-colour trousers")
+                 for part in parts]
+    if note:
+        parts.append("STYLE NOTE: " + note.rstrip(".") + ". " + prompts.NOTE_PRIORITY)
+    parts.append(prompts.FINAL)
+    prompt = "".join(parts)
+    result = {"prompt": prompt}
     if scenario == "face_photo":
-        config["safety_fallback_prompt"] = _insert_before_final_rule(
-            prompt, SHIRT_SAFETY_FALLBACK_RULE
-        )
-    return config
-
-
-
-def _build_person_pose_prompt(
-    pose, camera_view=None, background=None, garment_details=None,
-):
-    """Priority-ordered shirt instructions for a posed person photo."""
-    pose_text = _own_model_pose_text(
-        pose, garment_type="shirt", garment_details=garment_details,
-        camera_view=camera_view,
-    )
-    camera_pose_text = get_camera_pose_prompt(pose, camera_view)
-    if camera_pose_text:
-        pose_text = camera_pose_text
-    # pallu_on_head describes a saree veil. For a shirt, retain the usable
-    # standing / hand position but remove the contradictory head-covering
-    # instruction, which can otherwise change the identity into a woman.
-    if pose == "pallu_on_head":
-        pose_text = (
-            "standing upright facing the camera with the head upright and "
-            "looking forward, both hands softly clasped together in front of "
-            "the lower waist, with exactly two arms and two hands in total, "
-            "and no head covering"
-        )
-    framing = get_framing(camera_view)
-    keep_background = not background
-    prompt = _task_line(
-        SCENARIO_PERSON_POSE, "shirt", False, keep_background
-    )
-    prompt += _pose_line(pose_text)
-    prompt += (
-        "POSE PRIORITY: Change the person's posture to exactly the pose above. "
-        "Do not retain the posture in image 2. "
-        "LIMBS: Do not copy arms, hands, legs or feet from image 2. Draw "
-        "exactly two arms, two hands, two legs and two feet in the pose above; "
-        "never add, duplicate or leave an extra limb. "
-        "SUBJECT: Generate one realistic " + framing["shot"]
-        + " photograph of the same person in image 2, "
-        + framing["shown"] + ". IDENTITY: Copy the person in image 2 exactly: "
-        "the same face shape, eyes, eyebrows, nose, lips, skin tone, hair, "
-        "age category, apparent gender presentation, accessories and natural "
-        "body build. Do not turn a man or boy into a woman or girl, or a woman "
-        "or girl into a man or boy. Keep the original "
-        "shoulder, waist and hip widths, torso length, height-to-width ratio, "
-        "and arm and leg thickness; do not slim or widen the person. "
-        "Replace every source garment completely, including shorts, trousers "
-        "or jeans; do not copy their colour, print, cut or fabric. "
-        "OUTFIT: Dress the person in a properly fitted, collared button-up "
-        "shirt. Sleeves, where the garment has them, must be full-length down "
-        "to the wrist, straight and unrolled, unless the garment description "
-        "above says otherwise. The shirt is worn with "
-        "plain dark solid-color formal full-length trousers. The trousers "
-        "must reach the ankles, fit naturally, and be newly generated even "
-        "when image 2 shows shorts or trousers. They must not use image 1's "
-        "fabric, pattern or print. "
-        "FABRIC: Use image 1 only as the shirt fabric reference. Apply its "
-        "actual colours, print, motif size and density across the entire "
-        "shirt. The fabric must be clearly visible on the shirt, with its "
-        "original hue, brightness and saturation. Do not use image 1's fabric, "
-        "pattern or colour on the trousers, footwear, accessories, skin or "
-        "background. " + FABRIC_RULES.format(target="shirt")
-    )
-    if keep_background:
-        prompt += (
-            "BACKGROUND: Keep the original place, objects, colours and lighting "
-            "from image 2; extend it naturally and add a simple chair or low "
-            "ledge only when the selected pose requires it. "
-        )
-    prompt += "Make the result a natural, realistic photograph. "
-    return prompt
-
-
-def _compose_person_pose_prompt(core, **context):
-    camera_view = context.get("camera_view")
-    if camera_view == "close_up" and requires_full_body_framing(
-        context.get("pose")
-    ):
-        # Keep the requested pose legible instead of giving the model
-        # incompatible full-body-pose and head-to-hip-crop instructions.
-        camera_view = None
-    prompt = _build_person_pose_prompt(
-        context.get("pose"), camera_view=camera_view,
-        background=context.get("background"),
-        garment_details=context.get("garment_details"),
-    )
-    prompt = core.apply_garment_details(
-        prompt, GARMENT_TYPE, context.get("garment_style"),
-        context.get("garment_details"), core.MODE_OWN,
-    )
-    return {
-        "prompt": core._append_overrides(
-            prompt, context.get("background"),
-            context.get("additional_style_note"),
-        ),
-        "guidance": core.GENERATED_GUIDANCE,
-        "seed": core.GENERATED_SEED,
-    }
-
-
-# ----------------------------------------------------------------------
-# PERSON POSE: dedicated short prompt for kurta and blazer (NEW)
-#
-# Same idea as the kurti and shirt builders above: a short prompt, pose
-# first. The garment wording, colour note, fabric rules and border rules
-# come from GARMENT_SPECS (one owner), so nothing is written twice.
-# CLOSING is used at the end ON PURPOSE: it contains the two anchors that
-# garment-specific details need (the sleeves sentence and the "Generate
-# realistic shading" sentence for the dupatta), so folded sleeves and the
-# dupatta options keep working exactly as before.
-# ----------------------------------------------------------------------
-
-# Words used when a pose is requested for a man's garment.
-# pallu_on_head describes a saree veil, so for kurta / blazer the usable
-# hands position is kept and the head covering is removed (same idea as the
-# shirt builder).
-
-def build_prompt(
-    *,
-    scenario,
-    garment_type=None,
-    garment_style=None,
-    use_garment_image=False,
-    context=None,
-    seed=None,
-    guidance=None,
-):
-    """Compose this garment's selected scenario and apply its local settings."""
-    if garment_type not in (None, GARMENT_TYPE):
-        raise PromptRoutingError(
-            f"Builder for '{GARMENT_TYPE}' cannot handle garment_type "
-            f"'{garment_type}'."
-        )
-
-    if scenario not in SUPPORTED_SCENARIOS:
-        raise PromptRoutingError(
-            f"Unsupported scenario '{scenario}' for garment '{GARMENT_TYPE}'."
-        )
-
-    request_context = context or {}
-    config = _compose_prompt(
-        scenario=scenario,
-        garment_type=GARMENT_TYPE,
-        garment_style=garment_style,
-        use_garment_image=use_garment_image,
-        gender=request_context.get("gender"),
-        body_type=request_context.get("body_type"),
-        camera_view=request_context.get("camera_view"),
-        background=request_context.get("background"),
-        additional_style_note=request_context.get("additional_style_note"),
-        pose=request_context.get("pose"),
-        garment_details=request_context.get("garment_details") or [],
-        use_face_reference=request_context.get("use_face_reference", False),
-        person_pose_hook=_compose_person_pose_prompt,
-        use_short_own_model=True,
-    )
-
-    if not isinstance(config, dict) or not config.get("prompt"):
-        raise PromptRoutingError(
-            f"No existing prompt is configured for garment '{GARMENT_TYPE}' "
-            f"and scenario '{scenario}'."
-        )
-
-    result = dict(config)
-    request_context["use_garment_image"] = use_garment_image
-    result = _apply_shirt_rules(result, scenario, request_context)
+        result["safety_fallback_prompt"] = prompt + prompts.RETRY_PRESENTATION
     result.update(get_generation_settings(seed=seed, guidance=guidance))
     logging.getLogger("fabricapp").info(
-        "Shirt final prompt version=fabric-colour-v2 scenario=%s pose=%s "
-        "camera=%s details=%s words=%s sha256=%s seed=%s guidance=%s",
-        scenario, request_context.get("pose"), request_context.get("camera_view"),
-        request_context.get("garment_details") or [], len(result["prompt"].split()),
-        hashlib.sha256(result["prompt"].encode("utf-8")).hexdigest()[:16],
+        "Shirt final prompt version=resolved-attributes-v3 scenario=%s body=%s "
+        "pose=%s background=%s details=%s words=%s sha256=%s seed=%s guidance=%s",
+        scenario, context.get("body_type"), pose, background, details,
+        len(prompt.split()), hashlib.sha256(prompt.encode()).hexdigest()[:16],
         result["seed"], result["guidance"],
     )
     return result

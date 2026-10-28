@@ -1,161 +1,76 @@
-"""Scenario-organized prompt data extracted from the existing project.
+"""Shirt-owned instructions, assembled once by builder.py in priority order."""
 
-Source wording is copied from prompts.py and prompt_builder.py. This module
-separates garment-owned data by scenario; scenario composition still uses
-the existing shared prompt builder until the later migration step.
-"""
-
-GARMENT_TYPE = 'shirt'
+GARMENT_TYPE = "shirt"
 GARMENT_STYLE_OPTIONS = {}
-
-# Used by the shared scenario assembly so the first instruction identifies a
-# button-up shirt rather than only the broad word "shirt".
-TASK_PHRASE = (
-    "a properly fitted collared button-up shirt made from the fabric in image 1"
+TASK = (
+    "TASK: create one realistic clothing-catalogue photograph featuring a "
+    "properly fitted collared button-up shirt made from fabric image 1. "
+    "Image 1 supplies only the shirt fabric, not a garment shape or scenery. "
 )
-
-# Shirt-only final constraint, applied by shirt/builder.py after the shared
-# scenario composition so later style/background notes cannot override it.
-SHIRT_FABRIC_FINAL_RULE = (
-    "FABRIC COLOUR MATCH: Image 1 is the colour reference for the shirt. "
-    "Match its hue, saturation and midtone brightness, together with its "
-    "pattern, scale and density. A dark or muted swatch stays dark or muted. "
-    "Light the shirt with diffuse neutral light, exposing for the fabric "
-    "rather than brightening it to match the face or background. Preserve "
-    "natural local fold shadows and highlights around the source midtones. "
-    "The background's atmosphere belongs to the scenery; keep its colour "
-    "grading, haze and glow off the shirt. Keep image 1 completely "
-    "off the background, trousers, footwear, accessories and skin. Follow any "
-    "shirt artwork or border placement instructions already given. "
+FACE_SUBJECT = (
+    "SUBJECT: image 0 is a blank canvas. Image 2 supplies the person's facial "
+    "identity, skin tone and hairstyle; preserve those features and apparent "
+    "age. Generate the body separately using the selected build below. "
 )
-
-SHIRT_UNTUCKED_FINAL_RULE = (
-    "FINAL SHIRT FIT: wear the shirt untucked. Its lower hem hangs visibly "
-    "outside and below the trouser waistband over the hips, covering the waistband. Do not place any part of the shirt hem inside "
-    "the trousers. "
+PERSON_EDIT_SUBJECT = (
+    "SUBJECT: edit the person in image 0, preserving their face, hair, skin "
+    "tone, expression, accessories, body build, pose and framing. Replace "
+    "the source upper and lower clothing with the outfit below. "
 )
-
-SHIRT_PROPORTION_RULE = (
-    "HUMAN PROPORTIONS: use normal adult arm and hand proportions. With arms at "
-    "rest, the wrists end around upper-thigh level and the hands are normal adult "
-    "size; do not lengthen the arms, forearms or hands. "
+PERSON_POSE_SUBJECT = (
+    "SUBJECT: image 0 is a blank canvas. Image 2 supplies the person's face, "
+    "hair, skin tone, apparent age, gender presentation, accessories and "
+    "body build. Preserve this identity and body proportions while creating "
+    "the requested pose and outfit. "
 )
-
-SHIRT_PRESS_FINISH_RULE = (
-    "SHIRT FINISH: present a well-fitted, professionally pressed catalogue shirt. "
-    "Keep the sleeves smooth and structured with only a few natural bends at the "
-    "elbows; do not bunch, gather or add heavy wrinkling on the sleeves. "
+CHILD_SUBJECT = (
+    "AGE: a 12-year-old child with age-appropriate proportions and child-sized clothing. "
 )
-
-# Face-reference generation starts from a blank canvas.  State the whole
-# outfit explicitly so a sampled image cannot omit the lower half while the
-# model is also trying to satisfy a full-body pose and a new background.
-SHIRT_COVERAGE_RULE = (
-    "OUTFIT COVERAGE: create a conventional clothing catalogue outfit: "
-    "an opaque collared shirt with visible front buttons, closed from the upper "
-    "chest to the hem and following the selected sleeve treatment; plain opaque formal trousers from the natural waist to the ankles; "
-    "and ordinary closed footwear. Keep the stance and expression professional. "
-)
-
-# Cloudflare error 3030 is an output-safety rejection, which is known only
-# after the provider samples an image.  The engine uses this deterministic
-# shirt-only fallback on its one alternate-seed retry; it does not change a
-# request that succeeds on the configured seed.
-SHIRT_SAFETY_FALLBACK_RULE = (
-    "RETRY PRESENTATION: render a conventional clothing catalogue "
-    "photograph. The opaque button-up shirt is fully buttoned and covers the "
-    "torso to the hips. Plain opaque formal trousers cover from waist to ankles, "
-    "with closed footwear. Keep the requested pose and camera framing. "
-)
-
-
-def fabric_forbidden_text(spec):
-    """Keep image 1 off non-shirt regions without contradicting its target."""
-    return (
-        "Do not use image 1's fabric, pattern or colours on the trousers "
-        "or pajama, footwear, accessories, skin or background. The shirt "
-        "is the only fabric target. "
-    )
-
-SHIRT_FACE_BODY_LINES = {
-    "plus": (
-        "BODY BUILD (image 2 gives only the face and hair, never the body): "
-        "the body is clearly PLUS-SIZE — a heavy, broad build with a full "
-        "rounded belly, wide chest and shoulders, thick arms and thick "
-        "thighs. The face keeps image 2's features and may look "
-        "proportionally fuller. The garment is cut larger to fit this body. "
-    ),
+BODY_BUILD = {
+    "slim": "BODY BUILD: a slim physique with a narrow torso, slender arms and legs. ",
     "trim": (
-        "BODY BUILD (image 2 gives only the face and hair, never the body): "
-        "the body is clearly ATHLETIC and toned — broad shoulders, a "
-        "V-shaped torso, defined arms and a flat stomach. The garment fits "
-        "this body. "
+        "BODY BUILD: an ATHLETIC, toned physique with broad shoulders, "
+        "a tapered waist and defined arms and legs. "
+    ),
+    "plus": (
+        "BODY BUILD: a visibly PLUS-SIZE physique with a broad torso, "
+        "full waist and abdomen, fuller upper arms and thighs. "
     ),
 }
-
-# Exact existing edit-mode prompt(s), including seed and guidance.
-GARMENT_PROMPTS = {
-    GARMENT_TYPE: {
-        "default": {
-            "prompt": (
-                "Edit image 0. Keep the same person, face, skin tone, hairstyle, expression, "
-                "hands, arms, background, and body pose from image 0 completely unchanged — "
-                "sharp, fully in focus, not altered in any way. "
-
-                "Regardless of what garment the person is currently wearing (shirt, t-shirt, "
-                "kurta, or anything else), replace it entirely with a new, properly fitted, "
-                "collared button-up shirt. "
-
-                "Use only the exact colors and pattern shown in "
-                "image 1 — same type (check, stripe, print, weave, or plain), same scale and "
-                "proportions — do not invent, add, brighten, darken, or alter any color or "
-                "design element not visible in image 1. The motifs must repeat as densely "
-                "and closely spaced as they appear in image 1, with the same small amount "
-                "of empty space between them — do not spread them further apart or enlarge "
-                "the gaps between motifs. "
-
-                "Do not preserve the original garment's collar style, sleeve shape, drape, "
-                "folds, wrinkles, or shadows — discard them completely and generate a "
-                "brand-new shirt structure from scratch: proper collar, natural sleeve "
-                "length, and a fit that follows the person's actual body shape in this pose "
-                "— not too loose, not too tight. "
-
-                "The new shirt's sleeves must be full-length and fully extended down to "
-                "the wrist in a natural, straight, unrolled state — never folded, cuffed, "
-                "or rolled up at the forearm or elbow. "
-
-                "Replace any shorts, trousers, jeans, or other lower-body clothing in image "
-                "0 with newly generated, plain dark solid-color formal full-length trousers "
-                "that reach the ankles and fit naturally. The trousers must be created even "
-                "when image 0 already shows full-length trousers. Do not use image 1's "
-                "fabric, print, pattern, or colours on the trousers. "
-
-                "Generate new, realistic shading, folds, and shadows appropriate for this "
-                "new shirt and trousers on this body and pose — consistent with the lighting "
-                "direction in the rest of the photo. "
-
-                "Result must look like one real, unedited photograph of the same person in "
-                "the same pose and background, now wearing a properly fitted new shirt made "
-                "exactly from image 1's fabric."
-            ),
-            "guidance": 7.0,
-            "seed": 42,
-        },
-    }
-}
-
-# Exact existing garment specifications used by the shared own-model and
-# person-pose builders. Values remain source expressions from prompt_builder.py.
-
-GARMENT_SPECS = {
-    ('shirt', 'default'): {
-        "fabric_target": "shirt",
-        "border": False,
-        "garment": (
-            "a properly fitted, collared button-up shirt, not too loose "
-            "and not too tight, worn with plain dark solid-color formal "
-            "full-length trousers. "
-        ),
-    }
-}
-# Garment-image prompting is shared by fabricapp.ai.garment_image.
+BODY_FIT = (
+    "The shirt and trousers follow this body build, with enough room at "
+    "the chest, abdomen, waist and arms; keep the requested build in every "
+    "pose. "
+)
+OUTFIT = (
+    "OUTFIT: a button-up shirt with a structured collar, visible front "
+    "button placket and closed opaque coverage from the upper chest, "
+    "paired with newly generated plain dark solid-colour trousers reaching "
+    "the ankles and ordinary closed footwear. "
+)
+PRESSED_SLEEVES = (
+    "The extended sleeves have a pressed finish with a few natural elbow bends. "
+)
+FABRIC = (
+    "FABRIC: reproduce image 1's base colours, pattern, motif scale and "
+    "close spacing across the shirt, including its sleeves. Keep dark or "
+    "muted fabric dark or muted. Allow natural perspective around seams "
+    "and folds and local shading around the original midtones. The fabric "
+    "belongs exclusively on the shirt; trousers and scenery stay separate. "
+)
+ANATOMY = "Show one person with two arms, two hands, two legs and two feet. "
+LIGHTING = (
+    "LIGHTING: illuminate the person and shirt with soft neutral fill light "
+    "and neutral white balance, preserving fabric hue, saturation and "
+    "midtone brightness. Keep the background's atmospheric lighting in "
+    "the scenery. "
+)
+NOTE_PRIORITY = (
+    "Apply this note to remaining styling choices while retaining the "
+    "selected body build, sleeve treatment, shirt hem placement and identity. "
+)
+FINAL = "FINAL PRESENTATION: one fully clothed person in a realistic fashion-catalogue photograph. "
+RETRY_PRESENTATION = (
+    "Keep the outfit opaque and fully buttoned from upper chest, with "
+    "full-length trousers, retaining the selected shirt hem and sleeve treatment. "
+)

@@ -317,7 +317,11 @@ def generate_tryon_image(
 
     response = None
     requested_seed = data["seed"]
-    for safety_attempt in range(SAFETY_RETRY_COUNT + 1):
+    # Internal diagnostic override: controlled tests can use one exact
+    # prompt/seed without silently sampling the alternate safety fallback.
+    # Normal requests keep the existing retry policy.
+    safety_retry_count = prompt_config.get("safety_retry_count", SAFETY_RETRY_COUNT)
+    for safety_attempt in range(safety_retry_count + 1):
         # The garment setting remains the configured seed. A different seed is
         # used only after Cloudflare has rejected the first sampled output.
         # A garment builder may also supply a conservative, route-specific
@@ -419,7 +423,7 @@ def generate_tryon_image(
             # Error 3030 means the provider rejected the sampled output. The
             # inputs and the configured garment defaults are valid; request
             # one controlled alternate sample before returning an error.
-            if internal_code == 3030 and safety_attempt < SAFETY_RETRY_COUNT:
+            if internal_code == 3030 and safety_attempt < safety_retry_count:
                 logger.warning(
                     "Cloudflare rejected generated output (3030) with seed=%s; "
                     "retrying once with seed=%s.",

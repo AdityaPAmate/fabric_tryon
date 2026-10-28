@@ -91,3 +91,92 @@ class ShirtFabricColourTests(SimpleTestCase):
         self.assertNotIn("SWATCH PALETTE:", config["prompt"])
         self.assertEqual(config["seed"], 31)
         self.assertEqual(config["guidance"], 4.5)
+
+
+class ProviderRetryHttpTests(SimpleTestCase):
+    """Exercise the real multipart client against a local HTTP provider.
+
+    Postman CLI cannot start on this machine (unreadable managed manifest).
+    This local server replays the observed 400/3030 response, not a mocked
+    requests response. No provider credentials or live generation are needed.
+    """
+
+    swatch = ShirtFabricColourTests.swatch
+
+    def test_shirt_rejection_is_not_retried_but_other_garments_keep_policy(self):
+        import base64
+        import json
+        import threading
+        from email.parser import BytesParser
+        from email.policy import default
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        import requests
+        from .ai.cloudflare_engine import CloudflareGenerationError
+
+        captured = []
+        image = self.swatch().read()
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_POST(self):
+                raw = self.rfile.read(int(self.headers["Content-Length"]))
+                message = BytesParser(policy=default).parsebytes(
+                    ("Content-Type: " + self.headers["Content-Type"] + "\r\n\r\n").encode() + raw
+                )
+                captured.append({
+                    part.get_param("name", header="content-disposition"): part.get_payload(decode=True)
+                    for part in message.iter_parts()
+                })
+                # First request fails; a second would succeed if retried.
+                first = len(captured) == 1
+                self.send_response(400 if first else 200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(
+                    {"errors": [{"code": 3030, "message": "Your output has been flagged."}]}
+                    if first else {"result": {"image": base64.b64encode(image).decode()}}
+                ).encode())
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        send = requests.Session.send
+
+        def local_send(session, request, **kwargs):
+            request.url = f"http://127.0.0.1:{server.server_port}/ai/run"
+            kwargs["proxies"] = {}
+            return send(session, request, **kwargs)
+
+        try:
+            with self.settings(CLOUDFLARE_ACCOUNT_ID="test", CLOUDFLARE_API_TOKEN="test",
+                               SAVE_DEBUG_FILES=False), patch.object(requests.Session, "send", local_send):
+                # Explicit internal diagnostic override; normal shirt requests
+                # retain the existing alternate-attempt policy.
+                with patch("fabricapp.ai.shirt.builder.get_generation_settings",
+                           return_value={"seed": 42, "guidance": 7, "safety_retry_count": 0}):
+                    with self.assertRaises(CloudflareGenerationError) as rejected:
+                        generate_tryon_image(
+                            fabric_image=self.swatch(), face_image=self.swatch(),
+                            garment_type="shirt", gender="men", body_type="plus", seed=42,
+                        )
+                self.assertEqual(rejected.exception.provider_code, 3030)
+                self.assertEqual(len(captured), 1)
+                self.assertEqual(captured[0]["seed"], b"42")
+                self.assertIn("PLUS-SIZE", captured[0]["prompt"].decode())
+                self.assertIn("input_image_2", captured[0])
+
+                captured.clear()
+                result = generate_tryon_image(
+                    fabric_image=self.swatch(), garment_type="kurta", garment_style="plain",
+                    gender="men", seed=42,
+                )
+                self.assertEqual(len(captured), 2)
+                self.assertEqual([item["seed"] for item in captured], [b"42", b"43"])
+                self.assertEqual(captured[0]["prompt"], captured[1]["prompt"])
+                self.assertEqual(result.image_bytes, image)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)

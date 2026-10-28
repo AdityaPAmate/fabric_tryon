@@ -33,13 +33,12 @@ POSE_PROMPTS = {
     ),
     "low_hand_clasp_front": (
         "standing facing the camera with the head upright and directed forward,"
-        " both elbows slightly bent with the right hand loosely cupping the left fingers"
-        " and the left hand resting over the right low in front of the pelvis,"
+        " both hands gently clasped low in front of the pelvis,"
+        " with the right palm supporting the left fingers and relaxed elbows,"
         " legs nearly straight and feet slightly apart with the left foot a little forward"
     ),
     "pallu_on_head": (
         "standing upright facing the camera directly, head upright and looking forward,"
-        " a light stole or dupatta drawn over the top of the head and hair as a formal head drape,"
         " exactly two arms and two hands in total,"
         " the hands softly clasped together in front of the lower waist"
     ),
@@ -75,19 +74,17 @@ POSE_PROMPTS = {
         " both feet flat on the ground, with the left foot slightly forward"
     ),
     "back_showing_pallu": (
-        "Follow the supplied pose reference image closely."
-        "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette."
-        "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
+        "standing with the back facing the camera, head turned gently over"
+        " the right shoulder, arms relaxed beside the hips, showing the back"
+        " of the shirt and its hem clearly"
     ),
     "seated_floor_spread": (
-        "Follow the supplied pose reference image closely."
-        "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette."
-        "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
+        "seated upright on the floor with legs comfortably crossed, hands"
+        " resting naturally on the knees, showing the shirt's torso and sleeves"
     ),
     "royal_standing_front": (
-        "Follow the supplied pose reference image closely."
-        "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette."
-        "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
+        "standing upright facing the camera, chin level, shoulders relaxed,"
+        " arms resting naturally beside the body and feet slightly apart"
     ),
 }
 
@@ -120,6 +117,7 @@ POSES_REQUIRING_FULL_BODY = {
     "cross_leg_chair_recline",
     "pocket_walk",
     "rail_wide_arm_side_look",
+    "seated_floor_spread",
 }
 
 POSE_CAMERA_VARIANTS = {
@@ -163,7 +161,10 @@ def get_pose_prompt(pose, garment_style=None, detail_keys=None):
     if not sentence:
         return None
     if pose == "sleeve_adjust_stand" and "folded_sleeves" in (detail_keys or []):
-        sentence = sentence.replace(", the sleeve staying fully down", "")
+        sentence = sentence.replace(
+            "holding the left sleeve near the wrist",
+            "adjusting the folded left sleeve cuff just below the elbow",
+        ).replace(", the sleeve staying fully down", "")
     suffix = POSE_SUFFIXES.get(pose)
     return f"{sentence}{suffix}" if suffix else sentence
 

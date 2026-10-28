@@ -1,78 +1,40 @@
-"""Shirt-specific garment detail rules copied from garment_details.py."""
+"""Shirt sleeve and hem choices, shared by all four fabric scenarios."""
 
 GARMENT_TYPE = "shirt"
-MODE_EDIT = "edit"
-MODE_OWN = "own"
 
 SLEEVES_FOLDED = (
-    "The new {noun}'s sleeves must be neatly folded back: rolled up evenly "
-    "to just below the elbow, with a clean folded cuff of the same fabric "
-    "visible on each arm, both sleeves folded identically, and the "
-    "forearms below the fold bare and natural. "
+    "SLEEVES: both {noun} sleeves are evenly rolled to just below the elbows, "
+    "with visible folded fabric cuffs and exposed forearms below the folds. "
 )
 SLEEVES_FULL = (
-    "The new shirt's sleeves must be full-length and fully extended down "
-    "to the wrist in a natural, straight, unrolled state — never folded, "
-    "cuffed, or rolled up at the forearm or elbow. "
+    "SLEEVES: full-length, fully unrolled shirt sleeves reaching both wrists, "
+    "with buttoned wrist cuffs and continuous fabric covering both forearms. "
 )
 SHIRT_UNTUCKED = (
-    "The new shirt must be worn untucked, with its straight hem hanging "
-    "naturally outside the trousers over the hips, not tucked into the "
-    "waistband. "
+    "HEM: the shirt is completely untucked, worn outside the trousers. "
+    "Its continuous bottom edge hangs over the upper hips below and "
+    "covering the trouser waistband, overlapping the top of the trousers. "
 )
 SHIRT_TUCKED = (
-    "The new shirt must be tucked neatly into the trousers at the waist, "
-    "with the shirt hem fully inside the waistband and a clean, smooth "
-    "waistline. "
+    "HEM: fully tucked-in styling. The shirt fabric enters the trousers at "
+    "the natural waist. The trouser waistband and a plain belt are clearly "
+    "visible around the waist. The shirt's bottom edge and any lower fabric "
+    "border are concealed inside the trousers. "
 )
 
-SLEEVES_OWN_ANCHOR = (
-    "Sleeves, where the garment has them, must be full-length down to the "
-    "wrist, straight and unrolled, unless the garment description above "
-    "says otherwise. "
-)
-SHIRT_EDIT_ANCHOR = "collared button-up shirt."
-SHIRT_OWN_ANCHOR = "worn with plain dark solid-color formal full-length trousers. "
 
+def get_shirt_detail_prompt(detail_keys=None):
+    """Select one sleeve treatment and one hem placement, including defaults."""
+    keys = set(detail_keys or [])
+    sleeves = SLEEVES_FOLDED if "folded_sleeves" in keys else SLEEVES_FULL
+    hem = SHIRT_TUCKED if "tucked" in keys else SHIRT_UNTUCKED
+    return sleeves.format(noun="shirt") + hem
+
+
+# The shared serializer reads these slots and option keys for validation.
+# Prompt text is selected directly by get_shirt_detail_prompt; these entries
+# deliberately have no edit/own mode or sentence-replacement anchors.
 DETAIL_RULES = [
-    {
-        "slot": "sleeves",
-        "garment": GARMENT_TYPE,
-        "mode": MODE_EDIT,
-        "anchor": SLEEVES_FULL,
-        "options": {"folded_sleeves": SLEEVES_FOLDED},
-        "default": SLEEVES_FULL,
-        "styles": None,
-        "noun": "shirt",
-    },
-    {
-        "slot": "sleeves",
-        "garment": GARMENT_TYPE,
-        "mode": MODE_OWN,
-        "anchor": SLEEVES_OWN_ANCHOR,
-        "options": {"folded_sleeves": SLEEVES_FOLDED},
-        "default": SLEEVES_FULL,
-        "styles": None,
-        "noun": "shirt",
-    },
-    {
-        "slot": "tuck",
-        "garment": GARMENT_TYPE,
-        "mode": MODE_EDIT,
-        "anchor": SHIRT_EDIT_ANCHOR,
-        "options": {"tucked": "{anchor} " + SHIRT_TUCKED},
-        "default": "{anchor} " + SHIRT_UNTUCKED,
-        "styles": None,
-        "noun": "shirt",
-    },
-    {
-        "slot": "tuck",
-        "garment": GARMENT_TYPE,
-        "mode": MODE_OWN,
-        "anchor": SHIRT_OWN_ANCHOR,
-        "options": {"tucked": "{anchor}" + SHIRT_TUCKED},
-        "default": "{anchor}" + SHIRT_UNTUCKED,
-        "styles": None,
-        "noun": "shirt",
-    },
+    {"slot": "sleeves", "options": {"folded_sleeves": SLEEVES_FOLDED}, "styles": None},
+    {"slot": "tuck", "options": {"tucked": SHIRT_TUCKED}, "styles": None},
 ]
