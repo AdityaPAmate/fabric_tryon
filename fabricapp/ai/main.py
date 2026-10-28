@@ -1,5 +1,6 @@
 """Public AI entry point used by the API view."""
 
+from ..timing import timed_stage
 from .cloudflare_engine import (
     CloudflareGenerationError,
     generate_tryon_image as _generate_with_engine,
@@ -78,15 +79,16 @@ def generate_tryon_image(
     }
 
     try:
-        prompt_config = build_prompt_config(
-            scenario=scenario,
-            garment_type=garment_type,
-            garment_style=garment_style,
-            use_garment_image=use_garment_image,
-            context=context,
-            seed=seed,
-            guidance=guidance,
-        )
+        with timed_stage("prompt_building"):
+            prompt_config = build_prompt_config(
+                scenario=scenario,
+                garment_type=garment_type,
+                garment_style=garment_style,
+                use_garment_image=use_garment_image,
+                context=context,
+                seed=seed,
+                guidance=guidance,
+            )
     except PromptRoutingError as exc:
         raise CloudflareGenerationError(str(exc)) from exc
 

@@ -9,6 +9,17 @@ GARMENT_TYPE = 'kurta'
 POSE_LIMBS_RULE = True
 GARMENT_STYLE_OPTIONS = {'kurta': ['plain', 'sherwani', 'pathani', 'jodhpuri']}
 
+# Reference silhouette: a draped men's shalwar, rather than wide formal trousers.
+PATHANI_SALWAR_SHAPE = (
+    "a traditional men's Pathani shalwar with a low, dropped crotch above the knees, "
+    "a generous seat and broad, soft folds draping diagonally between the legs. "
+    "The two legs stay roomy through the thighs, knees and calves, then gather "
+    "gently into short, narrow, flat ankle bands just above the shoes. The fabric "
+    "hangs in long, rounded folds, with a relaxed baggy silhouette, not stiff "
+    "pressed pleats or straight trouser tubes. Keep two distinct ankle openings; "
+    "do not turn the shalwar into a dhoti, skirt, slim pajama or elastic joggers. "
+)
+
 # Exact existing edit-mode prompt(s), including seed and guidance.
 GARMENT_PROMPTS = {
     GARMENT_TYPE: {
@@ -179,14 +190,8 @@ GARMENT_PROMPTS = {
 
                 "If any part of the person's legs below the kurta hem is visible in image 0, "
                 "do NOT leave that area as bare, exposed, or nude skin under any "
-                "circumstance. Instead, generate a distinct Pathani salwar — a VERY LOOSE, "
-                "voluminous, deeply pleated trouser with a visibly wide silhouette from the "
-                "waist through the seat and thighs, substantially wider than straight pajama "
-                "trousers. Show generous folds and extra fabric volume at the waist, seat and "
-                "thighs; only below the knees does it gradually narrow into soft folds and a "
-                "cuffed ankle. It must read clearly as a baggy Pathani salwar, never as slim "
-                "pants, churidar, or ordinary straight kurta-pajama trousers — in a "
-                "plain solid color that coordinates naturally with the kurta (commonly the "
+                "circumstance. Instead, generate " + PATHANI_SALWAR_SHAPE +
+                "The shalwar is in a plain solid color that coordinates naturally with the kurta (commonly the "
                 "same tone as the kurta itself, or a solid shade picked from the kurta's own "
                 "color palette), never patterned or bright, and never the same pattern as the "
                 "kurta fabric itself. This salwar must look noticeably baggier and wider than "
@@ -403,14 +408,8 @@ GARMENT_SPECS = {
             "reaching down to the wrists covering both arms completely. This "
             "must read as a Pathani style, not a plain mandarin-collar kurta: "
             "the pointed collar and both flap pockets must be visible. Below "
-            "it, a Pathani salwar — VERY LOOSE and deeply pleated, with a "
-            "visibly wide silhouette from the waist through the seat and "
-            "thighs, substantially wider than straight pajama trousers. Show "
-            "generous folds and extra fabric volume at the waist, seat and "
-            "thighs; only below the knees does it gradually narrow into soft "
-            "folds and a cuffed ankle. Never slim pants, churidar or ordinary "
-            "straight kurta-pajama trousers. In a plain solid "
-            "color that is exactly the main colour of the kurta fabric "
+            "it, " + PATHANI_SALWAR_SHAPE +
+            "The shalwar is in a plain solid color that is exactly the main colour of the kurta fabric "
             "from image 1 (never black or grey unless that is image 1's "
             "main colour), never patterned. "
         ),

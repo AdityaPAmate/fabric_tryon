@@ -11,6 +11,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .timing import image_request_timing, timed_stage, set_timing_metadata
 from .ai.cloudflare_engine import CloudflareGenerationError
 from .ai.main import generate_tryon_image
 from .serializers import FabricTryOnRequestSerializer
@@ -31,6 +32,12 @@ class FabricTryOnView(APIView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
+        with image_request_timing():
+            response = self._generate_response(request)
+            set_timing_metadata(http_status=response.status_code)
+            return response
+
+    def _generate_response(self, request):
         serializer = FabricTryOnRequestSerializer(data=request.data)
 
         if not serializer.is_valid():
@@ -41,27 +48,31 @@ class FabricTryOnView(APIView):
             )
 
         data = serializer.validated_data
+        set_timing_metadata(garment=data.get("garment_type") or "garment_image",
+                            style=data.get("garment_style"),
+                            draft_mode=data.get("options", {}).get("draft_mode", True))
 
         try:
-            generation = generate_tryon_image(
-                person_image=data.get("person_image"),
-                fabric_image=data.get("fabric_image"),
-                garment_image=data.get("garment_image"),
-                garment_type=data.get("garment_type"),
-                garment_style=data.get("garment_style"),
-                gender=data.get("gender"),
-                body_type=data.get("body_type"),
-                face_choice=data.get("face_choice"),
-                face_image=data.get("face_image"),
-                camera_view=data.get("camera_view"),
-                background=data.get("background"),
-                additional_style_note=data.get("additional_style_note"),
-                pose=data.get("pose"),
-                garment_details=data.get("garment_details", []),
-                options=data.get("options", {}),
-                seed=data.get("seed"),
-                guidance=data.get("guidance"),
-            )
+            with timed_stage("generation_total"):
+                generation = generate_tryon_image(
+                    person_image=data.get("person_image"),
+                    fabric_image=data.get("fabric_image"),
+                    garment_image=data.get("garment_image"),
+                    garment_type=data.get("garment_type"),
+                    garment_style=data.get("garment_style"),
+                    gender=data.get("gender"),
+                    body_type=data.get("body_type"),
+                    face_choice=data.get("face_choice"),
+                    face_image=data.get("face_image"),
+                    camera_view=data.get("camera_view"),
+                    background=data.get("background"),
+                    additional_style_note=data.get("additional_style_note"),
+                    pose=data.get("pose"),
+                    garment_details=data.get("garment_details", []),
+                    options=data.get("options", {}),
+                    seed=data.get("seed"),
+                    guidance=data.get("guidance"),
+                )
         except CloudflareGenerationError as exc:
             logger.error("Generation failed: %s", exc)
             if exc.provider_code == 3030:
@@ -92,7 +103,8 @@ class FabricTryOnView(APIView):
             )
 
         try:
-            uploaded_image = upload_generated_image(generation.image_bytes)
+            with timed_stage("cloudinary_upload"):
+                uploaded_image = upload_generated_image(generation.image_bytes)
         except CloudinaryUploadError as exc:
             logger.error("Generated image could not be stored: %s", exc)
             return Response(

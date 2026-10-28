@@ -45,6 +45,7 @@ from datetime import datetime, timezone
 import requests
 from django.conf import settings
 
+from ..timing import timed_stage
 from .faces import get_face_image_path
 from .router import (
     SCENARIO_PERSON_PHOTO,
@@ -237,28 +238,29 @@ def generate_tryon_image(
         scenario, gender, body_type, face_choice, bool(face_image), pose, camera_view,
         pose_reference_path,
     )
-    subject_buffer, reference_buffer, out_w, out_h = _build_subject(
-        scenario, person_image, face_choice, face_image, max_output_side, pose_reference_path
-    )
-
-    # Stage 1: prepare the garment source image (image_1)
-    if use_garment_image:
-        garment_source_buffer = resize_to_fit(garment_image, max_dim=MAX_INPUT_DIM)
-    else:
-        garment_source_buffer = resize_to_fit(
-            fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box")
+    with timed_stage("input_preparation", scenario=scenario):
+        subject_buffer, reference_buffer, out_w, out_h = _build_subject(
+            scenario, person_image, face_choice, face_image, max_output_side, pose_reference_path
         )
 
-    # Debug file names include the pose so different poses do not overwrite each other.
-    debug_tag = garment_type or "garment_image"
-    if pose:
-        debug_tag = f"{debug_tag}_{pose}"
-    if camera_view:
-        debug_tag = f"{debug_tag}_{camera_view}"
-    save_debug_copy(subject_buffer, f"sent_subject_{debug_tag}.jpg")
-    save_debug_copy(garment_source_buffer, f"sent_garment_source_{debug_tag}.jpg")
-    if reference_buffer is not None:
-        save_debug_copy(reference_buffer, f"sent_reference_{debug_tag}.jpg")
+        # Stage 1: prepare the garment source image (image_1)
+        if use_garment_image:
+            garment_source_buffer = resize_to_fit(garment_image, max_dim=MAX_INPUT_DIM)
+        else:
+            garment_source_buffer = resize_to_fit(
+                fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box")
+            )
+
+        # Debug file names include the pose so different poses do not overwrite each other.
+        debug_tag = garment_type or "garment_image"
+        if pose:
+            debug_tag = f"{debug_tag}_{pose}"
+        if camera_view:
+            debug_tag = f"{debug_tag}_{camera_view}"
+        save_debug_copy(subject_buffer, f"sent_subject_{debug_tag}.jpg")
+        save_debug_copy(garment_source_buffer, f"sent_garment_source_{debug_tag}.jpg")
+        if reference_buffer is not None:
+            save_debug_copy(reference_buffer, f"sent_reference_{debug_tag}.jpg")
 
     # Stage 3: call Cloudflare, retrying on transient errors
     files = {
@@ -357,10 +359,16 @@ def generate_tryon_image(
                 attempt, MAX_ATTEMPTS, data["seed"], using_safety_fallback,
             )
             try:
-                response = requests.post(
-                    url, headers=headers, files=files, data=data,
-                    timeout=REQUEST_TIMEOUT_SECONDS,
-                )
+                with timed_stage(
+                    "cloudflare_attempt", network_attempt=attempt,
+                    safety_attempt=safety_attempt, seed=data["seed"],
+                    width=out_w, height=out_h,
+                ) as timing:
+                    response = requests.post(
+                        url, headers=headers, files=files, data=data,
+                        timeout=REQUEST_TIMEOUT_SECONDS,
+                    )
+                    timing["http_status"] = response.status_code
             except requests.exceptions.RequestException as e:
                 if attempt_trace is not None:
                     attempt_trace.update(
@@ -373,7 +381,8 @@ def generate_tryon_image(
                         "Network error calling Cloudflare (%s). Retrying in %s seconds.",
                         e, wait_seconds,
                     )
-                    time.sleep(wait_seconds)
+                    with timed_stage("retry_wait", reason="network_error", seconds=wait_seconds):
+                        time.sleep(wait_seconds)
                     _rewind_uploads(files)
                     continue
                 logger.error("Cloudflare request failed after network error: %s", e)
@@ -416,7 +425,8 @@ def generate_tryon_image(
                     "Cloudflare returned status %s (code %s). Retrying in %s seconds.",
                     response.status_code, internal_code, wait_seconds,
                 )
-                time.sleep(wait_seconds)
+                with timed_stage("retry_wait", reason="provider_status", seconds=wait_seconds):
+                    time.sleep(wait_seconds)
                 _rewind_uploads(files)
                 continue
 
@@ -449,27 +459,28 @@ def generate_tryon_image(
         if response is not None and response.status_code == 200:
             break
 
-    logger.info("Stage 4: parsing Cloudflare response")
-    content_type = response.headers.get("Content-Type", "")
+    with timed_stage("response_processing"):
+        logger.info("Stage 4: parsing Cloudflare response")
+        content_type = response.headers.get("Content-Type", "")
 
-    if "application/json" in content_type:
-        result = response.json()
-        image_b64 = result.get("result", {}).get("image", "")
-        if not image_b64:
-            logger.error("No image field found in Cloudflare response: %s", result)
-            raise generation_error("Cloudflare response did not contain an image")
-        image_bytes = base64.b64decode(image_b64)
-    elif "image" in content_type:
-        image_bytes = response.content
-    else:
-        logger.error("Unexpected content type from Cloudflare: %s", content_type)
-        raise generation_error(f"Unexpected response content type: {content_type}")
+        if "application/json" in content_type:
+            result = response.json()
+            image_b64 = result.get("result", {}).get("image", "")
+            if not image_b64:
+                logger.error("No image field found in Cloudflare response: %s", result)
+                raise generation_error("Cloudflare response did not contain an image")
+            image_bytes = base64.b64decode(image_b64)
+        elif "image" in content_type:
+            image_bytes = response.content
+        else:
+            logger.error("Unexpected content type from Cloudflare: %s", content_type)
+            raise generation_error(f"Unexpected response content type: {content_type}")
 
-    save_output_copy(image_bytes, f"output_{debug_tag}.png")
+        save_output_copy(image_bytes, f"output_{debug_tag}.png")
 
-    del subject_buffer, garment_source_buffer, reference_buffer, files, response
-    gc.collect()
-    logger.info("Stage 5: request finished, memory released")
+        del subject_buffer, garment_source_buffer, reference_buffer, files, response
+        gc.collect()
+        logger.info("Stage 5: request finished, memory released")
 
     if diagnostics is not None:
         diagnostics["effective_seed"] = data["seed"]
