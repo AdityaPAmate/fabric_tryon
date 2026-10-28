@@ -59,11 +59,12 @@ POSE_PROMPTS = {
         " weight settled evenly against the ledge"
     ),
     "sleeve_adjust_stand": (
-        "standing in a three-quarter stance with the body turned slightly toward the viewer's left"
-        " and the head turned to look toward the viewer's left,"
-        " the right arm bent horizontally across the stomach with its fingers holding the left sleeve near the wrist,"
-        " the left arm hanging down and slightly forward with the hand relaxed near the thigh,"
-        " legs nearly straight with the feet slightly apart, the sleeve staying fully down"
+        "standing in a relaxed three-quarter pose with the torso slightly angled and shoulders naturally relaxed,"
+        " head turned toward the viewer's right, chin slightly raised, eyes gazing sideways away from the camera,"
+        " right elbow bent across the front of the waist, right hand gently gripping and pulling up the left sleeve near the elbow,"
+        " left upper arm close to the torso, left forearm extending diagonally downward with the wrist relaxed and fingers loosely curved near the thigh,"
+        " hips subtly shifted with body weight resting primarily on the left leg, maintaining an upright and balanced posture,"
+        " right leg crossing diagonally in front of the left with the knee slightly bent, both feet touching the floor in a relaxed crossed-leg stance"
     ),
     "three_quarter_hand_adjust": (
         "standing nearly front-facing with the torso turned slightly toward the model's right,"
@@ -106,17 +107,8 @@ POSE_OVERRIDES = {('kurta', None, 'cross_leg_chair_recline'): 'seated on ONE low
                                              'lower pant legs visible below the hem completely '
                                              'plain and solid without pattern, with the complete '
                                              'chair, both legs and both feet visible',
- ('kurta', None, 'sleeve_adjust_stand'): 'standing in a three-quarter stance with the body turned '
-                                         "slightly toward the viewer's left and the head turned to "
-                                         "look toward the viewer's left, exactly two arms and two "
-                                         'hands in total, never a third hand: the right elbow bent '
-                                         'with the right forearm diagonally across the torso and '
-                                         'the right hand visibly adjusting the left sleeve cuff at '
-                                         'the left wrist, the left arm hanging naturally beside '
-                                         'the body with the left hand open beside the left thigh — '
-                                         'no third hand, no extra arm hangs anywhere, both hands '
-                                         'separate and visible, legs nearly straight with the feet '
-                                         'slightly apart, the sleeve staying fully down',
+
+
  ('kurta', None, 'rail_wide_arm_side_look'): 'standing upright facing the camera directly with the '
                                              'body squared to the viewer, head turned to look in '
                                              "profile toward the viewer's left, exactly two arms "
