@@ -1,4 +1,4 @@
-"""A compact, fully clothed blazer composition for the single 3030 retry."""
+"""Shared Blazer constraints for the primary prompt and compact 3030 retry."""
 
 from ..scenario_composer import (
     BACKGROUND_DESCRIPTIONS, _garment_text_for_pose, _is_child,
@@ -7,10 +7,10 @@ from ..scenario_composer import (
 from . import prompts
 
 
-VERSION = "blazer-retry-v2"
+VERSION = "blazer-structured-v3"
 
 
-def build_retry_prompt(scenario, style, context):
+def build_retry_prompt(scenario, style, context, *, compact=True):
     """Resolve the same outfit and references without repeating the long prompt."""
     spec = prompts.GARMENT_SPECS.get(("blazer", style))
     if spec is None:
@@ -18,12 +18,20 @@ def build_retry_prompt(scenario, style, context):
     pose = context.get("pose")
     camera = context.get("camera_view")
     background = context.get("background")
-    framing = get_framing(camera)
+    # A selected pose owns orientation; camera still owns close-up cropping.
+    framing = get_framing(camera if not pose or camera == "close_up" else None)
     parts = [
         "TASK: create one realistic clothing-catalogue photograph of one fully "
         "clothed person in an opaque blazer outfit. Image 1 supplies only the "
         "jacket fabric colours and pattern. ",
     ]
+    if not compact:
+        parts.append(
+            "Resolve this as a single outfit: the jacket uses the supplied fabric, "
+            "while the shirt and trousers follow their separate descriptions. "
+            "Keep fabric colour, garment construction, identity and pose consistent "
+            "throughout the photograph. "
+        )
     if scenario == "person_photo":
         parts.append(
             "SUBJECT: edit the person in image 0. Preserve their face, hair, "
@@ -38,7 +46,7 @@ def build_retry_prompt(scenario, style, context):
                 "skin tone, apparent age, gender presentation, accessories and "
                 "body proportions. Preserve these in the requested new pose. "
             )
-        else:
+        if scenario in ("face_photo", "generated_person"):
             parts.append("SUBJECT: " + _person_description(
                 context.get("gender"), context.get("body_type")
             ) + ". ")
@@ -55,17 +63,33 @@ def build_retry_prompt(scenario, style, context):
                     "preserve these and the apparent age. "
                 )
         parts.append("FRAMING: " + framing["shot"] + ", " + framing["shown"] + ". ")
-        parts.append("POSE: " + _spec_person_pose_text(
+        pose_text = _spec_person_pose_text(
             pose, "blazer", style, context.get("garment_details") or [], camera
-        ) + ". ")
+        )
+        if camera == "close_up":
+            pose_text = pose_text.replace(
+                ", with the whole chair and both full legs and feet visible", ""
+            )
+        parts.append("POSE: " + pose_text + ". ")
+    if scenario in ("person_pose", "person_photo"):
+        parts.append(
+            "IDENTITY: retain the source shoulder, waist and hip widths and arm "
+            "and leg thickness; keep the same body build. Replace source clothing "
+            "with the complete selected outfit while retaining personal accessories. "
+        )
     parts.append("OUTFIT: " + _garment_text_for_pose(spec["garment"], "blazer", pose))
     parts.append(
+        "COVERAGE: an opaque inner shirt covers the chest and torso beneath the "
+        "jacket, including when the casual jacket is open. Jacket sleeves reach "
+        "the wrists, straight and unrolled. Trousers have side pockets and are "
+        "opaque, full-length and plain solid in the specified colour. "
+    )
+    parts.append(
         "FABRIC: reproduce image 1's colours, pattern, motif scale and density "
-        "on the entire jacket and sleeves, preserving hue and brightness. "
-        "Keep the inner shirt opaque, covering the chest and torso. Trousers "
-        "are opaque, full-length and plain solid, with the colour specified "
-        "above. Shirt, trousers and accessories retain their specified solid "
-        "colours, separate from the jacket pattern. "
+        "on the entire jacket and sleeves, preserving hue, saturation, brightness "
+        "and motif spacing. Use only the supplied colours and design. The inner "
+        "shirt, trousers and any specified tie keep their solid colours; the jacket "
+        "pattern stays exclusively on the jacket. Preserve personal accessories. "
     )
     if background:
         parts.append(_short_background(BACKGROUND_DESCRIPTIONS.get(background), pose=pose))
@@ -74,11 +98,17 @@ def build_retry_prompt(scenario, style, context):
         parts.append("BACKGROUND: preserve the setting and lighting from image " + source + ". ")
     else:
         parts.append("BACKGROUND: a plain neutral studio with soft neutral lighting. ")
+    if not background and pose == "cross_leg_chair_recline":
+        parts.append("Include an upholstered armchair supporting the seated pose. ")
+    if pose == "rail_wide_arm_side_look":
+        parts.append("Include a stable hip-height ledge supporting both hands. ")
     note = (context.get("additional_style_note") or "").strip()
     if note:
         parts.append("STYLE NOTE: " + note.rstrip(".") + ". Retain the outfit coverage and selected attributes. ")
     parts.append(
-        "FINAL: one person with natural anatomy, two arms and two legs, "
+        "FINAL: one person with natural anatomy, exactly two arms, two hands, "
+        "two legs and two feet, showing only what fits the selected crop. "
+        "Render natural fabric folds and shadows. Keep the person "
         "in the selected pose and framing, fully clothed in a realistic catalogue photograph. "
     )
     return "".join(parts)

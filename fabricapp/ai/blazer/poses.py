@@ -32,8 +32,8 @@ POSE_PROMPTS = {
     ),
     "low_hand_clasp_front": (
         "standing facing the camera with the head upright and directed forward,"
-        " both elbows slightly bent with the right hand loosely cupping the left fingers"
-        " and the left hand resting over the right low in front of the pelvis,"
+        " both elbows relaxed and slightly bent, with the right hand gently holding the left hand"
+        " and both hands resting together in front of the lower waist,"
         " legs nearly straight and feet slightly apart with the left foot a little forward"
     ),
     "pallu_on_head": (
@@ -43,10 +43,9 @@ POSE_PROMPTS = {
         " the hands softly clasped together in front of the lower waist"
     ),
     "pocket_walk": (
-        "walking toward the camera in a relaxed mid-stride with the body facing forward"
+        "walking toward the camera with a short, relaxed step with the body facing forward"
         " and the head upright looking straight ahead,"
-        " the left arm bent with its hand tucked into the side trouser pocket"
-        " (or lightly at the hip if the outfit has no pocket),"
+        " the left arm bent with its hand resting inside the left trouser pocket,"
         " the right arm hanging down at the side with the hand relaxed and slightly open,"
         " and one leg stepping forward ahead of the other"
     ),
@@ -73,20 +72,18 @@ POSE_PROMPTS = {
         " legs naturally separated, with the right leg nearly straight and the left leg slightly relaxed,"
         " both feet flat on the ground, with the left foot slightly forward"
     ),
+    # Legacy pose names retain a blazer-compatible interpretation.
     "back_showing_pallu": (
-        "Follow the supplied pose reference image closely."
-        "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette."
-        "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
+        "standing with the back toward the camera, showing the back of the blazer, "
+        "head turned over the right shoulder and both arms resting naturally at the sides"
     ),
     "seated_floor_spread": (
-        "Follow the supplied pose reference image closely."
-        "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette."
-        "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
+        "seated upright on the floor with legs comfortably crossed, "
+        "both hands resting on the knees, wearing the blazer and trousers"
     ),
     "royal_standing_front": (
-        "Follow the supplied pose reference image closely."
-        "Preserve the same body orientation, posture, arm and hand placement, saree draping, pallu direction, and overall silhouette."
-        "Apply the input fabric to the saree while maintaining the reference pose and keeping the complete garment visible."
+        "standing upright facing the camera, shoulders relaxed, "
+        "both arms naturally at the sides and feet slightly apart"
     ),
 }
 

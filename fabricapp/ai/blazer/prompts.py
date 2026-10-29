@@ -189,9 +189,7 @@ GARMENT_PROMPTS = {
 # Exact existing garment specifications used by the shared own-model and
 # person-pose builders. Values remain source expressions from prompt_builder.py.
 BLAZER_LENGTH_DETAIL = (
-    "ending at the base of the seat, about level with the wrists of the "
-    "hanging arms (a short, fitted jacket length, never reaching the "
-    "mid-thigh), with the trousers clearly visible below the hem"
+    "ending at the base of the seat, above mid-thigh, with a fitted jacket length"
 )
 GARMENT_SPECS = {
     ('blazer', 'business'): {
@@ -263,11 +261,7 @@ GARMENT_SPECS = {
 # Garment-image prompting is shared by fabricapp.ai.garment_image.
 
 
-BLAZER_LENGTH_DETAIL = (
-    "ending at the base of the seat, about level with the wrists of the "
-    "hanging arms (a short, fitted jacket length, never reaching the "
-    "mid-thigh), with the trousers clearly visible below the hem"
-)
+
 
 BLAZER_TROUSER_STYLES = ("business", "wedding")
 
@@ -358,35 +352,20 @@ BLAZER_EDIT_REPLACEMENTS = {
 
 
 # Garment-specific back-view detail rules migrated from scenario_composer.py.
-BACK_VIEW_POSES = ("back_turn_hair_touch",)
-
-BACK_VIEW_REPLACEMENTS = [
-    ("a full column of small decorative buttons from neck to hem",
-     "a plain, smooth, completely button-free back"),
-    ("a full column of small buttons, one small chest pocket and two flap "
-     "hip pockets",
-     "a smooth plain back"),
-    ("two rectangular chest patch pockets with flaps, and a short button "
-     "placket",
-     "a smooth plain back"),
-    ("a short front placket with two or three buttons near the neck",
-     "a plain smooth back"),
-]
-
-BACK_VIEW_NOTE = (
-    "BACK VIEW: the camera sees only the BACK of the person, so the front of "
-    "the garment is hidden: no buttons, button column, placket, chest "
-    "pocket, hip pocket flaps or lapels are drawn anywhere. The back of the "
-    "garment is one smooth, plain surface of image 1's fabric (a jacket may "
-    "show a single centre vent). "
-)
+BACK_VIEW_POSES = ("back_turn_hair_touch", "back_showing_pallu")
 
 def garment_text_for_pose(garment_text, pose):
     if pose not in BACK_VIEW_POSES:
         return garment_text
-    for old_text, new_text in BACK_VIEW_REPLACEMENTS:
-        garment_text = garment_text.replace(old_text, new_text, 1)
-    return garment_text + BACK_VIEW_NOTE
+    # Describe hidden front construction without requiring it to be visible.
+    garment_text = garment_text.replace(
+        "clearly visible in the chest pocket", "in the front chest pocket, hidden in this rear view"
+    )
+    return garment_text + (
+        "VIEW: show the jacket's back with its fabric pattern and natural seams. "
+        "The front lapels, shirt front, buttons, tie and pocket square remain "
+        "on the front of the outfit, out of view rather than drawn on its back. "
+    )
 
 
 def fabric_forbidden_text(spec):

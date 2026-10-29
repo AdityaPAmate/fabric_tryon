@@ -44,7 +44,7 @@ class GarmentFallbackPromptTests(SimpleTestCase):
                         if garment == "blazer":
                             self.assertLess(len(fallback.split()), len(original.split()))
                             self.assertIn("Keep the footwear brown.", fallback)
-                            self.assertIn("blazer-retry-v2", config["prompt_version"])
+                            self.assertIn("blazer-structured-v3", config["prompt_version"])
                             self.assertIn("white marble terrace", fallback)
                             self.assertIn("plain solid", fallback)
                         else:
@@ -281,7 +281,7 @@ class ProviderRetryHttpTests(SimpleTestCase):
                     self.assertNotEqual(captured[0]["prompt"], captured[1]["prompt"])
                     self.assertLess(len(captured[1]["prompt"]), len(captured[0]["prompt"]))
                     trace = result.diagnostics
-                    self.assertEqual(trace["prompt_version"], "blazer-retry-v2")
+                    self.assertEqual(trace["prompt_version"], "blazer-structured-v3")
                     self.assertEqual(trace["effective_seed"], 43)
                     self.assertEqual([a["fallback_prompt"] for a in trace["attempts"]], [False, True])
                     self.assertIn("input_image_2", captured[1])
