@@ -11,6 +11,7 @@ from ..scenario_composer import (
     _task_line, _pose_line, _short_background,
 )
 from .settings import get_generation_settings
+from . import prompts as prompt_data
 
 
 GARMENT_TYPE = 'kurti_pant'
@@ -172,6 +173,7 @@ def build_prompt(
         )
 
     result = dict(config)
+    result["safety_fallback_prompt"] = result["prompt"].rstrip() + " " + prompt_data.RETRY_PRESENTATION
     result.update(get_generation_settings(seed=seed, guidance=guidance))
     return result
 

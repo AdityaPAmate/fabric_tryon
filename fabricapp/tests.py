@@ -9,6 +9,70 @@ from .ai.main import generate_tryon_image
 from .ai.shirt.builder import _fabric_colour_reference
 
 
+class GarmentFallbackPromptTests(SimpleTestCase):
+    """Check retry prompt routing without calling the image provider."""
+
+    def test_fabric_routes_keep_selected_instructions_in_retry(self):
+        from .ai.router import build_prompt_config
+
+        styles = {
+            "blazer": ("business", "wedding", "casual"),
+            "kurta": ("plain", "sherwani", "pathani", "jodhpuri"),
+            "kurti_pant": (None,),
+            "pant": (None,),
+        }
+        for garment, garment_styles in styles.items():
+            for style in garment_styles:
+                for scenario in ("person_photo", "person_pose", "face_photo", "generated_person"):
+                    with self.subTest(garment=garment, style=style, scenario=scenario):
+                        config = build_prompt_config(
+                            scenario=scenario, garment_type=garment, garment_style=style,
+                            context={
+                                "gender": "women" if garment == "kurti_pant" else "men",
+                                "body_type": "plus", "pose": "pocket_walk",
+                                "background": "white_marble_terrace",
+                                "garment_details": ["half_sleeves", "with_dupatta"]
+                                if garment == "kurti_pant" else [],
+                                "additional_style_note": "Keep the footwear brown.",
+                                "use_face_reference": scenario == "face_photo",
+                            }, seed=19, guidance=4.5,
+                        )
+                        original = config["prompt"]
+                        fallback = config["safety_fallback_prompt"]
+                        # The complete resolved prompt must survive; rebuilding a
+                        # generic outfit here would lose style and detail choices.
+                        self.assertTrue(fallback.startswith(original.rstrip() + " "))
+                        self.assertNotIn("RETRY PRESENTATION:", original)
+                        self.assertEqual(fallback.count("RETRY PRESENTATION:"), 1)
+                        self.assertIn("opaque", fallback[len(original.rstrip()):])
+                        self.assertIn("apparent age", fallback[len(original.rstrip()):])
+                        self.assertEqual((config["seed"], config["guidance"]), (19, 4.5))
+
+    def test_saree_routes_do_not_gain_a_fallback(self):
+        from .ai.router import build_prompt_config
+
+        for scenario in ("person_photo", "person_pose", "face_photo", "generated_person", "pose_reference"):
+            with self.subTest(scenario=scenario):
+                config = build_prompt_config(
+                    scenario=scenario, garment_type="saree",
+                    context={"gender": "women", "pose": "pallu_on_head"},
+                )
+                self.assertNotIn("safety_fallback_prompt", config)
+
+    def test_ready_made_garment_route_keeps_its_own_prompt(self):
+        from .ai.router import build_prompt_config
+
+        for garment in ("blazer", "kurta", "kurti_pant", "pant", "saree"):
+            with self.subTest(garment=garment):
+                config = build_prompt_config(
+                    scenario="person_photo", garment_type=garment,
+                    use_garment_image=True, context={},
+                )
+                # A ready-made garment supplies its own cut and length. Fabric
+                # instructions must not silently replace that design.
+                self.assertNotIn("safety_fallback_prompt", config)
+
+
 class ShirtFabricColourTests(SimpleTestCase):
     def swatch(self):
         image = Image.new("RGB", (80, 40), "#3e281b")

@@ -6,6 +6,16 @@ the existing shared prompt builder until the later migration step.
 """
 
 GARMENT_TYPE = 'kurta'
+
+# Added only to the alternate sample after a provider 3030 rejection.
+RETRY_PRESENTATION = (
+    "RETRY PRESENTATION: one fully clothed person in a realistic clothing-catalogue "
+    "photograph. Keep the kurta opaque with the chest and torso covered, paired "
+    "with opaque full-length lower wear. Retain the selected kurta style, "
+    "length, sleeve treatment, dupatta choice, lower-wear cut and colour, "
+    "fabric placement, identity, apparent age, body build, pose, framing "
+    "and background. "
+)
 POSE_LIMBS_RULE = True
 GARMENT_STYLE_OPTIONS = {'kurta': ['plain', 'sherwani', 'pathani', 'jodhpuri']}
 

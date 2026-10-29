@@ -6,6 +6,16 @@ the existing shared prompt builder until the later migration step.
 """
 
 GARMENT_TYPE = 'pant'
+
+# Added only to the alternate sample after a provider 3030 rejection.
+RETRY_PRESENTATION = (
+    "RETRY PRESENTATION: one fully clothed person in a realistic clothing-catalogue "
+    "photograph, wearing opaque formal full-length trousers covering the legs "
+    "to the ankles. Keep the upper-body clothing as specified in the original "
+    "instructions, including preserving it in photo edits. Retain the trouser "
+    "cut and reference fabric colours and pattern, identity, apparent age, "
+    "body build, pose, framing and background. "
+)
 GARMENT_STYLE_OPTIONS = {}
 
 # Exact existing edit-mode prompt(s), including seed and guidance.

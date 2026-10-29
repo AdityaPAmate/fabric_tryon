@@ -6,6 +6,15 @@ the existing shared prompt builder until the later migration step.
 """
 
 GARMENT_TYPE = 'blazer'
+
+# Added only to the alternate sample after a provider 3030 rejection.
+RETRY_PRESENTATION = (
+    "RETRY PRESENTATION: one fully clothed person in a realistic clothing-catalogue "
+    "photograph. Keep the blazer over an opaque inner shirt covering the chest "
+    "and torso, paired with opaque full-length trousers. Retain the selected "
+    "blazer style, lapels, accessories, trouser colour and fabric placement, "
+    "identity, apparent age, body build, pose, framing and background. "
+)
 POSE_LIMBS_RULE = True
 GARMENT_STYLE_OPTIONS = {'blazer': ['business', 'wedding', 'casual']}
 

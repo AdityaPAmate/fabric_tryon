@@ -7,6 +7,7 @@ generation settings. The shared scenario composer handles common assembly.
 from ..router import PromptRoutingError
 from ..scenario_composer import build_prompt as _compose_prompt
 from .settings import get_generation_settings
+from . import prompts as prompt_data
 
 
 GARMENT_TYPE = 'pant'
@@ -66,6 +67,7 @@ def build_prompt(
         )
 
     result = dict(config)
+    result["safety_fallback_prompt"] = result["prompt"].rstrip() + " " + prompt_data.RETRY_PRESENTATION
     result.update(get_generation_settings(seed=seed, guidance=guidance))
     return result
 

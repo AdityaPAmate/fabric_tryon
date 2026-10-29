@@ -6,6 +6,16 @@ the existing shared prompt builder until the later migration step.
 """
 
 GARMENT_TYPE = 'kurti_pant'
+
+# Added only to the alternate sample after a provider 3030 rejection.
+RETRY_PRESENTATION = (
+    "RETRY PRESENTATION: one fully clothed person in a realistic clothing-catalogue "
+    "photograph. Keep the kurti opaque with the chest and torso covered, paired "
+    "with opaque plain white full-length pants. Retain the selected sleeve "
+    "treatment and dupatta choice, with the reference fabric on the kurti "
+    "and on a dupatta only where already requested. Preserve identity, apparent "
+    "age, body build, pose, framing and background. "
+)
 POSE_LIMBS_RULE = True
 TASK_PHRASE = (
     "a kurti made from the fabric in image 1, paired with plain white pants"
