@@ -289,12 +289,15 @@ def generate_tryon_image(
     safety_fallback_prompt = prompt_config.get("safety_fallback_prompt")
 
     # Trace the prepared provider inputs, not only the original uploaded files.
-    # Hashes contain neither image contents nor credentials. Other garments keep
+    # Hashes contain neither image contents nor credentials. Untraced garments keep
     # their existing response shape and request behaviour.
     diagnostics = None
-    if garment_type == "shirt":
+    if garment_type in ("shirt", "blazer"):
         diagnostics = {
-            "version": "shirt-trace-v1",
+            "version": f"{garment_type}-trace-v1",
+            "garment_type": garment_type,
+            "garment_style": garment_style,
+            "prompt_version": prompt_config.get("prompt_version"),
             "request_id": uuid4().hex,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "deployment_revision": os.getenv("RENDER_GIT_COMMIT") or "unknown",
@@ -314,7 +317,7 @@ def generate_tryon_image(
 
     def generation_error(message, **kwargs):
         if diagnostics is not None:
-            logger.info("Shirt failed generation trace: %s", json.dumps(diagnostics, sort_keys=True))
+            logger.info("%s failed generation trace: %s", garment_type, json.dumps(diagnostics, sort_keys=True))
         return CloudflareGenerationError(message, diagnostics=diagnostics, **kwargs)
 
     response = None
@@ -415,7 +418,7 @@ def generate_tryon_image(
                     provider_request_id=match.group(1) if match else None,
                 )
                 logger.info(
-                    "Shirt provider attempt request_id=%s trace=%s",
+                    "Provider attempt request_id=%s trace=%s",
                     diagnostics["request_id"], json.dumps(attempt_trace, sort_keys=True),
                 )
 
@@ -484,7 +487,7 @@ def generate_tryon_image(
 
     if diagnostics is not None:
         diagnostics["effective_seed"] = data["seed"]
-        logger.info("Shirt generation trace: %s", json.dumps(diagnostics, sort_keys=True))
+        logger.info("%s generation trace: %s", garment_type, json.dumps(diagnostics, sort_keys=True))
 
     return GenerationResult(
         image_bytes=image_bytes,

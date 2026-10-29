@@ -39,14 +39,41 @@ class GarmentFallbackPromptTests(SimpleTestCase):
                         )
                         original = config["prompt"]
                         fallback = config["safety_fallback_prompt"]
-                        # The complete resolved prompt must survive; rebuilding a
-                        # generic outfit here would lose style and detail choices.
-                        self.assertTrue(fallback.startswith(original.rstrip() + " "))
+                        # Blazer resolves the same attributes into a shorter
+                        # prompt; other garments retain the full original.
+                        if garment == "blazer":
+                            self.assertLess(len(fallback.split()), len(original.split()))
+                            self.assertIn("Keep the footwear brown.", fallback)
+                            self.assertIn("blazer-retry-v2", config["prompt_version"])
+                            self.assertIn("white marble terrace", fallback)
+                            self.assertIn("plain solid", fallback)
+                        else:
+                            self.assertTrue(fallback.startswith(original.rstrip() + " "))
+                            self.assertEqual(fallback.count("RETRY PRESENTATION:"), 1)
                         self.assertNotIn("RETRY PRESENTATION:", original)
-                        self.assertEqual(fallback.count("RETRY PRESENTATION:"), 1)
-                        self.assertIn("opaque", fallback[len(original.rstrip()):])
-                        self.assertIn("apparent age", fallback[len(original.rstrip()):])
+                        self.assertIn("opaque", fallback)
+                        if garment != "blazer" or scenario != "generated_person":
+                            self.assertIn("apparent age", fallback)
                         self.assertEqual((config["seed"], config["guidance"]), (19, 4.5))
+
+    def test_blazer_retry_keeps_child_build_without_inventing_a_reference(self):
+        from .ai.router import build_prompt_config
+
+        for scenario in ("generated_person", "face_photo"):
+            config = build_prompt_config(
+                scenario=scenario, garment_type="blazer", garment_style="wedding",
+                context={"gender": "boy", "body_type": "plus", "camera_view": "close_up"},
+            )
+            fallback = config["safety_fallback_prompt"]
+            self.assertIn("child-sized clothing", fallback)
+            self.assertIn("plus-size", fallback)
+            self.assertNotIn("fuller adult build", fallback)
+            self.assertIn("shawl lapel", fallback.lower())
+            self.assertIn("no necktie and no bow tie", fallback)
+            if scenario == "generated_person":
+                self.assertNotIn("image 2", fallback.lower())
+            else:
+                self.assertIn("Image 2 supplies facial identity", fallback)
 
     def test_saree_routes_do_not_gain_a_fallback(self):
         from .ai.router import build_prompt_config
@@ -178,6 +205,7 @@ class ProviderRetryHttpTests(SimpleTestCase):
         from .ai.cloudflare_engine import CloudflareGenerationError
 
         captured = []
+        reject_all = False
         image = self.swatch().read()
 
         class Handler(BaseHTTPRequestHandler):
@@ -194,7 +222,7 @@ class ProviderRetryHttpTests(SimpleTestCase):
                     for part in message.iter_parts()
                 })
                 # First request fails; a second would succeed if retried.
-                first = len(captured) == 1
+                first = reject_all or len(captured) == 1
                 self.send_response(400 if first else 200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -238,8 +266,39 @@ class ProviderRetryHttpTests(SimpleTestCase):
                 )
                 self.assertEqual(len(captured), 2)
                 self.assertEqual([item["seed"] for item in captured], [b"42", b"43"])
-                self.assertEqual(captured[0]["prompt"], captured[1]["prompt"])
+                self.assertTrue(captured[1]["prompt"].startswith(captured[0]["prompt"].rstrip()))
+                self.assertIn(b"RETRY PRESENTATION:", captured[1]["prompt"])
                 self.assertEqual(result.image_bytes, image)
+
+                for source in ({"face_image": self.swatch()}, {"person_image": self.swatch()}):
+                    captured.clear()
+                    result = generate_tryon_image(
+                        fabric_image=self.swatch(), garment_type="blazer", garment_style="business",
+                        pose="low_hand_clasp_front", background="white_marble_terrace",
+                        gender="men", seed=42, **source,
+                    )
+                    self.assertEqual([item["seed"] for item in captured], [b"42", b"43"])
+                    self.assertNotEqual(captured[0]["prompt"], captured[1]["prompt"])
+                    self.assertLess(len(captured[1]["prompt"]), len(captured[0]["prompt"]))
+                    trace = result.diagnostics
+                    self.assertEqual(trace["prompt_version"], "blazer-retry-v2")
+                    self.assertEqual(trace["effective_seed"], 43)
+                    self.assertEqual([a["fallback_prompt"] for a in trace["attempts"]], [False, True])
+                    self.assertIn("input_image_2", captured[1])
+                    self.assertEqual(captured[0]["input_image_2"], captured[1]["input_image_2"])
+
+                # A persistent rejection still stops after the one permitted
+                # alternate sample and carries evidence for the saved report.
+                captured.clear()
+                reject_all = True
+                with self.assertRaises(CloudflareGenerationError) as rejected:
+                    generate_tryon_image(
+                        fabric_image=self.swatch(), garment_type="blazer", garment_style="casual",
+                        gender="men", seed=42,
+                    )
+                self.assertEqual(len(captured), 2)
+                self.assertEqual(rejected.exception.provider_code, 3030)
+                self.assertEqual(len(rejected.exception.diagnostics["attempts"]), 2)
         finally:
             server.shutdown()
             server.server_close()
