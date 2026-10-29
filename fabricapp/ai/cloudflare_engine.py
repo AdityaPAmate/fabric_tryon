@@ -46,6 +46,8 @@ import requests
 from django.conf import settings
 
 from ..timing import timed_stage
+from .provider_output import validate_generated_image
+from .provider_errors import classify_response, uses_classified_recovery
 from .faces import get_face_image_path
 from .router import (
     SCENARIO_PERSON_PHOTO,
@@ -73,11 +75,12 @@ FINAL_OUTPUT_SIDE = 1536  # draft_mode=false साठी output ची मो�
 class CloudflareGenerationError(Exception):
     """Raised when Cloudflare fails to generate an image after retries."""
 
-    def __init__(self, message, *, status_code=None, provider_code=None, diagnostics=None):
+    def __init__(self, message, *, status_code=None, provider_code=None, diagnostics=None, failure_type=None):
         super().__init__(message)
         self.status_code = status_code
         self.provider_code = provider_code
         self.diagnostics = diagnostics
+        self.failure_type = failure_type
 
 
 @dataclass(frozen=True)
@@ -289,10 +292,11 @@ def generate_tryon_image(
     safety_fallback_prompt = prompt_config.get("safety_fallback_prompt")
 
     # Trace the prepared provider inputs, not only the original uploaded files.
-    # Hashes contain neither image contents nor credentials. Untraced garments keep
-    # their existing response shape and request behaviour.
+    # Hashes contain neither image contents nor credentials. Saree retains its
+    # existing response shape and request behaviour.
     diagnostics = None
-    if garment_type in ("shirt", "blazer"):
+    classified_recovery = uses_classified_recovery(garment_type)
+    if classified_recovery:
         diagnostics = {
             "version": f"{garment_type}-trace-v1",
             "garment_type": garment_type,
@@ -329,9 +333,8 @@ def generate_tryon_image(
     for safety_attempt in range(safety_retry_count + 1):
         # The garment setting remains the configured seed. A different seed is
         # used only after Cloudflare has rejected the first sampled output.
-        # A garment builder may also supply a conservative, route-specific
-        # prompt for this retry. This is needed because 3030 is based on the
-        # sampled output, not on request validation.
+        # A garment builder may supply an alternate prompt preserving the
+        # selected attributes. The failure classifier authorizes this retry.
         data["seed"] = requested_seed + safety_attempt
         using_safety_fallback = bool(safety_attempt and safety_fallback_prompt)
         data["prompt"] = (
@@ -410,7 +413,13 @@ def generate_tryon_image(
             except Exception:
                 pass
 
+            failure = classify_response(response) if classified_recovery else None
+            if failure is not None:
+                internal_code = failure.code
+
             if attempt_trace is not None:
+                attempt_trace.update(failure_type=failure.category,
+                                     provider_message=failure.message, recovery_action=failure.action)
                 match = re.search(r"\(([0-9a-fA-F-]{36})\)", response.text)
                 attempt_trace.update(
                     outcome="provider_rejection" if internal_code == 3030 else "provider_error",
@@ -422,7 +431,8 @@ def generate_tryon_image(
                     diagnostics["request_id"], json.dumps(attempt_trace, sort_keys=True),
                 )
 
-            if response.status_code in (500, 429) and attempt < MAX_ATTEMPTS:
+            retry_transient = (failure.action == "retry" if failure else response.status_code in (500, 429))
+            if retry_transient and attempt < MAX_ATTEMPTS:
                 wait_seconds = 2 ** attempt
                 logger.warning(
                     "Cloudflare returned status %s (code %s). Retrying in %s seconds.",
@@ -433,10 +443,10 @@ def generate_tryon_image(
                 _rewind_uploads(files)
                 continue
 
-            # Error 3030 means the provider rejected the sampled output. The
-            # inputs and the configured garment defaults are valid; request
-            # one controlled alternate sample before returning an error.
-            if internal_code == 3030 and safety_attempt < safety_retry_count:
+            # Saree retains its legacy policy; other garments only sample an
+            # alternate for an explicitly recognized output rejection.
+            retry_alternate = failure.action == "alternate" if failure else internal_code == 3030
+            if retry_alternate and safety_attempt < safety_retry_count:
                 logger.warning(
                     "Cloudflare rejected generated output (3030) with seed=%s; "
                     "retrying once with seed=%s.",
@@ -447,12 +457,13 @@ def generate_tryon_image(
 
             logger.error(
                 "Cloudflare request failed. status=%s code=%s body=%s",
-                response.status_code, internal_code, response.text[:500],
+                response.status_code, internal_code, failure.message if failure else response.text[:500],
             )
             raise generation_error(
                 f"Cloudflare request failed with status {response.status_code}",
                 status_code=response.status_code,
                 provider_code=internal_code,
+                failure_type=failure.category if failure else None,
             )
         else:
             # The inner loop only exhausts after an exception, which is
@@ -472,13 +483,29 @@ def generate_tryon_image(
             if not image_b64:
                 logger.error("No image field found in Cloudflare response: %s", result)
                 raise generation_error("Cloudflare response did not contain an image")
-            image_bytes = base64.b64decode(image_b64)
+            try:
+                image_bytes = base64.b64decode(image_b64, validate=classified_recovery)
+            except (ValueError, TypeError) as exc:
+                if not classified_recovery:
+                    raise
+                raise generation_error(
+                    "Provider returned an invalid encoded image",
+                    failure_type="invalid_provider_output",
+                ) from exc
         elif "image" in content_type:
             image_bytes = response.content
         else:
             logger.error("Unexpected content type from Cloudflare: %s", content_type)
             raise generation_error(f"Unexpected response content type: {content_type}")
 
+        if classified_recovery:
+            try:
+                validate_generated_image(image_bytes, (out_w, out_h))
+            except (OSError, ValueError, SyntaxError) as exc:
+                raise generation_error(
+                    "Provider returned an invalid image",
+                    failure_type="invalid_provider_output",
+                ) from exc
         save_output_copy(image_bytes, f"output_{debug_tag}.png")
 
         del subject_buffer, garment_source_buffer, reference_buffer, files, response

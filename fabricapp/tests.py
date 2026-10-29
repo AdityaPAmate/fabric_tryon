@@ -206,13 +206,19 @@ class ProviderRetryHttpTests(SimpleTestCase):
 
         captured = []
         reject_all = False
-        image = self.swatch().read()
+        buffer = io.BytesIO()
+        Image.new("RGB", (1152, 1536), "white").save(buffer, "PNG")
+        image = buffer.getvalue()
+        error_message = "Your output has been flagged."
+        error_code = 3030
+        error_status = 400
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *args):
                 pass
 
             def do_POST(self):
+                nonlocal image
                 raw = self.rfile.read(int(self.headers["Content-Length"]))
                 message = BytesParser(policy=default).parsebytes(
                     ("Content-Type: " + self.headers["Content-Type"] + "\r\n\r\n").encode() + raw
@@ -221,13 +227,16 @@ class ProviderRetryHttpTests(SimpleTestCase):
                     part.get_param("name", header="content-disposition"): part.get_payload(decode=True)
                     for part in message.iter_parts()
                 })
+                output = io.BytesIO()
+                Image.new("RGB", (int(captured[-1]["width"]), int(captured[-1]["height"])), "white").save(output, "PNG")
+                image = output.getvalue()
                 # First request fails; a second would succeed if retried.
                 first = reject_all or len(captured) == 1
-                self.send_response(400 if first else 200)
+                self.send_response(error_status if first else 200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps(
-                    {"errors": [{"code": 3030, "message": "Your output has been flagged."}]}
+                    {"errors": [{"code": error_code, "message": error_message}]}
                     if first else {"result": {"image": base64.b64encode(image).decode()}}
                 ).encode())
 
@@ -299,6 +308,40 @@ class ProviderRetryHttpTests(SimpleTestCase):
                 self.assertEqual(len(captured), 2)
                 self.assertEqual(rejected.exception.provider_code, 3030)
                 self.assertEqual(len(rejected.exception.diagnostics["attempts"]), 2)
+                for error_code, error_message, error_status, category in (
+                    (3030, "Invalid input image", 400, "invalid_provider_input"),
+                    (3030, "Input prompt contains NSFW content", 400, "input_rejected"),
+                    (3030, "Undocumented failure", 400, "unknown_provider_error"),
+                    (3036, "Daily allocation exhausted", 429, "allocation_exhausted"),
+                ):
+                    captured.clear()
+                    with self.assertRaises(CloudflareGenerationError) as rejected:
+                        generate_tryon_image(
+                            fabric_image=self.swatch(), garment_type="pant", gender="men", seed=42,
+                        )
+                    self.assertEqual(len(captured), 1)
+                    self.assertEqual(rejected.exception.failure_type, category)
+                    self.assertEqual(rejected.exception.diagnostics["attempts"][0]["recovery_action"], "stop")
+
+                captured.clear()
+                reject_all = False
+                error_code, error_message, error_status = 3040, "Capacity temporarily exceeded", 429
+                with patch("fabricapp.ai.cloudflare_engine.time.sleep"):
+                    result = generate_tryon_image(
+                        fabric_image=self.swatch(), garment_type="pant", gender="men", seed=42,
+                    )
+                self.assertEqual([item["seed"] for item in captured], [b"42", b"42"])
+                self.assertEqual(captured[0]["prompt"], captured[1]["prompt"])
+                reject_all = True
+
+                # Saree's unknown 3030 still follows the pre-existing seed retry.
+                error_code, error_message, error_status = 3030, "Undocumented failure", 400
+                captured.clear()
+                with self.assertRaises(CloudflareGenerationError) as rejected:
+                    generate_tryon_image(fabric_image=self.swatch(), garment_type="saree", gender="women", seed=42)
+                self.assertEqual(len(captured), 2)
+                self.assertIsNone(rejected.exception.failure_type)
+                self.assertIsNone(rejected.exception.diagnostics)
         finally:
             server.shutdown()
             server.server_close()

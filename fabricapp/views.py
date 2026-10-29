@@ -75,6 +75,20 @@ class FabricTryOnView(APIView):
                 )
         except CloudflareGenerationError as exc:
             logger.error("Generation failed: %s", exc)
+            if exc.failure_type:
+                return Response(
+                    {
+                        "success": False,
+                        "error": "The image provider could not complete generation.",
+                        "provider": "cloudflare",
+                        "provider_code": exc.provider_code,
+                        "failure_type": exc.failure_type,
+                        **({"generation": exc.diagnostics} if exc.diagnostics else {}),
+                    },
+                    status=(status.HTTP_422_UNPROCESSABLE_ENTITY
+                            if exc.failure_type in ("input_rejected", "output_rejected")
+                            else status.HTTP_502_BAD_GATEWAY),
+                )
             if exc.provider_code == 3030:
                 return Response(
                     {
