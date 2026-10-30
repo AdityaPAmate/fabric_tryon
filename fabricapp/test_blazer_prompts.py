@@ -6,6 +6,31 @@ from .ai.blazer.poses import POSE_OPTIONS
 
 
 class BlazerPromptTests(SimpleTestCase):
+    def test_pose_routes_restore_full_body_composition_and_override_source_pose(self):
+        from .ai.blazer.poses import get_spec_pose_prompt
+        for scenario, pose in product(("person_pose", "face_photo", "generated_person"), POSE_OPTIONS):
+            config = build_prompt(scenario=scenario, garment_style="business",
+                                  context={"pose": pose})
+            for key in ("prompt", "safety_fallback_prompt"):
+                prompt = config[key]
+                self.assertIn("ground below the shoes", prompt)
+                self.assertIn("POSE (follow the selected posture exactly): " + get_spec_pose_prompt(pose), prompt)
+                if scenario == "person_pose":
+                    self.assertIn("Replace the posture in image 2", prompt)
+                    self.assertIn("even when the reference is cropped", prompt)
+                self.assertTrue(prompt.endswith("head direction. ") if scenario == "person_pose"
+                                else "complete" in prompt)
+
+    def test_explicit_closeup_and_source_edit_keep_their_composition(self):
+        for scenario in ("person_pose", "face_photo", "generated_person"):
+            config = build_prompt(scenario=scenario, garment_style="business",
+                                  context={"pose": "low_hand_clasp_front", "camera_view": "close_up"})
+            for key in ("prompt", "safety_fallback_prompt"):
+                self.assertIn("requested head-to-hip close-up", config[key])
+                self.assertNotIn("ground below the shoes", config[key])
+        config = build_prompt(scenario="person_photo", garment_style="business", context={})
+        self.assertNotIn("COMPOSITION:", config["prompt"])
+
     def test_all_routes_keep_quality_and_valid_image_roles(self):
         for scenario, style, pose, camera in product(
             ("person_photo", "person_pose", "face_photo", "generated_person"),

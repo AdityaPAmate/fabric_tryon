@@ -5,9 +5,10 @@ from ..scenario_composer import (
     _person_description, _short_background, _spec_person_pose_text, get_framing,
 )
 from . import prompts
+from .framing import composition_rule
 
 
-VERSION = "blazer-structured-v3"
+VERSION = "blazer-structured-v4"
 
 
 def build_retry_prompt(scenario, style, context, *, compact=True):
@@ -25,6 +26,8 @@ def build_retry_prompt(scenario, style, context, *, compact=True):
         "clothed person in an opaque blazer outfit. Image 1 supplies only the "
         "jacket fabric colours and pattern. ",
     ]
+    composition = composition_rule(scenario, camera)
+    parts.append(composition)
     if not compact:
         parts.append(
             "Resolve this as a single outfit: the jacket uses the supplied fabric, "
@@ -70,7 +73,7 @@ def build_retry_prompt(scenario, style, context, *, compact=True):
             pose_text = pose_text.replace(
                 ", with the whole chair and both full legs and feet visible", ""
             )
-        parts.append("POSE: " + pose_text + ". ")
+        parts.append("POSE (follow the selected posture exactly): " + pose_text + ". ")
     if scenario in ("person_pose", "person_photo"):
         parts.append(
             "IDENTITY: retain the source shoulder, waist and hip widths and arm "
@@ -111,4 +114,5 @@ def build_retry_prompt(scenario, style, context, *, compact=True):
         "Render natural fabric folds and shadows. Keep the person "
         "in the selected pose and framing, fully clothed in a realistic catalogue photograph. "
     )
+    parts.append(composition)
     return "".join(parts)
