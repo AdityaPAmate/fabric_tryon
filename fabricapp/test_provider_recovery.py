@@ -6,11 +6,28 @@ from unittest.mock import Mock
 
 from PIL import Image
 
-from .ai.provider_errors import classify_response, uses_classified_recovery
+from .ai.provider_errors import classify_response, retry_delay, failure_message, uses_classified_recovery
 from .ai.provider_output import validate_generated_image
 
 
 class ProviderRecoveryTests(TestCase):
+    def test_retry_after_and_worker_wait_budget(self):
+        response = Mock(status_code=429, headers={})
+        self.assertEqual(retry_delay(response, 1), 5)
+        for value, expected in (("12", 12), ("120", None), ("invalid", 5), ("nan", 5), ("-3", 5)):
+            response.headers = {"Retry-After": value}
+            self.assertEqual(retry_delay(response, 1), expected)
+        response.headers = {"Retry-After": "Fri, 30 Oct 2099 00:00:00 GMT"}
+        self.assertIsNone(retry_delay(response, 1))
+
+    def test_4006_is_not_assumed_to_mean_quota(self):
+        response = Mock(status_code=429)
+        response.json.return_value = {"errors": [{"code": 4006, "message": "Service temporarily at capacity"}]}
+        self.assertEqual(classify_response(response).action, "retry")
+        response.json.return_value["errors"][0]["message"] = "You have used up your daily free allocation"
+        self.assertEqual(classify_response(response).action, "stop")
+        self.assertIn("allocation", failure_message(classify_response(response).category))
+
     def test_malformed_errors_do_not_authorize_generation(self):
         for payload in (None, [], {}, {"errors": []}, {"errors": [None]},
                         {"errors": {"code": 3030}}):

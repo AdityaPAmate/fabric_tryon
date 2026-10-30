@@ -326,10 +326,11 @@ class ProviderRetryHttpTests(SimpleTestCase):
                 captured.clear()
                 reject_all = False
                 error_code, error_message, error_status = 3040, "Capacity temporarily exceeded", 429
-                with patch("fabricapp.ai.cloudflare_engine.time.sleep"):
+                with patch("fabricapp.ai.cloudflare_engine.time.sleep") as retry_wait:
                     result = generate_tryon_image(
                         fabric_image=self.swatch(), garment_type="pant", gender="men", seed=42,
                     )
+                retry_wait.assert_called_once_with(5)
                 self.assertEqual([item["seed"] for item in captured], [b"42", b"42"])
                 self.assertEqual(captured[0]["prompt"], captured[1]["prompt"])
                 reject_all = True

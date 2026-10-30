@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 
 from .timing import image_request_timing, timed_stage, set_timing_metadata
 from .ai.cloudflare_engine import CloudflareGenerationError
+from .ai.provider_errors import failure_message
 from .ai.main import generate_tryon_image
 from .serializers import FabricTryOnRequestSerializer
 from .services.cloudinary_service import (
@@ -79,7 +80,7 @@ class FabricTryOnView(APIView):
                 return Response(
                     {
                         "success": False,
-                        "error": "The image provider could not complete generation.",
+                        "error": failure_message(exc.failure_type),
                         "provider": "cloudflare",
                         "provider_code": exc.provider_code,
                         "failure_type": exc.failure_type,

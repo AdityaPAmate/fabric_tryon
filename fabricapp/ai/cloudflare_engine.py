@@ -47,7 +47,7 @@ from django.conf import settings
 
 from ..timing import timed_stage
 from .provider_output import validate_generated_image
-from .provider_errors import classify_response, uses_classified_recovery
+from .provider_errors import classify_response, retry_delay, uses_classified_recovery
 from .faces import get_face_image_path
 from .router import (
     SCENARIO_PERSON_PHOTO,
@@ -432,8 +432,10 @@ def generate_tryon_image(
                 )
 
             retry_transient = (failure.action == "retry" if failure else response.status_code in (500, 429))
-            if retry_transient and attempt < MAX_ATTEMPTS:
-                wait_seconds = 2 ** attempt
+            wait_seconds = retry_delay(response, attempt) if failure else 2 ** attempt
+            if attempt_trace is not None and retry_transient:
+                attempt_trace["retry_after_seconds"] = wait_seconds
+            if retry_transient and attempt < MAX_ATTEMPTS and wait_seconds is not None:
                 logger.warning(
                     "Cloudflare returned status %s (code %s). Retrying in %s seconds.",
                     response.status_code, internal_code, wait_seconds,
