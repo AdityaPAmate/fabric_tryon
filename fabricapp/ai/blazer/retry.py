@@ -6,6 +6,8 @@ from ..scenario_composer import (
 )
 from . import prompts
 from .framing import composition_rule
+from .lighting import scene_and_lighting
+from ..fabric_colour import colour_reference_prompt
 
 
 VERSION = "blazer-structured-v4"
@@ -26,6 +28,7 @@ def build_retry_prompt(scenario, style, context, *, compact=True):
         "clothed person in an opaque blazer outfit. Image 1 supplies only the "
         "jacket fabric colours and pattern. ",
     ]
+    parts.append(colour_reference_prompt(context.get("_fabric_colour_profile")))
     composition = composition_rule(scenario, camera)
     parts.append(composition)
     if not compact:
@@ -94,7 +97,11 @@ def build_retry_prompt(scenario, style, context, *, compact=True):
         "shirt, trousers and any specified tie keep their solid colours; the jacket "
         "pattern stays exclusively on the jacket. Preserve personal accessories. "
     )
-    if background:
+    # Internal evaluation only: live paired tests did not establish a reliable
+    # colour improvement. The API serializer exposes no such request option.
+    if context.get("_lighting_experiment"):
+        parts.append(scene_and_lighting(scenario, background, pose))
+    elif background:
         parts.append(_short_background(BACKGROUND_DESCRIPTIONS.get(background), pose=pose))
     elif scenario in ("person_photo", "person_pose"):
         source = "0" if scenario == "person_photo" else "2"

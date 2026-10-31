@@ -6,6 +6,38 @@ from .ai.blazer.poses import POSE_OPTIONS
 
 
 class BlazerPromptTests(SimpleTestCase):
+    def test_lighting_preserves_fabric_midtones_across_scenes_and_retries(self):
+        from .ai.backgrounds import BACKGROUND_OPTIONS, BACKGROUND_DESCRIPTIONS
+        for scenario, style, background in product(
+            ("person_photo", "person_pose", "face_photo", "generated_person"),
+            ("business", "wedding", "casual"), (None, *BACKGROUND_OPTIONS),
+        ):
+            config = build_prompt(scenario=scenario, garment_style=style,
+                                  context={"background": background, "_lighting_experiment": True})
+            for key in ("prompt", "safety_fallback_prompt"):
+                prompt = config[key]
+                self.assertEqual(prompt.count("LIGHTING:"), 1)
+                self.assertIn("diffuse midtone", prompt)
+                self.assertIn("natural fold shadows and highlights", prompt)
+                self.assertIn("without a colour cast on the jacket", prompt)
+                self.assertNotIn("preserve the setting and lighting", prompt)
+                if background:
+                    self.assertIn(BACKGROUND_DESCRIPTIONS[background], prompt)
+                elif scenario in ("person_photo", "person_pose"):
+                    source = "0" if scenario == "person_photo" else "2"
+                    self.assertIn("preserve the setting from image " + source, prompt)
+
+    def test_lighting_experiment_is_not_enabled_for_normal_requests(self):
+        for scenario in ("person_photo", "person_pose", "face_photo", "generated_person"):
+            normal = build_prompt(scenario=scenario, garment_style="business", context={})
+            experiment = build_prompt(scenario=scenario, garment_style="business",
+                                      context={"_lighting_experiment": True})
+            self.assertEqual(normal["prompt_version"], "blazer-structured-v4")
+            self.assertEqual(experiment["prompt_version"], "blazer-lighting-experiment-v2")
+            for key in ("prompt", "safety_fallback_prompt"):
+                self.assertNotIn("colour-neutral studio key", normal[key])
+                self.assertIn("colour-neutral studio key", experiment[key])
+
     def test_pose_routes_restore_full_body_composition_and_override_source_pose(self):
         from .ai.blazer.poses import get_spec_pose_prompt
         for scenario, pose in product(("person_pose", "face_photo", "generated_person"), POSE_OPTIONS):
