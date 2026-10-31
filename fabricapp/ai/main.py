@@ -8,7 +8,7 @@ from .cloudflare_engine import (
 from .pose_reference import get_pose_reference_path
 from .router import PromptRoutingError, build_prompt_config
 from .router import detect_scenario
-from .blazer.materials import validate_fabric_type
+from .fabric_material import validate_fabric_type
 
 
 def generate_tryon_image(

@@ -60,7 +60,7 @@ class FabricMaterialTests(SimpleTestCase):
                     self.assertEqual(selected[key].count('MATERIAL:'), 1)
                     self.assertEqual(selected[key].replace(material_prompt(material), ''), original[key])
 
-    def test_serializer_rejects_invalid_and_unsupported_material_requests(self):
+    def test_serializer_rejects_invalid_material_and_garment_image_overrides(self):
         for material in ('', 'leather', 'VELVET', None):
             serializer = FabricTryOnRequestSerializer(data=self.payload(fabric_type=material))
             self.assertFalse(serializer.is_valid())
@@ -70,8 +70,8 @@ class FabricMaterialTests(SimpleTestCase):
                     'gender': 'women', 'fabric_type': 'silk'}
             if garment == 'kurta': data['garment_style'] = 'plain'
             serializer = FabricTryOnRequestSerializer(data=data)
-            self.assertFalse(serializer.is_valid())
-            self.assertIn('fabric_type', serializer.errors)
+            self.assertTrue(serializer.is_valid(), serializer.errors)
+            self.assertEqual(serializer.validated_data['fabric_type'], 'silk')
         serializer = FabricTryOnRequestSerializer(data={
             'garment_image': swatch(), 'gender': 'men', 'fabric_type': 'velvet'})
         self.assertFalse(serializer.is_valid())
@@ -91,7 +91,7 @@ class FabricMaterialTests(SimpleTestCase):
             build_prompt(scenario='face_photo', use_garment_image=True, context={'fabric_type': 'silk'})
         with patch('fabricapp.ai.main._generate_with_engine') as engine:
             with self.assertRaises(CloudflareGenerationError):
-                generate_tryon_image(garment_type='shirt', fabric_type='silk')
+                generate_tryon_image(garment_type='unsupported', fabric_type='silk')
             engine.assert_not_called()
 
     def test_main_delivers_material_to_both_provider_prompt_variants(self):

@@ -5,6 +5,7 @@ generation settings. The shared scenario composer handles common assembly.
 """
 
 import logging
+from ..fabric_conditioning import apply_fabric_conditioning
 
 from ..camera_data import get_framing
 from ..backgrounds import BACKGROUND_DESCRIPTIONS
@@ -360,4 +361,4 @@ def build_prompt(
         return None
     result = dict(config)
     result.update(get_generation_settings(seed=seed, guidance=guidance))
-    return result
+    return apply_fabric_conditioning(result, context, "saree", garment_style, use_garment_image)

@@ -8,6 +8,7 @@ from PIL import Image
 from ..backgrounds import BACKGROUND_DESCRIPTIONS
 from ..camera_data import get_framing
 from ..router import PromptRoutingError
+from ..fabric_conditioning import apply_fabric_conditioning
 from ..scenario_composer import _own_model_pose_text, _person_description
 from . import prompts
 from .details import get_shirt_detail_prompt
@@ -100,7 +101,8 @@ def build_prompt(
     if "folded_sleeves" not in details:
         parts.append(prompts.PRESSED_SLEEVES)
     parts.append(prompts.FABRIC)
-    parts.append(_fabric_colour_reference(context))
+    legacy_reference = _fabric_colour_reference(context)
+    parts.append(legacy_reference)
 
     if scenario != "person_photo":
         parts.append("FRAMING: " + framing["shown"] + framing["fill"] + ". ")
@@ -144,11 +146,13 @@ def build_prompt(
     if scenario == "face_photo":
         result["safety_fallback_prompt"] = prompt + prompts.RETRY_PRESENTATION
     result.update(get_generation_settings(seed=seed, guidance=guidance))
+    result = apply_fabric_conditioning(result, context, GARMENT_TYPE, garment_style,
+                                       legacy_colour_text=legacy_reference)
     logging.getLogger("fabricapp").info(
-        "Shirt final prompt version=resolved-attributes-v3 scenario=%s body=%s "
+        "Shirt final prompt version=%s scenario=%s body=%s "
         "pose=%s background=%s details=%s words=%s sha256=%s seed=%s guidance=%s",
-        scenario, context.get("body_type"), pose, background, details,
-        len(prompt.split()), hashlib.sha256(prompt.encode()).hexdigest()[:16],
+        result.get("prompt_version", "resolved-attributes-v3"), scenario, context.get("body_type"), pose, background, details,
+        len(result["prompt"].split()), hashlib.sha256(result["prompt"].encode()).hexdigest()[:16],
         result["seed"], result["guidance"],
     )
     return result

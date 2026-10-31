@@ -8,7 +8,7 @@ from .ai.backgrounds import BACKGROUND_OPTIONS
 from .ai.camera_data import CAMERA_VIEW_OPTIONS
 from .ai.detail_engine import validate_detail_keys
 from .ai.faces import FACE_OPTIONS
-from .ai.blazer.materials import FABRIC_TYPES, validate_fabric_type
+from .ai.fabric_material import FABRIC_TYPES, validate_fabric_type
 from .ai.pose_registry import get_pose_metadata, get_pose_options
 from .ai.router import (
     GARMENT_STYLE_OPTIONS,

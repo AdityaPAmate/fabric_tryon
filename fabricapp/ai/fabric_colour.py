@@ -65,7 +65,7 @@ def measure_fabric_colours(source, crop_box=None):
         source.seek(position)
 
 
-def colour_reference_prompt(profile):
+def colour_reference_prompt(profile, target="jacket"):
     if not profile or not profile['colours']:
         return ''
     if has_single_colour_family(profile):
@@ -74,18 +74,20 @@ def colour_reference_prompt(profile):
                for channel in range(3)]
         colour_hex = '#' + ''.join(f'{v:02X}' for v in rgb)
         return (
-            'COLOUR REFERENCE: the jacket fabric is ' + colour_name(rgb) + ' (' + colour_hex + '). '
-            'This measured swatch colour defines the jacket, including its lapels and sleeves. '
-            'Keep this colour family visibly present in the fabric midtones throughout the jacket, '
+            'COLOUR REFERENCE: the ' + target + ' fabric is ' + colour_name(rgb) + ' (' + colour_hex + '). '
+            'This measured swatch colour defines the ' + target
+            + (', including its lapels and sleeves. ' if target == 'jacket' else ', across its fabric panels. ')
+            + 'Keep this colour family visibly present in the fabric midtones throughout the ' + target + ', '
             'with its original saturation and lightness. Image 1 supplies the fabric details; '
             'fold shading varies around this colour. '
         )
     entries = '; '.join(f"{c['name']} {c['hex']} (about {round(c['coverage'] * 100)}%)"
                         for c in profile['colours'])
     return (
-        'COLOUR REFERENCE: measured colours from the original jacket fabric swatch: '
-        + entries + '. These are fabric colours, not a conventional business-suit palette. '
-        "Keep these hues and their saturation in the jacket's diffuse midtones. "
+        'COLOUR REFERENCE: measured colours from the original ' + target + ' fabric swatch: '
+        + entries + ('. These are fabric colours, not a conventional business-suit palette. '
+                     if target == 'jacket' else '. These values describe the supplied fabric. ')
+        + "Keep these hues and their saturation in the " + target + "'s diffuse midtones. "
         'Image 1 determines where each colour belongs in the pattern; the palette '
         'does not replace the pattern with a blended or single colour. Retain '
         'natural fold shading around these midtones. '

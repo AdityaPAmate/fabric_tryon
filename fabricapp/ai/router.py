@@ -1,6 +1,7 @@
 """Routes a request to the correct garment prompt builder."""
 
 from importlib import import_module
+from .fabric_material import validate_fabric_type
 
 
 SCENARIO_PERSON_PHOTO = "person_photo"
@@ -93,6 +94,9 @@ def build_prompt_config(
 
     Each garment builder owns its defaults and applies request overrides.
     """
+    error = validate_fabric_type((context or {}).get("fabric_type", "unspecified"), garment_type, use_garment_image)
+    if error:
+        raise PromptRoutingError(error)
     if use_garment_image:
         module = import_module("fabricapp.ai.garment_image")
         builder = getattr(module, "build_prompt", None)
