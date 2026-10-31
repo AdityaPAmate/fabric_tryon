@@ -8,6 +8,7 @@ from . import prompts
 from .framing import composition_rule
 from .lighting import scene_and_lighting
 from ..fabric_colour import colour_reference_prompt
+from .materials import material_prompt
 
 
 VERSION = "blazer-structured-v4"
@@ -29,6 +30,7 @@ def build_retry_prompt(scenario, style, context, *, compact=True):
         "jacket fabric colours and pattern. ",
     ]
     parts.append(colour_reference_prompt(context.get("_fabric_colour_profile")))
+    parts.append(material_prompt(context.get("fabric_type", "unspecified")))
     composition = composition_rule(scenario, camera)
     parts.append(composition)
     if not compact:

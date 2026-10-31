@@ -1,4 +1,4 @@
-"""Paired live lighting/colour check using baseline successful seed/variant.
+"""Paired live lighting/colour/material check using baseline seed/variant.
 
 No fallback resampling: a rejected case stays failed rather than changing the
 experimental conditions. Credentials and account URLs are never persisted.
@@ -29,7 +29,10 @@ def gallery(output, manifest):
         images = [(prefix + '/original' + Path(case['fabric']).suffix, 'Original fabric'),
                   (prefix + '/' + case['before_output'], 'Before')]
         if case['status'] == 'complete':
-            images.append((case['id'] + '/' + case['output'], manifest.get('experiment', 'lighting') + ' change'))
+            label = manifest.get('experiment', 'lighting')
+            if manifest.get('fabric_type'):
+                label += ': ' + manifest['fabric_type']
+            images.append((case['id'] + '/' + case['output'], label + ' change'))
         row = ''.join(f'<figure><figcaption>{label}</figcaption><a href="{html.escape(src)}"><img src="{html.escape(src)}"></a></figure>' for src, label in images)
         rows.append(f'<section><h2>{html.escape(case["id"])} — seed {case["seed"]}</h2><div>{row}</div></section>')
     (output / 'index.html').write_text('''<!doctype html><meta charset="utf-8"><title>Blazer prompt test</title>
@@ -43,8 +46,13 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--cases', nargs='+', help='Optional baseline case IDs for a focused experiment.')
-    parser.add_argument('--experiment', choices=('lighting', 'colour'), default='lighting')
+    parser.add_argument('--experiment', choices=('lighting', 'colour', 'material'), default='lighting')
+    parser.add_argument('--fabric-type', choices=('cotton', 'silk', 'velvet'))
     args = parser.parse_args()
+    if args.experiment == 'material' and not args.fabric_type:
+        parser.error('--fabric-type is required for the material experiment.')
+    if args.fabric_type and args.experiment != 'material':
+        parser.error('--fabric-type is only used by the material experiment.')
     from dotenv import dotenv_values
     from django.conf import settings
     config = dotenv_values(ROOT / '.env')
@@ -57,6 +65,7 @@ def main():
     from fabricapp.ai.blazer.builder import build_prompt
     from fabricapp.ai.blazer.lighting import scene_and_lighting
     from fabricapp.ai.fabric_colour import colour_reference_prompt
+    from fabricapp.ai.blazer.materials import material_prompt
     from fabricapp.ai.cloudflare_engine import generate_tryon_image
     baseline = args.baseline.resolve()
     before = json.loads((baseline / 'baseline.json').read_text())
@@ -70,8 +79,10 @@ def main():
         manifest = json.loads(path.read_text())
         assert manifest['baseline_manifest_sha256'] == digest((baseline / 'baseline.json').read_bytes())
         assert manifest.get('experiment', 'lighting') == args.experiment
+        assert manifest.get('fabric_type') == args.fabric_type
     else:
         manifest = {'created_at_utc': datetime.now(timezone.utc).isoformat(), 'experiment': args.experiment,
+                    'fabric_type': args.fabric_type,
                     'baseline': str(baseline), 'model': before['model'],
                     'baseline_manifest_sha256': digest((baseline / 'baseline.json').read_bytes()),
                     'source_hashes': {}, 'cases': []}
@@ -94,10 +105,15 @@ def main():
         assert compact or successful['request']['prompt'] == old_config['prompt']
         seed = successful['request']['seed']
         request = dict(before['fixed_request'], seed=seed, background=old['background'])
+        if args.experiment == 'material':
+            request['fabric_type'] = args.fabric_type
         fabric = baseline / old['id'] / ('original' + Path(old['fabric']).suffix)
         assert digest(fabric.read_bytes()) == old['fabric_sha256']
         context = dict(request, fabric_image=io.BytesIO(fabric.read_bytes()))
-        context['_lighting_experiment' if args.experiment == 'lighting' else '_colour_reference_experiment'] = True
+        if args.experiment == 'lighting':
+            context['_lighting_experiment'] = True
+        elif args.experiment == 'colour':
+            context['_colour_reference_experiment'] = True
         current = build_prompt(scenario='face_photo', garment_style=request['garment_style'],
                                context=context,
                                seed=seed, guidance=request['guidance'])
@@ -109,15 +125,20 @@ def main():
             start = text.index('BACKGROUND:')
             end = text.index('FINAL:', start)
             assert text[:start] + scene_and_lighting('face_photo', old['background']) + text[end:] == current['prompt']
-        else:
+        elif args.experiment == 'colour':
             reference = colour_reference_prompt(current['fabric_colour_reference'])
             assert reference and current['prompt'].count(reference) == 1
+            assert current['prompt'].replace(reference, '') == text
+        else:
+            reference = material_prompt(args.fabric_type)
+            assert current['prompt'].count(reference) == 1
             assert current['prompt'].replace(reference, '') == text
         d = output / old['id']; d.mkdir(exist_ok=True)
         case = next((c for c in manifest['cases'] if c['id'] == old['id']), None)
         if case is None:
             case = {'id': old['id'], 'fabric': old['fabric'], 'seed': seed,
                     'compact': compact, 'before_output': old['output'],
+                    'fabric_type': args.fabric_type,
                     'status': 'prepared', 'attempts': []}
             manifest['cases'].append(case)
         if case['status'] == 'complete':
@@ -147,7 +168,7 @@ def main():
             with patch('fabricapp.ai.cloudflare_engine.requests.post', capture):
                 result = generate_tryon_image(fabric_image=io.BytesIO(fabric.read_bytes()),
                     face_image=io.BytesIO((baseline / 'person_reference.png').read_bytes()),
-                    scenario='face_photo', prompt_config=current, **{k:v for k,v in request.items() if k not in ('seed','guidance')})
+                    scenario='face_photo', prompt_config=current, **{k:v for k,v in request.items() if k not in ('seed','guidance','fabric_type')})
             with Image.open(io.BytesIO(result.image_bytes)) as im:
                 assert list(im.size) == old['dimensions']
                 suffix = {'JPEG': '.jpg', 'PNG': '.png', 'WEBP': '.webp'}[im.format]

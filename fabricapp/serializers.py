@@ -8,6 +8,7 @@ from .ai.backgrounds import BACKGROUND_OPTIONS
 from .ai.camera_data import CAMERA_VIEW_OPTIONS
 from .ai.detail_engine import validate_detail_keys
 from .ai.faces import FACE_OPTIONS
+from .ai.blazer.materials import FABRIC_TYPES, validate_fabric_type
 from .ai.pose_registry import get_pose_metadata, get_pose_options
 from .ai.router import (
     GARMENT_STYLE_OPTIONS,
@@ -60,6 +61,10 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
     garment_style = serializers.CharField(
         required=False,
         allow_blank=False,
+    )
+
+    fabric_type = serializers.ChoiceField(
+        choices=FABRIC_TYPES, required=False, default="unspecified",
     )
 
     garment_details = serializers.ListField(
@@ -344,6 +349,11 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
     def validate(self, data):
         self._drop_blank_optional_keys(data)
         self._check_garment_source(data)
+        material_error = validate_fabric_type(
+            data["fabric_type"], data.get("garment_type"), bool(data.get("garment_image")),
+        )
+        if material_error:
+            raise serializers.ValidationError({"fabric_type": material_error})
         self._check_garment_details(data)
         self._check_person_source(data)
         self._check_pose(data)

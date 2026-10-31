@@ -8,6 +8,7 @@ from .cloudflare_engine import (
 from .pose_reference import get_pose_reference_path
 from .router import PromptRoutingError, build_prompt_config
 from .router import detect_scenario
+from .blazer.materials import validate_fabric_type
 
 
 def generate_tryon_image(
@@ -17,6 +18,7 @@ def generate_tryon_image(
     garment_image=None,
     garment_type=None,
     garment_style=None,
+    fabric_type="unspecified",
     gender=None,
     body_type=None,
     face_choice=None,
@@ -39,6 +41,9 @@ def generate_tryon_image(
     options = options or {}
     garment_details = garment_details or []
     use_garment_image = garment_image is not None
+    material_error = validate_fabric_type(fabric_type, garment_type, use_garment_image)
+    if material_error:
+        raise CloudflareGenerationError(material_error)
     has_face_reference = bool(face_choice or face_image)
 
     pose_reference_path = None
@@ -64,6 +69,7 @@ def generate_tryon_image(
         "garment_image": garment_image,
         "garment_type": garment_type,
         "garment_style": garment_style,
+        "fabric_type": fabric_type,
         "gender": gender,
         "body_type": body_type,
         "face_choice": face_choice,
