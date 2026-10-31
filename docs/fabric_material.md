@@ -111,7 +111,15 @@ garment result. The pant material prompt now explicitly preserves the waistband,
 crotch, two trouser legs, separate top, subject gender and framing. The full 53
 local tests pass with this correction. Its live recheck at
 `debug/all_garments_pant_fix_20261031` was blocked by Cloudflare HTTP 429 / code
-4006 (`allocation_exhausted`); no corrected pant output was produced. The live
-runner now stops immediately on this quota classification. Resume the pant-only
-check after provider allocation becomes available; do not infer visual success
-from unit tests or image transport integrity.
+4006 (`allocation_exhausted`); no corrected pant output was produced at that time.
+The live runner stops immediately on this quota classification.
+
+After the user updated the Cloudflare account configuration, the pant-only
+check completed at `debug/pant_recheck_new_account_20261031`: both unspecified
+and velvet outputs succeeded at 1152 x 1536 with seed 42 and guidance 7. Their
+actual prepared inputs match byte-for-byte by hash, and output integrity was
+verified. Visual review confirms full-length two-legged trousers, a male
+subject, full-body framing and visibly plush velvet response in the selected
+sample. The previous dress substitution did not recur in this sample. This
+closes the pending corrected-pant live check; it does not establish perfect
+repeatability across every input or account.
