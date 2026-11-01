@@ -1,0 +1,104 @@
+# Generate Catalog
+
+Branch: `codex/catalog-image-set`. No deployment is implied.
+
+Open `/api/catalog/` for the included browser form. Select a swatch, garment,
+optional person photo and material, then click **Generate Catalog** once.
+It renders separate images with individual Open / Save links. No collage is
+created. This repository is a backend; the page is an additional usable entry
+point and the same API can be connected to an existing separate frontend.
+
+## API contract
+
+`POST /api/generate-catalog/` accepts multipart fields from
+`/api/replace-fabric/`, with these differences:
+
+- `fabric_image` and `garment_type` are required; garment-image mode is unsupported.
+- Do not send `camera_view` or `pose`; the catalog chooses its own shots.
+- Existing garment-style/person-source/material/detail validation still applies.
+- Default quality is final (`options.draft_mode=false`); explicit draft is supported.
+
+One POST keeps a streaming response open (`application/x-ndjson`). Each line is
+an independent JSON object. Read it incrementally using `fetch` and
+`response.body.getReader()`, not `response.json()`.
+
+Example events:
+
+```json
+{"event":"started","total":6,"views":["front","three_quarter","back","collar","cuff","hem"]}
+{"event":"generating","view":"front","index":1,"total":6}
+{"event":"heartbeat"}
+{"event":"image_ready","image":{"view":"front","url":"https://..."},"completed":1,"total":6}
+{"event":"image_failed","view":"cuff","error":"image_generation_or_upload_failed"}
+{"event":"complete","status":"partial","images":[],"failed_views":["cuff"],"total":6}
+```
+
+The final `images` array contains every successfully uploaded image (the example
+above abbreviates it). Status is `completed`, `partial`, or `failed`.
+Validation errors are HTTP 400 before streaming; a busy process returns HTTP 429.
+Once HTTP 200 begins, shot errors are stream events, not HTTP status changes.
+A fatal stream error emits `event=error`; a dropped connection may have no final event.
+
+All garments get front, three-quarter and back views. Detail views vary:
+
+- Shirt: collar, cuff, hem.
+- Blazer: lapel, cuff, hem.
+- Kurta: neckline, sleeve end, hem.
+- Kurti-pant: kurti neckline, sleeve end, hem.
+- Trousers: waistband, pocket, ankle hem.
+- Saree: pallu, border, pleats.
+
+## Generation and operation
+
+The existing public coordinator generates the front image, retaining current
+colour/material rules. Each subsequent shot edits that same front reference,
+alongside the original fabric swatch, with a dedicated view/detail prompt. This
+reduces identity and outfit drift but does not guarantee exact consistency.
+Close-ups are separate model generations, not crops or a collage. The original
+swatch is not regenerated. A nonexistent collar/cuff must not be invented.
+
+Every successful image is uploaded independently using the existing Cloudinary
+service. It remains available if a later image fails. Front-generation failure
+skips dependent shots; front-upload failure can still use its in-memory reference.
+Provider quota/auth errors stop further generation calls. Other failures allow
+remaining shots to continue. This version does not support retrying one shot.
+
+This is a streaming version, with no database queue, extra worker service or new
+dependencies. Keep the page open: closing it cancels remaining shots after the
+active provider call finishes. Server restart interrupts work. It cannot resume
+after refresh. Save successful image links before leaving. The stream sends a
+heartbeat every 10 seconds and disables reverse-proxy buffering where supported.
+Verify streaming on the deployed host: the local test does not prove the host's
+maximum response duration or buffering behavior. Do not put this route behind a
+proxy that buffers all content or imposes a short hard request deadline.
+
+One catalog is allowed per web process; ordinary generation endpoints retain
+their behavior. With the current two-process Gunicorn setup, up to two catalogs
+can run at once. Each catalog sends requests sequentially, limiting provider load.
+The existing deployment requires no migrations or Docker command change.
+
+## Verification
+
+`python manage.py test fabricapp` passes 61 tests, including the eight catalog
+tests. These verify multipart validation, sequential stream events, reference
+reuse, all garment plans, per-shot failures, quota stopping, cancellation and
+capacity control with provider/upload stubs; they do not prove visual quality.
+
+`tools/test_catalog_live.py` exercises one real multipart catalog request and
+Cloudflare/Cloudinary calls, saving separate images and event records locally.
+Use the project virtualenv and pass `--fabric PATH --output debug/NEW_DIRECTORY`.
+The default live example is a generated adult male wearing a shirt, with no
+personal photo upload. Outputs and event records are ignored by Git.
+
+Live check on 2026-11-01: the single multipart request completed all six
+Cloudflare generations and six actual Cloudinary uploads at 1152 x 1536.
+Artifacts: `debug/catalog_live_20261101`. Visual review found a valid rear
+view and sleeve/hem details, but the first collar view was too wide.
+Dedicated shirt close-up instructions were tightened; four focused real
+generation/upload rechecks are in `debug/catalog_detail_recheck_20261101`.
+The collar, cuff and hem are now close details in that sample. The angle shot
+still leans toward a side profile rather than exactly 45 degrees; a rear/side
+outfit can also acquire small differences in seams, accessories and pattern.
+These samples establish a functioning image-set flow, not exact garment or
+colour reproduction. Other garments have local plan/contract coverage, not
+exhaustive live catalog validation. Deployment proxy streaming remains unverified.
