@@ -45,6 +45,10 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual([e['image']['view'] for e in events if e['event'] == 'image_ready'],
                          ['front', 'three_quarter', 'back', 'collar', 'cuff', 'hem'])
         self.assertEqual(events[-1]['status'], 'completed')
+        self.assertEqual(events[0]['catalog_id'], events[-1]['catalog_id'])
+        self.assertTrue(events[0]['catalog_id'])
+        self.assertTrue(all(event['image']['generation_seed'] == 42
+                            for event in events if event['event'] == 'image_ready'))
         self.assertEqual(front.call_count, 1)
         self.assertEqual(edit.call_count, 5)
         self.assertEqual(upload.call_count, 6)

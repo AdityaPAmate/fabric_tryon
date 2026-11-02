@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fabric Try-on Tester</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">LOCAL TESTING TOOL</p>
+          <h1>Fabric Try-on Tester</h1>
+          <p>
+            Send a request to the Django API and view the generated Cloudinary
+            image, or generate a catalog of separate product photographs.
+          </p>
+        </div>
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          type="button"
+          aria-label="Switch to dark mode"
+        >
+          Dark mode
+        </button>
+      </header>
+
+      <section class="layout">
+        <form id="tryon-form" class="panel form-panel">
+          <div class="section-heading">
+            <h2>Generate image</h2>
+            <p>Fields marked <span aria-hidden="true">*</span> are required.</p>
+          </div>
+          <label class="field field-wide"
+            ><span>Render API URL <b>*</b></span
+            ><input
+              id="api-url"
+              name="api-url"
+              type="url"
+              value="https://fabric-tryon.onrender.com/api/replace-fabric/"
+              required
+          /></label>
+          <div class="form-grid">
+            <label class="field field-wide">
+              <span>Generation mode</span>
+              <select id="generation-mode">
+                <option value="single">Single image</option>
+                <option value="catalog">Generate Catalog — six separate images</option>
+              </select>
+              <small id="mode-help">Generate one image with your selected pose and camera view.</small>
+            </label>
+            <label id="fabric-type-field" class="field field-wide">
+              <span>Fabric material</span>
+              <select id="fabric-type" name="fabric_type">
+                <option value="unspecified">Use fabric reference (default)</option>
+                <option value="cotton">Cotton</option>
+                <option value="silk">Silk</option>
+                <option value="velvet">Velvet</option>
+              </select>
+              <small>Available for all six fabric-based garments. Colour preservation is automatic; exact colour can still vary.</small>
+            </label>
+            <label class="field">
+              <span>Garment source <b>*</b></span>
+              <select id="garment-source" name="garment_source">
+                <option value="fabric">Fabric image</option>
+                <option value="garment">Ready garment image</option>
+              </select>
+              <small>Select one source only.</small>
+            </label>
+            <label id="fabric-image-field" class="field"
+              ><span>Fabric image <b>*</b></span
+              ><input
+                id="fabric-image"
+                name="fabric_image"
+                type="file"
+                accept="image/*"
+                required
+              /><small>Fabric swatch or textile image.</small></label
+            >
+            <label id="garment-image-field" class="field hidden"
+              ><span>Garment image <b>*</b></span
+              ><input
+                id="garment-image"
+                name="garment_image"
+                type="file"
+                accept="image/*"
+                disabled
+              /><small>Ready-made garment photograph.</small></label
+            >
+            <label class="field"
+              ><span>Person image</span
+              ><input
+                id="person-image"
+                name="person_image"
+                type="file"
+                accept="image/*"
+              /><small>Optional. Leave empty to generate a model.</small></label
+            >
+            <label id="garment-type-field" class="field"
+              ><span>Garment type <b>*</b></span
+              ><select id="garment-type" name="garment_type" required>
+                <option value="shirt">Shirt</option>
+                <option value="kurti_pant">Kurti + Pant</option>
+                <option value="saree">Saree</option>
+                <option value="kurta">Kurta</option>
+                <option value="pant">Pant</option>
+                <option value="blazer">Blazer</option>
+              </select></label
+            >
+            <label id="garment-style-field" class="field hidden"
+              ><span>Garment style <b>*</b></span
+              ><select id="garment-style" name="garment_style"></select
+            ></label>
+            <label class="field"
+              ><span>Pose</span
+              ><select id="pose" name="pose">
+                <option value="">Keep default pose</option>
+                <option value="hands_on_hips_side_look">
+                  Hands on hips, side look
+                </option>
+                <option value="low_hand_clasp_front">
+                  Low hand clasp, front
+                </option>
+                <option value="pallu_on_head">Pallu on head</option>
+                <option value="pocket_walk">Pocket walk</option>
+                <option value="rail_wide_arm_side_look">
+                  Rail, wide arm, side look
+                </option>
+                <option value="sleeve_adjust_stand">
+                  Sleeve adjust, stand
+                </option>
+                <option value="back_showing_pallu" data-reference-pose="true">
+                  Back showing pallu (reference)
+                </option>
+                <option value="seated_floor_spread" data-reference-pose="true">
+                  Seated floor spread (reference)
+                </option>
+                <option value="royal_standing_front" data-reference-pose="true">
+                  Royal standing front (reference)
+                </option>
+              </select></label
+            >
+            <label class="field"
+              ><span>Camera view</span
+              ><select id="camera-view" name="camera_view">
+                <option value="">Default</option>
+                <option value="front">Front</option>
+                <option value="side">Side</option>
+                <option value="close_up">Close up</option>
+              </select></label
+            >
+            <label class="field"
+              ><span>Background</span
+              ><select id="background" name="background">
+                <option value="">Keep original/default</option>
+                <option value="white_marble_terrace">
+                  White marble terrace
+                </option>
+                <option value="festive_street">Festive street</option>
+                <option value="royal_courtyard">Royal courtyard</option>
+                <option value="riverside_ghat">Riverside ghat</option>
+              </select></label
+            >
+          </div>
+
+          <fieldset id="garment-details-fieldset" class="fieldset hidden">
+            <legend>Garment details</legend>
+            <p id="garment-details-help" class="fieldset-help"></p>
+            <div id="garment-details-controls" class="details-grid"></div>
+          </fieldset>
+
+          <fieldset id="generated-person-options" class="fieldset">
+            <legend>Model settings</legend>
+            <p id="generated-person-help" class="fieldset-help">
+              Used when no person image is selected.
+            </p>
+            <div class="form-grid">
+              <label class="field"
+                ><span>Gender <b id="gender-required-marker">*</b></span
+                ><select id="gender" name="gender">
+                  <option value="women">Women</option>
+                  <option value="men">Men</option>
+                  <option value="girl">Girl</option>
+                  <option value="boy">Boy</option>
+                </select></label
+              >
+              <label class="field"
+                ><span>Body type</span
+                ><select id="body-type" name="body_type">
+                  <option value="">Default</option>
+                  <option value="slim">Slim</option>
+                  <option value="trim">Trim</option>
+                  <option value="plus">Plus</option>
+                </select></label
+              >
+              <label class="field"
+                ><span>Face choice</span
+                ><select id="face-choice" name="face_choice">
+                  <option value="">Model chooses</option>
+                </select></label
+              >
+              <div class="field">
+                <label for="face-image">Face image</label>
+                <input
+                  id="face-image"
+                  name="face_image"
+                  type="file"
+                  accept="image/*"
+                />
+                <small
+                  >Optional. Upload a face photo instead of selecting a model
+                  face.</small
+                >
+                <button
+                  id="clear-face-image"
+                  class="secondary-button face-clear-button hidden"
+                  type="button"
+                >
+                  Remove face image
+                </button>
+              </div>
+            </div>
+          </fieldset>
+
+          <details class="advanced-options">
+            <summary>Advanced options</summary>
+            <div class="form-grid advanced-content">
+              <label id="fabric-crop-field" class="field field-wide">
+                <span>Fabric crop (optional)</span>
+                <input id="fabric-crop-box" placeholder="left, upper, right, lower — original image pixels">
+                <small>Leave blank to use the whole swatch. Example: 0, 0, 400, 600.</small>
+              </label>
+              <label class="field"
+                ><span>Output quality</span
+                ><select id="draft-mode" name="draft_mode">
+                  <option value="false">High quality (1536 px)</option>
+                  <option value="true">Draft (512 px)</option>
+                </select></label
+              >
+              <label class="field"
+                ><span>Seed</span
+                ><input
+                  id="seed"
+                  name="seed"
+                  type="number"
+                  step="1"
+                  value="42"
+                /><small>Generation seed; default 42.</small></label
+              >
+              <label class="field"
+                ><span>Guidance</span
+                ><input
+                  id="guidance"
+                  name="guidance"
+                  type="number"
+                  step="any"
+                  value="7"
+                /><small>Generation guidance; default 7.</small></label
+              >
+              <label class="field field-wide"
+                ><span>Additional style note</span
+                ><textarea
+                  id="style-note"
+                  name="additional_style_note"
+                  maxlength="300"
+                  placeholder="Optional instruction, maximum 300 characters"
+                ></textarea>
+              </label>
+            </div>
+          </details>
+          <button id="generate-button" class="primary-button" type="submit">
+            Generate image
+          </button>
+          <button id="cancel-generation" class="secondary-button hidden" type="button">Stop generation</button>
+        </form>
+
+        <section class="panel output-panel" aria-live="polite">
+          <div class="section-heading">
+            <h2>Generated result</h2>
+            <p id="status-message">Choose images and press Generate image.</p>
+          </div>
+          <p
+            id="request-timer"
+            class="hidden"
+            role="timer"
+            aria-live="off"
+            style="font-variant-numeric: tabular-nums"
+          ></p>
+          <div id="image-placeholder" class="image-placeholder">
+            Your Cloudinary image will appear here.
+          </div>
+          <img
+            id="result-image"
+            class="result-image hidden"
+            alt="Generated try-on result"
+          />
+          <div id="result-actions" class="result-actions hidden">
+            <a
+              id="open-image"
+              class="secondary-button"
+              target="_blank"
+              rel="noopener"
+              >Open full image</a
+            ><a id="download-image" class="secondary-button" download
+              >Download image</a
+            >
+          </div>
+          <pre id="error-box" class="error-box hidden"></pre>
+          <section id="catalog-results" class="hidden" aria-label="Separate catalog images">
+            <h3>Catalog images</h3>
+            <p id="catalog-summary"></p>
+            <div id="catalog-grid" class="catalog-grid"></div>
+          </section>
+        </section>
+      </section>
+
+      <section
+        id="comparison-section"
+        class="panel comparison-section hidden"
+        aria-label="Images used and generated"
+      >
+        <div class="comparison-heading">
+          <h3>Images used and generated</h3>
+          <p>Inputs and final output for this request.</p>
+        </div>
+        <div id="comparison-grid" class="comparison-grid">
+          <article id="person-card" class="comparison-card hidden">
+            <div class="card-title">
+              <h4>1. Person image</h4>
+              <span id="person-filename"></span>
+            </div>
+            <img id="person-preview" alt="Person image sent to the API" />
+          </article>
+          <article class="comparison-card">
+            <div class="card-title">
+              <h4 id="fabric-card-title">1. Fabric image</h4>
+              <span id="fabric-filename"></span>
+            </div>
+            <img id="fabric-preview" alt="Fabric image sent to the API" />
+          </article>
+          <article class="comparison-card">
+            <div class="card-title">
+              <h4 id="output-card-title">2. Generated output</h4>
+              <span id="output-format"></span>
+            </div>
+            <img id="output-preview" alt="Generated output" />
+          </article>
+        </div>
+        <p id="local-save-message" class="local-save-message"></p>
+      </section>
+
+      <section id="feedback-section" class="panel feedback-section hidden">
+        <div class="comparison-heading">
+          <h3>Testing feedback report</h3>
+          <p>
+            Describe the issue or generation failure. This saves your note,
+            request settings, source and face-reference images, plus the output
+            when one was generated.
+          </p>
+        </div>
+        <form id="feedback-form">
+          <label class="field">
+            <span>Issue or observation <b>*</b></span>
+            <textarea
+              id="issue-note"
+              maxlength="2000"
+              required
+              placeholder="Example: Three hands are visible. The sleeve_adjust_stand pose was not followed."
+            ></textarea>
+          </label>
+          <div class="feedback-actions">
+            <button
+              id="save-report-button"
+              class="primary-button feedback-button"
+              type="submit"
+            >
+              Save testing report
+            </button>
+            <p id="report-save-message" class="local-save-message"></p>
+          </div>
+        </form>
+      </section>
+    </main>
+    <script src="js/request_timer.js?v=20261029"></script>
+    <script src="js/api_options.js?v=20261102"></script>
+    <script src="js/catalog_client.js?v=20261102"></script>
+    <script src="js/app.js?v=20261102-catalog"></script>
+  </body>
+</html>

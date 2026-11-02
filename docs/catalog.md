@@ -38,6 +38,10 @@ above abbreviates it). Status is `completed`, `partial`, or `failed`.
 Validation errors are HTTP 400 before streaming; a busy process returns HTTP 429.
 Once HTTP 200 begins, shot errors are stream events, not HTTP status changes.
 A fatal stream error emits `event=error`; a dropped connection may have no final event.
+`started` and `complete` include a `catalog_id`. Ready images include
+`generation_seed` and provider `generation` diagnostics when available; failed
+events include provider code/diagnostics when available. The existing Desktop
+tester integration and its version-2 reports are maintained in `tools/tester_ui`.
 
 All garments get front, three-quarter and back views. Detail views vary:
 

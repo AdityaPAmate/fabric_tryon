@@ -4,6 +4,7 @@ import json
 import logging
 import queue
 import threading
+from uuid import uuid4
 
 from django.http import StreamingHttpResponse
 from rest_framework import serializers
@@ -84,7 +85,8 @@ def edit_config(data, shot, anchor_seed):
 def generate_catalog(data, stopped):
     """Yield progress. Successful images survive failures of other catalogue shots."""
     plan = catalog_plan(data['garment_type'])
-    yield {'event': 'started', 'total': len(plan), 'views': [key for key, _ in plan]}
+    catalog_id = uuid4().hex
+    yield {'event': 'started', 'catalog_id': catalog_id, 'total': len(plan), 'views': [key for key, _ in plan]}
     anchor = None
     anchor_seed = None
     images, failed = [], []
@@ -112,7 +114,9 @@ def generate_catalog(data, stopped):
                     scenario='person_photo', options=data.get('options', {}),
                     prompt_config=edit_config(data, shot, anchor_seed),
                 )
-            image = {'view': view, **upload_generated_image(generation.image_bytes)}
+            image = {'view': view, **upload_generated_image(generation.image_bytes),
+                     'generation_seed': generation.effective_seed,
+                     'generation': generation.diagnostics}
             images.append(image)
             yield {'event': 'image_ready', 'image': image, 'completed': len(images), 'total': len(plan)}
         except Exception as exc:
@@ -121,9 +125,11 @@ def generate_catalog(data, stopped):
             failure = exc.failure_type if isinstance(exc, CloudflareGenerationError) else None
             blocked = failure in ('allocation_exhausted', 'authentication_error') or (
                 isinstance(exc, CloudflareGenerationError) and exc.status_code in (401, 403, 429))
-            yield {'event': 'image_failed', 'view': view, 'error': failure or 'image_generation_or_upload_failed'}
+            yield {'event': 'image_failed', 'view': view, 'error': failure or 'image_generation_or_upload_failed',
+                   'provider_code': getattr(exc, 'provider_code', None),
+                   'generation': getattr(exc, 'diagnostics', None)}
     yield {'event': 'complete', 'status': 'completed' if not failed else ('partial' if images else 'failed'),
-           'images': images, 'failed_views': failed, 'total': len(plan)}
+           'catalog_id': catalog_id, 'images': images, 'failed_views': failed, 'total': len(plan)}
 
 
 def catalog_stream(data):

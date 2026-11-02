@@ -12,4 +12,6 @@ debug/
 .mypy_cache/
 .coverage
 htmlcov/
+tools/tester_ui/outputs/
+tools/tester_ui/reports/
 *.log
