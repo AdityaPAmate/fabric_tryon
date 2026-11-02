@@ -62,11 +62,11 @@ def main():
     settings.configure(**{name: config[name] for name in names}, SAVE_DEBUG_FILES=False)
     import requests
     from PIL import Image
-    from fabricapp.ai.blazer.builder import build_prompt
-    from fabricapp.ai.blazer.lighting import scene_and_lighting
-    from fabricapp.ai.fabric_colour import colour_reference_prompt
-    from fabricapp.ai.blazer.materials import material_prompt
-    from fabricapp.ai.cloudflare_engine import generate_tryon_image
+    from fabricapp.ai.garments.blazer.builder import build_prompt
+    from fabricapp.ai.garments.blazer.lighting import scene_and_lighting
+    from fabricapp.ai.fabric.fabric_colour import colour_reference_prompt
+    from fabricapp.ai.garments.blazer.materials import material_prompt
+    from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image
     baseline = args.baseline.resolve()
     before = json.loads((baseline / 'baseline.json').read_text())
     if args.cases and not set(args.cases).issubset({c['id'] for c in before['cases']}):
@@ -165,7 +165,7 @@ def main():
         print('Generating ' + old['id'] + f' seed={seed} compact={compact}', flush=True)
         try:
             fabric = baseline / old['id'] / ('original' + Path(old['fabric']).suffix)
-            with patch('fabricapp.ai.cloudflare_engine.requests.post', capture):
+            with patch('fabricapp.ai.providers.cloudflare_engine.requests.post', capture):
                 result = generate_tryon_image(fabric_image=io.BytesIO(fabric.read_bytes()),
                     face_image=io.BytesIO((baseline / 'person_reference.png').read_bytes()),
                     scenario='face_photo', prompt_config=current, **{k:v for k,v in request.items() if k not in ('seed','guidance','fabric_type')})

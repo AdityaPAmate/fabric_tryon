@@ -11,12 +11,12 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .timing import image_request_timing, timed_stage, set_timing_metadata
-from .ai.cloudflare_engine import CloudflareGenerationError
-from .ai.provider_errors import failure_message
-from .ai.main import generate_tryon_image
-from .serializers import FabricTryOnRequestSerializer
-from .services.cloudinary_service import (
+from fabricapp.timing import image_request_timing, timed_stage, set_timing_metadata
+from fabricapp.ai.providers.cloudflare_engine import CloudflareGenerationError
+from fabricapp.ai.providers.provider_errors import failure_message
+from fabricapp.ai.main import generate_tryon_image
+from fabricapp.serializers import FabricTryOnRequestSerializer
+from fabricapp.services.cloudinary_service import (
     CloudinaryUploadError,
     upload_generated_image,
 )

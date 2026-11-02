@@ -1,7 +1,7 @@
 from django.urls import path
 
-from .views import FabricTryOnView, health_check
-from .catalog import GenerateCatalogView
+from fabricapp.views import FabricTryOnView, health_check
+from fabricapp.catalog import GenerateCatalogView
 from django.views.generic import TemplateView
 
 urlpatterns = [

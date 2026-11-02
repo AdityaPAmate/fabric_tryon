@@ -73,7 +73,7 @@ function setGenerationMode() {
   document.querySelector('#camera-view').disabled = catalog;
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
   document.querySelector('#mode-help').textContent = catalog
-    ? 'One request: front, angle, back and three garment-specific details. Keep this page open. Images appear separately as they are ready. Pose and camera selections are ignored.'
+    ? 'One request: front, front three-quarter angle, rear close-up and three garment-specific details. Keep this page open. Images appear separately as they are ready. Pose and camera selections are ignored.'
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
 }

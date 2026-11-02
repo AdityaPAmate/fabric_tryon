@@ -7,11 +7,11 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 from rest_framework.test import APIRequestFactory
 
-from .ai.router import build_prompt_config, IMPLEMENTED_GARMENT_TYPES, PromptRoutingError
-from .ai.fabric_material import SUPPORTED_GARMENTS, FABRIC_TYPES, fabric_target, material_prompt
-from .ai.fabric_colour import colour_reference_prompt
-from .ai.cloudflare_engine import GenerationResult
-from .views import FabricTryOnView
+from fabricapp.ai.pipeline.router import build_prompt_config, IMPLEMENTED_GARMENT_TYPES, PromptRoutingError
+from fabricapp.ai.fabric.fabric_material import SUPPORTED_GARMENTS, FABRIC_TYPES, fabric_target, material_prompt
+from fabricapp.ai.fabric.fabric_colour import colour_reference_prompt
+from fabricapp.ai.providers.cloudflare_engine import GenerationResult
+from fabricapp.views import FabricTryOnView
 
 
 STYLES = {'blazer': ('business', 'wedding', 'casual'),

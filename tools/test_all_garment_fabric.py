@@ -41,8 +41,8 @@ def main():
     import requests
     from PIL import Image, ImageDraw
     from fabricapp.ai.main import generate_tryon_image
-    from fabricapp.ai.router import build_prompt_config
-    from fabricapp.ai.fabric_material import material_prompt
+    from fabricapp.ai.pipeline.router import build_prompt_config
+    from fabricapp.ai.fabric.fabric_material import material_prompt
 
     output = args.output.resolve(); output.mkdir(parents=True, exist_ok=True)
     path = output / 'results.json'
@@ -116,7 +116,7 @@ def main():
             print('Generating ' + case_id, flush=True)
             try:
                 with patch('fabricapp.ai.main.build_prompt_config', controlled_config), \
-                     patch('fabricapp.ai.cloudflare_engine.requests.post', capture):
+                     patch('fabricapp.ai.providers.cloudflare_engine.requests.post', capture):
                     result = generate_tryon_image(fabric_image=io.BytesIO(raw), fabric_type=fabric_type, **request)
                 with Image.open(io.BytesIO(result.image_bytes)) as im:
                     suffix = {'JPEG': '.jpg', 'PNG': '.png', 'WEBP': '.webp'}[im.format]

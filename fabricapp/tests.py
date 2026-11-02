@@ -5,15 +5,15 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
 from PIL import Image
 
-from .ai.main import generate_tryon_image
-from .ai.shirt.builder import _fabric_colour_reference
+from fabricapp.ai.main import generate_tryon_image
+from fabricapp.ai.garments.shirt.builder import _fabric_colour_reference
 
 
 class GarmentFallbackPromptTests(SimpleTestCase):
     """Check retry prompt routing without calling the image provider."""
 
     def test_fabric_routes_keep_selected_instructions_in_retry(self):
-        from .ai.router import build_prompt_config
+        from fabricapp.ai.pipeline.router import build_prompt_config
 
         styles = {
             "blazer": ("business", "wedding", "casual"),
@@ -57,7 +57,7 @@ class GarmentFallbackPromptTests(SimpleTestCase):
                         self.assertEqual((config["seed"], config["guidance"]), (19, 4.5))
 
     def test_blazer_retry_keeps_child_build_without_inventing_a_reference(self):
-        from .ai.router import build_prompt_config
+        from fabricapp.ai.pipeline.router import build_prompt_config
 
         for scenario in ("generated_person", "face_photo"):
             config = build_prompt_config(
@@ -76,7 +76,7 @@ class GarmentFallbackPromptTests(SimpleTestCase):
                 self.assertIn("Image 2 supplies facial identity", fallback)
 
     def test_saree_routes_do_not_gain_a_fallback(self):
-        from .ai.router import build_prompt_config
+        from fabricapp.ai.pipeline.router import build_prompt_config
 
         for scenario in ("person_photo", "person_pose", "face_photo", "generated_person", "pose_reference"):
             with self.subTest(scenario=scenario):
@@ -87,7 +87,7 @@ class GarmentFallbackPromptTests(SimpleTestCase):
                 self.assertNotIn("safety_fallback_prompt", config)
 
     def test_ready_made_garment_route_keeps_its_own_prompt(self):
-        from .ai.router import build_prompt_config
+        from fabricapp.ai.pipeline.router import build_prompt_config
 
         for garment in ("blazer", "kurta", "kurti_pant", "pant", "saree"):
             with self.subTest(garment=garment):
@@ -202,7 +202,7 @@ class ProviderRetryHttpTests(SimpleTestCase):
         from email.policy import default
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
         import requests
-        from .ai.cloudflare_engine import CloudflareGenerationError
+        from fabricapp.ai.providers.cloudflare_engine import CloudflareGenerationError
 
         captured = []
         reject_all = False
@@ -255,7 +255,7 @@ class ProviderRetryHttpTests(SimpleTestCase):
                                SAVE_DEBUG_FILES=False), patch.object(requests.Session, "send", local_send):
                 # Explicit internal diagnostic override; normal shirt requests
                 # retain the existing alternate-attempt policy.
-                with patch("fabricapp.ai.shirt.builder.get_generation_settings",
+                with patch("fabricapp.ai.garments.shirt.builder.get_generation_settings",
                            return_value={"seed": 42, "guidance": 7, "safety_retry_count": 0}):
                     with self.assertRaises(CloudflareGenerationError) as rejected:
                         generate_tryon_image(
@@ -326,7 +326,7 @@ class ProviderRetryHttpTests(SimpleTestCase):
                 captured.clear()
                 reject_all = False
                 error_code, error_message, error_status = 3040, "Capacity temporarily exceeded", 429
-                with patch("fabricapp.ai.cloudflare_engine.time.sleep") as retry_wait:
+                with patch("fabricapp.ai.providers.cloudflare_engine.time.sleep") as retry_wait:
                     result = generate_tryon_image(
                         fabric_image=self.swatch(), garment_type="pant", gender="men", seed=42,
                     )

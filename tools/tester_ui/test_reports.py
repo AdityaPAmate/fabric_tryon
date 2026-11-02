@@ -66,7 +66,9 @@ class ReportTests(unittest.TestCase):
         payload['request'].update(generation_mode='catalog', catalog_view='cuff')
         payload['catalog'] = {'catalog_id': 'test-catalog', 'status': 'partial', 'total': 6,
             'images': [{'view': view, 'format': 'png', 'local_output_path': 'outputs/generated_0001.png',
-                        'generation_seed': 43, 'generation': {'prompt_version': 'catalog-edit-v1'}}
+                        'generation_seed': 43, 'generation': {'prompt_version': 'catalog-edit-v2'},
+                        'framing': 'rear_close_up' if view == 'back' else 'full_body',
+                        'reference_template': None}
                        for view in ['front', 'back']],
             'failed_views': [{'view': 'cuff', 'error': 'output_rejected', 'provider_code': 3030}]}
         report = self.post(payload)
@@ -76,6 +78,8 @@ class ReportTests(unittest.TestCase):
             copied = self.root / report['report_path'] / image['report_output_path']
             self.assertEqual(copied.read_bytes(), self.image.read_bytes())
             self.assertEqual(image['generation_seed'], 43)
+            self.assertIn('framing', image)
+            self.assertIn('reference_template', image)
         index = json.loads((server_module.REPORTS_DIR / 'index.jsonl').read_text())
         self.assertEqual(index['catalog_id'], 'test-catalog')
         self.assertEqual(index['catalog_view'], 'cuff')

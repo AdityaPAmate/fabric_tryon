@@ -6,8 +6,8 @@ No API credentials, Django setup, or image generation are required.
 
 from importlib import import_module
 
-from fabricapp.ai.pose_registry import get_pose_options, get_pose_sentence
-from fabricapp.ai.router import (
+from fabricapp.ai.references.pose_registry import get_pose_options, get_pose_sentence
+from fabricapp.ai.pipeline.router import (
     SCENARIO_FACE_PHOTO,
     SCENARIO_GENERATED_PERSON,
     SCENARIO_PERSON_PHOTO,
@@ -32,7 +32,7 @@ SCENARIOS = (
 
 checked = 0
 for garment, style in GARMENTS.items():
-    settings = import_module(f"fabricapp.ai.{garment}.settings")
+    settings = import_module(f"fabricapp.ai.garments.{garment}.settings")
     for scenario in SCENARIOS:
         pose = "pocket_walk" if scenario == SCENARIO_PERSON_POSE else None
         context = {

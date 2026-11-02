@@ -6,9 +6,9 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fabricapp.ai.pose_registry import get_pose_options, get_pose_metadata
-from fabricapp.ai.detail_engine import _rules_for
-from fabricapp.ai.router import IMPLEMENTED_GARMENT_TYPES
+from fabricapp.ai.references.pose_registry import get_pose_options, get_pose_metadata
+from fabricapp.ai.garments.detail_engine import _rules_for
+from fabricapp.ai.pipeline.router import IMPLEMENTED_GARMENT_TYPES
 
 
 def main():

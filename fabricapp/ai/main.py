@@ -1,14 +1,14 @@
 """Public AI entry point used by the API view."""
 
-from ..timing import timed_stage
-from .cloudflare_engine import (
+from fabricapp.timing import timed_stage
+from fabricapp.ai.providers.cloudflare_engine import (
     CloudflareGenerationError,
     generate_tryon_image as _generate_with_engine,
 )
-from .pose_reference import get_pose_reference_path
-from .router import PromptRoutingError, build_prompt_config
-from .router import detect_scenario
-from .fabric_material import validate_fabric_type
+from fabricapp.ai.references.pose_reference import get_pose_reference_path
+from fabricapp.ai.pipeline.router import PromptRoutingError, build_prompt_config
+from fabricapp.ai.pipeline.router import detect_scenario
+from fabricapp.ai.fabric.fabric_material import validate_fabric_type
 
 
 def generate_tryon_image(

@@ -24,6 +24,8 @@ def main():
     parser.add_argument('--output', required=True)
     parser.add_argument('--draft', action='store_true')
     parser.add_argument('--material', default='unspecified')
+    parser.add_argument('--face-image')
+    parser.add_argument('--background')
     parser.add_argument('--reference', help='Existing front output for a focused view prompt recheck')
     parser.add_argument('--views', nargs='+', default=['three_quarter', 'collar', 'cuff', 'hem'])
     args = parser.parse_args()
@@ -35,15 +37,18 @@ def main():
     if args.reference:
         import io
         from fabricapp.catalog import catalog_plan, edit_config, generate_edit
+        from fabricapp.ai.references.catalog_reference import get_catalog_reference_path
         data = {'fabric_image': io.BytesIO(Path(args.fabric).read_bytes()), 'garment_type': 'shirt',
                 'fabric_type': args.material, 'options': {'draft_mode': args.draft}}
         for view, shot in catalog_plan('shirt'):
             if view not in args.views:
                 continue
-            result = generate_edit(person_image=io.BytesIO(Path(args.reference).read_bytes()),
+            template = get_catalog_reference_path('shirt', view)
+            source = template if template else Path(args.reference)
+            result = generate_edit(person_image=io.BytesIO(source.read_bytes()),
                                    fabric_image=data['fabric_image'], garment_type='shirt',
                                    scenario='person_photo', options=data['options'],
-                                   prompt_config=edit_config(data, shot, 42))
+                                   prompt_config=edit_config(data, shot, 42, view=view, reference_template=template))
             (output / f'{view}.jpeg').write_bytes(result.image_bytes)
             image = {'view': view, **upload_generated_image(result.image_bytes)}
             events.append(image)
@@ -72,12 +77,17 @@ def main():
     with override_settings(ALLOWED_HOSTS=['testserver']), patch(
         'fabricapp.catalog.upload_generated_image', side_effect=save_upload
     ), patch('fabricapp.catalog.generate_catalog', side_effect=capture):
-        response = APIClient().post('/api/generate-catalog/', {
+        payload = {
             'fabric_image': SimpleUploadedFile(Path(args.fabric).name, Path(args.fabric).read_bytes()),
             'garment_type': 'shirt', 'gender': 'men', 'body_type': 'trim',
             'fabric_type': args.material,
             'seed': '42', 'options': json.dumps({'draft_mode': args.draft}),
-        }, format='multipart')
+        }
+        if args.face_image:
+            payload['face_image'] = SimpleUploadedFile(Path(args.face_image).name, Path(args.face_image).read_bytes())
+        if args.background:
+            payload['background'] = args.background
+        response = APIClient().post('/api/generate-catalog/', payload, format='multipart')
         if response.status_code != 200:
             raise RuntimeError(f'HTTP {response.status_code}: {response.data}')
         try:

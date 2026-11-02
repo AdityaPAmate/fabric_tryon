@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from fabricapp.ai.image_utils import resize_to_fit
+from fabricapp.ai.images.image_utils import resize_to_fit
 
 
 def sha(data):
@@ -106,7 +106,7 @@ def main():
         'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         'branch': subprocess.check_output(['git', 'branch', '--show-current'], cwd=ROOT, text=True).strip(),
         'processing': {'max_input_dim': max_dim, 'crop_box': args.crop_box,
-                       'function': 'fabricapp.ai.image_utils.resize_to_fit'},
+                       'function': 'fabricapp.ai.images.image_utils.resize_to_fit'},
         'scope': 'Local preprocessing baseline; deployed version not verified.',
         'generation_baseline_status': 'Historical outputs only; exact original request settings unknown. No new AI generations performed.',
         'metric_limits': 'Whole-swatch averages can hide local changes. JPEG error uses same-size reference. Metrics do not measure generated garment colour, material, or physical colour accuracy.',

@@ -71,9 +71,9 @@ def main():
     import requests
     from PIL import Image
     from fabricapp.ai.main import generate_tryon_image
-    from fabricapp.ai.router import build_prompt_config
-    from fabricapp.ai.cloudflare_engine import _build_subject, MAX_INPUT_DIM
-    from fabricapp.ai.image_utils import resize_to_fit
+    from fabricapp.ai.pipeline.router import build_prompt_config
+    from fabricapp.ai.providers.cloudflare_engine import _build_subject, MAX_INPUT_DIM
+    from fabricapp.ai.images.image_utils import resize_to_fit
 
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -173,7 +173,7 @@ def main():
             case['status'] = 'running'
             write_json(manifest_path, manifest)
             try:
-                with patch('fabricapp.ai.cloudflare_engine.requests.post', captured_post):
+                with patch('fabricapp.ai.providers.cloudflare_engine.requests.post', captured_post):
                     generation = generate_tryon_image(fabric_image=io.BytesIO(raw),
                         face_image=io.BytesIO(args.face_image.read_bytes()), **request)
                 with Image.open(io.BytesIO(generation.image_bytes)) as image:

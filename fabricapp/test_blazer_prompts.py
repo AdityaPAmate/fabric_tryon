@@ -1,13 +1,13 @@
 """Blazer prompt contracts: preserve intent across routes and retry variants."""
 from itertools import product
 from django.test import SimpleTestCase
-from .ai.blazer.builder import build_prompt
-from .ai.blazer.poses import POSE_OPTIONS
+from fabricapp.ai.garments.blazer.builder import build_prompt
+from fabricapp.ai.garments.blazer.poses import POSE_OPTIONS
 
 
 class BlazerPromptTests(SimpleTestCase):
     def test_lighting_preserves_fabric_midtones_across_scenes_and_retries(self):
-        from .ai.backgrounds import BACKGROUND_OPTIONS, BACKGROUND_DESCRIPTIONS
+        from fabricapp.ai.scene.backgrounds import BACKGROUND_OPTIONS, BACKGROUND_DESCRIPTIONS
         for scenario, style, background in product(
             ("person_photo", "person_pose", "face_photo", "generated_person"),
             ("business", "wedding", "casual"), (None, *BACKGROUND_OPTIONS),
@@ -39,7 +39,7 @@ class BlazerPromptTests(SimpleTestCase):
                 self.assertIn("colour-neutral studio key", experiment[key])
 
     def test_pose_routes_restore_full_body_composition_and_override_source_pose(self):
-        from .ai.blazer.poses import get_spec_pose_prompt
+        from fabricapp.ai.garments.blazer.poses import get_spec_pose_prompt
         for scenario, pose in product(("person_pose", "face_photo", "generated_person"), POSE_OPTIONS):
             config = build_prompt(scenario=scenario, garment_style="business",
                                   context={"pose": pose})

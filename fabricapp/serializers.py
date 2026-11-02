@@ -4,13 +4,13 @@ Request validation for the fabric try-on API.
 
 from rest_framework import serializers
 
-from .ai.backgrounds import BACKGROUND_OPTIONS
-from .ai.camera_data import CAMERA_VIEW_OPTIONS
-from .ai.detail_engine import validate_detail_keys
-from .ai.faces import FACE_OPTIONS
-from .ai.fabric_material import FABRIC_TYPES, validate_fabric_type
-from .ai.pose_registry import get_pose_metadata, get_pose_options
-from .ai.router import (
+from fabricapp.ai.scene.backgrounds import BACKGROUND_OPTIONS
+from fabricapp.ai.scene.camera_data import CAMERA_VIEW_OPTIONS
+from fabricapp.ai.garments.detail_engine import validate_detail_keys
+from fabricapp.ai.references.faces import FACE_OPTIONS
+from fabricapp.ai.fabric.fabric_material import FABRIC_TYPES, validate_fabric_type
+from fabricapp.ai.references.pose_registry import get_pose_metadata, get_pose_options
+from fabricapp.ai.pipeline.router import (
     GARMENT_STYLE_OPTIONS,
     IMPLEMENTED_GARMENT_TYPES,
 )

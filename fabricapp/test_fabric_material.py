@@ -8,13 +8,13 @@ from django.test import SimpleTestCase
 from PIL import Image
 from rest_framework.test import APIRequestFactory
 
-from .ai.blazer.builder import build_prompt
-from .ai.blazer.materials import MATERIAL_PROMPTS, material_prompt
-from .ai.cloudflare_engine import GenerationResult, CloudflareGenerationError
-from .ai.main import generate_tryon_image
-from .ai.router import PromptRoutingError
-from .serializers import FabricTryOnRequestSerializer
-from .views import FabricTryOnView
+from fabricapp.ai.garments.blazer.builder import build_prompt
+from fabricapp.ai.garments.blazer.materials import MATERIAL_PROMPTS, material_prompt
+from fabricapp.ai.providers.cloudflare_engine import GenerationResult, CloudflareGenerationError
+from fabricapp.ai.main import generate_tryon_image
+from fabricapp.ai.pipeline.router import PromptRoutingError
+from fabricapp.serializers import FabricTryOnRequestSerializer
+from fabricapp.views import FabricTryOnView
 
 
 def swatch():

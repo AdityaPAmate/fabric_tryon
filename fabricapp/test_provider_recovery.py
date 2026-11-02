@@ -6,8 +6,8 @@ from unittest.mock import Mock
 
 from PIL import Image
 
-from .ai.provider_errors import classify_response, retry_delay, failure_message, uses_classified_recovery
-from .ai.provider_output import validate_generated_image
+from fabricapp.ai.providers.provider_errors import classify_response, retry_delay, failure_message, uses_classified_recovery
+from fabricapp.ai.providers.provider_output import validate_generated_image
 
 
 class ProviderRecoveryTests(TestCase):

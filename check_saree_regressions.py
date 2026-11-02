@@ -27,7 +27,7 @@ pose_data.POSE_INSTRUCTIONS = {
     )
 }
 
-camera_data = types.ModuleType("fabricapp.ai.camera_data")
+camera_data = types.ModuleType("fabricapp.ai.scene.camera_data")
 def get_framing(camera_view=None):
     if camera_view == "close_up":
         return {"shot": "close-up", "shown": "the upper body", "fill": "", "output_rule_face": "", "output_rule_person": ""}
@@ -47,11 +47,11 @@ prompts.get_camera_view_instruction = lambda camera_view: (
 )
 
 sys.modules["fabricapp.ai.pose_data"] = pose_data
-sys.modules["fabricapp.ai.camera_data"] = camera_data
+sys.modules["fabricapp.ai.scene.camera_data"] = camera_data
 sys.modules["fabricapp.ai.prompts"] = prompts
 
-poses = importlib.import_module("fabricapp.ai.saree.poses")
-builder = importlib.import_module("fabricapp.ai.saree.builder")
+poses = importlib.import_module("fabricapp.ai.garments.saree.poses")
+builder = importlib.import_module("fabricapp.ai.garments.saree.builder")
 
 checks = []
 def check(condition: bool, message: str) -> None:
@@ -128,7 +128,7 @@ for item in checks:
 
 
 def check_chair_pallu_spread():
-    from fabricapp.ai.saree.poses import SAREE_POSES
+    from fabricapp.ai.garments.saree.poses import SAREE_POSES
     entry = SAREE_POSES["cross_leg_chair_recline"]
     pose_text = entry["pose"].lower()
     pallu_text = entry["pallu"].lower()

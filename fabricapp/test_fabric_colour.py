@@ -2,8 +2,8 @@ import io
 from unittest import TestCase
 from PIL import Image
 
-from .ai.fabric_colour import measure_fabric_colours, colour_reference_prompt, has_single_colour_family
-from .ai.blazer.builder import build_prompt
+from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours, colour_reference_prompt, has_single_colour_family
+from fabricapp.ai.garments.blazer.builder import build_prompt
 
 
 def image_buffer(rgb, size=(32, 32)):

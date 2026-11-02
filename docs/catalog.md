@@ -43,7 +43,7 @@ A fatal stream error emits `event=error`; a dropped connection may have no final
 events include provider code/diagnostics when available. The existing Desktop
 tester integration and its version-2 reports are maintained in `tools/tester_ui`.
 
-All garments get front, three-quarter and back views. Detail views vary:
+All garments get a front view, a front-dominant three-quarter view and a rear close-up (not a full-body rear view). Detail views vary:
 
 - Shirt: collar, cuff, hem.
 - Blazer: lapel, cuff, hem.
@@ -55,15 +55,15 @@ All garments get front, three-quarter and back views. Detail views vary:
 ## Generation and operation
 
 The existing public coordinator generates the front image, retaining current
-colour/material rules. Each subsequent shot edits that same front reference,
+colour/material rules. Most subsequent shots edit that same front reference,
 alongside the original fabric swatch, with a dedicated view/detail prompt. This
 reduces identity and outfit drift but does not guarantee exact consistency.
-Close-ups are separate model generations, not crops or a collage. The original
+Shirt collar/cuff shots edit the packaged user-provided templates; their original skin, geometry and background are retained while fabric is replaced. Other close-ups use the front reference. Close-ups are separate model generations, not crops or a collage. The original
 swatch is not regenerated. A nonexistent collar/cuff must not be invented.
 
 Every successful image is uploaded independently using the existing Cloudinary
 service. It remains available if a later image fails. Front-generation failure
-skips dependent shots; front-upload failure can still use its in-memory reference.
+skips dependent shots, while independent shirt templates can still run; front-upload failure can still use its in-memory reference.
 Provider quota/auth errors stop further generation calls. Other failures allow
 remaining shots to continue. This version does not support retrying one shot.
 
@@ -83,7 +83,7 @@ The existing deployment requires no migrations or Docker command change.
 
 ## Verification
 
-`python manage.py test fabricapp` passes 61 tests, including the eight catalog
+`python manage.py test fabricapp` passes 66 tests, including the twelve catalog
 tests. These verify multipart validation, sequential stream events, reference
 reuse, all garment plans, per-shot failures, quota stopping, cancellation and
 capacity control with provider/upload stubs; they do not prove visual quality.
@@ -106,3 +106,5 @@ outfit can also acquire small differences in seams, accessories and pattern.
 These samples establish a functioning image-set flow, not exact garment or
 colour reproduction. Other garments have local plan/contract coverage, not
 exhaustive live catalog validation. Deployment proxy streaming remains unverified.
+
+Current organization, reference behavior and the quota-blocked 2026-11-02 live verification are recorded in docs/ai_layout.md. Earlier visual evidence below describes previous prompt versions.

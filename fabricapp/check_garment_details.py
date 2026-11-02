@@ -13,7 +13,7 @@ Run from the project folder (where manage.py is):
 
 from importlib import import_module
 
-from .ai.detail_engine import (
+from fabricapp.ai.garments.detail_engine import (
     DETAIL_MODULES,
     MODE_EDIT,
     MODE_OWN,
@@ -21,10 +21,10 @@ from .ai.detail_engine import (
     validate_detail_keys,
 )
 GARMENT_STYLE_OPTIONS = {
-    garment: getattr(import_module(f"fabricapp.ai.{garment}.prompts"), "GARMENT_STYLE_OPTIONS", {}).get(garment, [])
+    garment: getattr(import_module(f"fabricapp.ai.garments.{garment}.prompts"), "GARMENT_STYLE_OPTIONS", {}).get(garment, [])
     for garment in DETAIL_MODULES
 }
-from .ai.scenario_composer import (
+from fabricapp.ai.pipeline.scenario_composer import (
     SCENARIO_GENERATED_PERSON,
     SCENARIO_PERSON_PHOTO,
     _build_base,

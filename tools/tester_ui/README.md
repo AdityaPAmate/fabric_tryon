@@ -15,6 +15,10 @@ Catalog mode ignores pose/camera and renders six independent images, with
 individual Open/Save and Inspect/Report controls. Stop generation cancels the
 connection; the backend's active provider request may still finish. No collage
 or scale controls are added. Source crop is optional and uses original pixels.
+The rear image is now a garment close-up, and the angle view requests a
+front-dominant three-quarter pose. Shirt collar and cuff views use the packaged
+reference templates. Reports preserve each image's `framing` and
+`reference_template` metadata when the current backend supplies it.
 
 Pose and detail choices in `js/api_options.js` reflect the current backend.
 Colour conditioning remains automatic; no colour-correction sliders are added.

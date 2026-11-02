@@ -12,24 +12,16 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .ai.main import generate_tryon_image
-from .ai.cloudflare_engine import generate_tryon_image as generate_edit, CloudflareGenerationError
-from .ai.fabric_colour import measure_fabric_colours, has_single_colour_family, colour_reference_prompt
-from .ai.fabric_material import material_prompt, fabric_target
-from .serializers import FabricTryOnRequestSerializer
-from .services.cloudinary_service import upload_generated_image
+from fabricapp.ai.main import generate_tryon_image
+from fabricapp.ai.pipeline.catalog_prompts import catalog_plan, edit_config
+from fabricapp.ai.references.catalog_reference import get_catalog_reference_path
+from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image as generate_edit, CloudflareGenerationError
+from fabricapp.serializers import FabricTryOnRequestSerializer
+from fabricapp.services.cloudinary_service import upload_generated_image
 
 logger = logging.getLogger('fabricapp')
 # Bounded per web process; catalogue work must not occupy every request thread.
 CATALOG_SLOTS = threading.BoundedSemaphore(1)
-DETAILS = {
-    'shirt': [('collar', 'collar and neckline'), ('cuff', 'sleeve cuff'), ('hem', 'lower shirt hem')],
-    'blazer': [('lapel', 'lapel and collar'), ('cuff', 'sleeve cuff'), ('hem', 'lower jacket hem')],
-    'kurta': [('neckline', 'neckline'), ('cuff', 'sleeve end'), ('hem', 'lower garment hem')],
-    'kurti_pant': [('neckline', 'kurti neckline'), ('sleeve', 'kurti sleeve end'), ('hem', 'lower kurti hem')],
-    'pant': [('waistband', 'trouser waistband'), ('pocket', 'trouser side pocket'), ('hem', 'trouser ankle hem')],
-    'saree': [('pallu', 'pallu'), ('border', 'saree border'), ('pleats', 'saree pleats')],
-}
 
 
 class CatalogRequestSerializer(FabricTryOnRequestSerializer):
@@ -41,45 +33,6 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
             raise serializers.ValidationError({'camera_view': 'Catalog selects its own views; omit camera_view and pose.'})
         data.setdefault('options', {}).setdefault('draft_mode', False)
         return data
-
-
-def catalog_plan(garment):
-    details = [(key, f'tight product detail photograph of the {part} only; fill the frame with this area, not the full person')
-               for key, part in DETAILS[garment]]
-    if garment == 'shirt':
-        details = [
-            ('collar', 'extreme close-up of the shirt collar, collar points and top two buttons; '
-             'frame from below the chin to the upper chest only; exclude the face, eyes, hair, waist and arms'),
-            ('cuff', 'extreme close-up of one existing shirt sleeve cuff and its seam, '
-             'with only a small adjoining area of sleeve and arm; exclude face and full torso'),
-            ('hem', 'extreme close-up of the lower shirt hem, curved edge and hem stitching, '
-             'with only a small adjoining section of shirt fabric and trousers; exclude face and chest'),
-        ]
-    return [('front', 'front full-body view'),
-            ('three_quarter', 'three-quarter full-body view, turned approximately 45 degrees; '
-             'both the front button line and one side seam must be visible, not a 90-degree side profile'),
-            ('back', 'back full-body view, facing away from the camera')] + details
-
-
-def edit_config(data, shot, anchor_seed):
-    target = fabric_target(data['garment_type'], data.get('garment_style'), data.get('garment_details'))
-    profile = measure_fabric_colours(data['fabric_image'], data.get('options', {}).get('fabric_crop_box'))
-    colour = colour_reference_prompt(profile, target) if has_single_colour_family(profile) else ''
-    prompt = (
-        f'Create exactly ONE photograph: {shot}. Image 0 is the approved front photograph of this catalogue. '
-        'Show the SAME person wearing the SAME finished outfit, with the same fit, seams, buttons, '
-        'colours, fabric pattern size, material and background. Change only camera angle or framing as requested. '
-        f'The garment being catalogued is {target}. Image 1 is its original fabric swatch: '
-        'preserve its colours, texture and motifs; do not replace the outfit or invent a different garment. '
-        'Preserve the separate garments from image 0. Maintain neutral light and realistic fold shading. '
-        'For a rear view show the rear construction of this same garment; do not show a front-facing chest. '
-        'For a detail view crop the requested area and retain its construction; do not add a collar, cuff or pocket '
-        'if the original garment does not have one. No collage, panels, swatch inset, text or watermark. '
-        + colour + material_prompt(data.get('fabric_type', 'unspecified'), data['garment_type'],
-                                  data.get('garment_style'), data.get('garment_details'))
-    )
-    return {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
-            'prompt_version': 'catalog-edit-v1', 'safety_retry_count': 0}
 
 
 def generate_catalog(data, stopped):
@@ -94,7 +47,8 @@ def generate_catalog(data, stopped):
     for index, (view, shot) in enumerate(plan):
         if stopped.is_set():
             return
-        if blocked or (view != 'front' and anchor is None):
+        template = get_catalog_reference_path(data['garment_type'], view)
+        if blocked or (view != 'front' and anchor is None and template is None):
             failed.append(view)
             yield {'event': 'image_failed', 'view': view, 'error': 'generation_unavailable' if blocked else 'front_reference_failed'}
             continue
@@ -109,14 +63,19 @@ def generate_catalog(data, stopped):
                 anchor, anchor_seed = generation.image_bytes, generation.effective_seed
             else:
                 generation = generate_edit(
-                    person_image=io.BytesIO(anchor), fabric_image=data['fabric_image'],
+                    person_image=io.BytesIO(template.read_bytes() if template else anchor), fabric_image=data['fabric_image'],
                     garment_type=data['garment_type'], garment_style=data.get('garment_style'),
                     scenario='person_photo', options=data.get('options', {}),
-                    prompt_config=edit_config(data, shot, anchor_seed),
+                    prompt_config=edit_config(data, shot, anchor_seed if anchor_seed is not None else data.get('seed', 42),
+                                             reference_template=template, view=view),
                 )
             image = {'view': view, **upload_generated_image(generation.image_bytes),
                      'generation_seed': generation.effective_seed,
-                     'generation': generation.diagnostics}
+                     'generation': generation.diagnostics,
+                     'framing': ('template_close_up' if template else
+                                 'rear_close_up' if view == 'back' else
+                                 'full_body' if view in ('front', 'three_quarter') else 'detail_close_up'),
+                     'reference_template': template.name if template else None}
             images.append(image)
             yield {'event': 'image_ready', 'image': image, 'completed': len(images), 'total': len(plan)}
         except Exception as exc:
