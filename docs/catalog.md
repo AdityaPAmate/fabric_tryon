@@ -83,7 +83,7 @@ The existing deployment requires no migrations or Docker command change.
 
 ## Verification
 
-`python manage.py test fabricapp` passes 66 tests, including the twelve catalog
+`python manage.py test fabricapp` passes 67 tests, including the thirteen catalog
 tests. These verify multipart validation, sequential stream events, reference
 reuse, all garment plans, per-shot failures, quota stopping, cancellation and
 capacity control with provider/upload stubs; they do not prove visual quality.
@@ -107,4 +107,4 @@ These samples establish a functioning image-set flow, not exact garment or
 colour reproduction. Other garments have local plan/contract coverage, not
 exhaustive live catalog validation. Deployment proxy streaming remains unverified.
 
-Current organization, reference behavior and the quota-blocked 2026-11-02 live verification are recorded in docs/ai_layout.md. Earlier visual evidence below describes previous prompt versions.
+Current organization, reference behavior and the completed 2026-11-02 quota-recovery live checks are recorded in `docs/ai_layout.md`. Historical visual evidence above describes previous prompt versions.

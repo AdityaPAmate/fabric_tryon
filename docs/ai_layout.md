@@ -38,8 +38,10 @@ No uploaded face photo is used as the template subject. Other details retain the
 front-output reference. The templates can still run if the front is rejected,
 unless a quota/auth failure prevents all generation.
 
-Three-quarter requests now ask for a front-dominant 30–45 degree view with both
-shoulders, the front button line and one side seam visible. `back` retains its
+Three-quarter requests now ask for a clear 45-degree front-and-side view with
+an offset button line and foreshortened far shoulder. That shot uses a blank
+canvas and the approved front image as image 2, rather than editing the original
+front pose in place. `back` retains its
 API key but now requests a rear garment close-up; shirts are cropped from
 shoulders to hem, excluding legs/shoes. Trousers use waistband-to-hem framing.
 View prompts explicitly retain the selected background and put framing last,
@@ -63,7 +65,7 @@ short pile and broad diffuse highlights rather than smooth satin-like glare.
 Colour measurement/conditioning behavior is retained; colour mismatch remains
 unresolved and further colour work is deferred at the user's request.
 
-Validation: 66 backend tests pass, including the moved shirt combination tests,
+Validation: 67 backend tests pass, including the moved shirt combination tests,
 packaged-asset checks, source-template routing, framing contracts and independent
 template generation after front rejection. Offline routing checks pass for all
 24 garment/scenario combinations. Tester stream/report tests cover metadata.
@@ -71,7 +73,43 @@ template generation after front rejection. Offline routing checks pass for all
 The live velvet/face-reference catalog attempt at
 `debug/catalog_references_velvet_20261102` stopped on the first Cloudflare request:
 HTTP 429, code 4006, `allocation_exhausted`. No new image was generated and no
-dependent calls were made. Thus new visual behavior is **not live-verified**.
-After quota/account recovery, rerun `tools/test_catalog_live.py` with the desired
+dependent calls were made. This initial quota blocker was resolved after the
+user updated their account; live follow-up results are recorded below.
+To repeat the check, run `tools/test_catalog_live.py` with the desired
 fabric, `--material velvet`, `--face-image PATH` and `--background white_marble_terrace`.
 No deployment is implied by these source changes.
+
+## Live follow-up after quota recovery (2026-11-02)
+
+All work continues on `codex/organized-ai-catalog-references`; the user requested
+reusing the current branch for subsequent pushes rather than creating a branch
+for every push.
+
+- `debug/catalog_quota_recheck_20261102`: red velvet, uploaded face reference and
+  marble terrace, one real multipart request. Five views generated/uploaded.
+  Collar failed strict output-size validation (not moderation): 1536 x 1256 was
+  requested and the returned image had different dimensions. The angle remained
+  too frontal. Front showed a complete, untucked shirt with visibly plush velvet;
+  back was a rear upper-body close-up retaining the terrace setting.
+- Template requests now align their requested dimensions to multiples of 32;
+  this is limited to template configs. Ordinary requests retain prior sizing and
+  strict output-integrity validation is unchanged. No returned image is stretched
+  or accepted with mismatched dimensions.
+- `debug/catalog_targeted_recheck_20261102`: two successful real generation and
+  upload calls, including collar at 1536 x 1248 and the new angle reference route.
+- `debug/catalog_pattern_final_20261102`: a checked fabric with cotton selection,
+  uploaded face and terrace; all six images generated/uploaded from one multipart
+  request. Visual review found that angle rotation was still weak, and the cuff
+  template preserved the torso's white cloth behind the arm.
+- `debug/catalog_angle_cuff_final_20261102`: two successful focused live rechecks
+  after a compact camera prompt and explicit torso-region replacement instruction.
+  Angle is visibly oblique while retaining the terrace and complete shirt. The
+  torso behind the cuff now largely receives the pattern; a small light region
+  remains near the fabric boundaries. This is not perfect semantic segmentation.
+
+Sixteen generation calls were made across the four runs: fifteen produced valid,
+uploaded images and the initial collar failed validation. Focused runs reused the
+saved front anchor rather than regenerating the person. Both velvet and patterned
+fabric were visually reviewed. Pattern scale, exact physical colour, tiny boundary
+regions and consistent camera angles across arbitrary inputs remain limitations;
+no automatic quality classifier or claim of exhaustive garment coverage is added.

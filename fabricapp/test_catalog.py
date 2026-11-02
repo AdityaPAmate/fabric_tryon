@@ -2,6 +2,7 @@ import io
 import json
 import threading
 from unittest.mock import patch
+from unittest.mock import Mock
 
 from django.test import SimpleTestCase
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -58,7 +59,7 @@ class CatalogTests(SimpleTestCase):
             template = get_catalog_reference_path('shirt', view)
             expected = template.read_bytes() if template else picture()
             self.assertTrue(call.kwargs['person_image'].getvalue() == expected, view)
-            self.assertEqual(call.kwargs['scenario'], 'person_photo')
+            self.assertEqual(call.kwargs['scenario'], 'person_pose' if view == 'three_quarter' else 'person_photo')
             self.assertIn('exact crop' if template else 'SAME person', call.kwargs['prompt_config']['prompt'])
             self.assertIn('velvet', call.kwargs['prompt_config']['prompt'])
         ready = {e['image']['view']: e['image'] for e in events if e['event'] == 'image_ready'}
@@ -126,7 +127,7 @@ class CatalogTests(SimpleTestCase):
             plan = dict(catalog_plan(garment))
             self.assertIn('REAR CLOSE-UP', plan['back'])
             self.assertNotIn('back full-body', plan['back'])
-            self.assertIn('30 to 45 degrees', plan['three_quarter'])
+            self.assertIn('45 degrees', plan['three_quarter'])
         data = self.data()
         data['background'] = 'white_marble_terrace'
         prompt = edit_config(data, dict(catalog_plan('shirt'))['back'], 42, view='back')['prompt']
@@ -151,6 +152,23 @@ class CatalogTests(SimpleTestCase):
         from pathlib import Path
         self.assertTrue(get_face_image_path('raghav').is_file())
         self.assertTrue(Path(get_pose_reference_path('saree', 'pallu_on_head')).is_file())
+
+    def test_template_requests_align_dimensions_without_relaxing_output_validation(self):
+        from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image as engine
+        template = get_catalog_reference_path('shirt', 'collar')
+        config = edit_config(self.data(), dict(catalog_plan('shirt'))['collar'], 42,
+                             reference_template=template, view='collar')
+        def provider(*args, **kwargs):
+            self.assertEqual((kwargs['data']['width'], kwargs['data']['height']), (1536, 1248))
+            result = io.BytesIO()
+            Image.new('RGB', (1536, 1248)).save(result, 'PNG')
+            return Mock(status_code=200, headers={'Content-Type': 'image/png'}, content=result.getvalue())
+        with patch('fabricapp.ai.providers.cloudflare_engine.requests.post', side_effect=provider):
+            result = engine(person_image=io.BytesIO(template.read_bytes()), fabric_image=io.BytesIO(picture()),
+                            garment_type='shirt', scenario='person_photo', options={'draft_mode': False},
+                            prompt_config=config)
+        self.assertEqual(result.effective_seed, 42)
+        self.assertEqual(result.diagnostics['height'], 1248)
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/photo.png'})
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))

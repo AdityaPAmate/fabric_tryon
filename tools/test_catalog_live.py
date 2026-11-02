@@ -39,7 +39,8 @@ def main():
         from fabricapp.catalog import catalog_plan, edit_config, generate_edit
         from fabricapp.ai.references.catalog_reference import get_catalog_reference_path
         data = {'fabric_image': io.BytesIO(Path(args.fabric).read_bytes()), 'garment_type': 'shirt',
-                'fabric_type': args.material, 'options': {'draft_mode': args.draft}}
+                'fabric_type': args.material, 'options': {'draft_mode': args.draft},
+                'background': args.background}
         for view, shot in catalog_plan('shirt'):
             if view not in args.views:
                 continue
@@ -47,10 +48,12 @@ def main():
             source = template if template else Path(args.reference)
             result = generate_edit(person_image=io.BytesIO(source.read_bytes()),
                                    fabric_image=data['fabric_image'], garment_type='shirt',
-                                   scenario='person_photo', options=data['options'],
+                                   scenario='person_pose' if view == 'three_quarter' else 'person_photo', options=data['options'],
                                    prompt_config=edit_config(data, shot, 42, view=view, reference_template=template))
             (output / f'{view}.jpeg').write_bytes(result.image_bytes)
-            image = {'view': view, **upload_generated_image(result.image_bytes)}
+            image = {'view': view, **upload_generated_image(result.image_bytes),
+                     'generation_seed': result.effective_seed, 'generation': result.diagnostics,
+                     'reference_template': template.name if template else None}
             events.append(image)
             (output / 'recheck.json').write_text(json.dumps(events, indent=2), encoding='utf-8')
             print(json.dumps(image), flush=True)

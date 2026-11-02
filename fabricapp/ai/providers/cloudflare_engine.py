@@ -245,6 +245,12 @@ def generate_tryon_image(
         subject_buffer, reference_buffer, out_w, out_h = _build_subject(
             scenario, person_image, face_choice, face_image, max_output_side, pose_reference_path
         )
+        # Catalog templates can have arbitrary aspect ratios. Request a stable
+        # model-aligned size rather than accepting a silently rounded response.
+        # Ordinary requests retain their existing dimensions and strict validation.
+        if prompt_config.get('output_size_multiple') == 32:
+            out_w = max(256, (out_w // 32) * 32)
+            out_h = max(256, (out_h // 32) * 32)
 
         # Stage 1: prepare the garment source image (image_1)
         if use_garment_image:
