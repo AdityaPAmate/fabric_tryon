@@ -65,10 +65,10 @@ def measure_fabric_colours(source, crop_box=None):
         source.seek(position)
 
 
-def colour_reference_prompt(profile, target="jacket"):
+def colour_reference_prompt(profile, target="jacket", *, preserve_palette=False):
     if not profile or not profile['colours']:
         return ''
-    if has_single_colour_family(profile):
+    if has_single_colour_family(profile) and not preserve_palette:
         total = sum(c['coverage'] for c in profile['colours'])
         rgb = [round(sum(c['rgb'][channel] * c['coverage'] for c in profile['colours']) / total)
                for channel in range(3)]

@@ -42,7 +42,12 @@ def catalog_plan(garment):
 def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     target = fabric_target(data['garment_type'], data.get('garment_style'), data.get('garment_details'))
     profile = measure_fabric_colours(data['fabric_image'], data.get('options', {}).get('fabric_crop_box'))
-    colour = colour_reference_prompt(profile, target) if has_single_colour_family(profile) else ''
+    detail_colour_lock = bool(reference_template and data['garment_type'] == 'shirt'
+                              and view in ('cuff', 'hem'))
+    colour = (colour_reference_prompt(
+        profile, target, preserve_palette=detail_colour_lock and
+        not all(c["name"] == "deep orange-brown" for c in profile["colours"]))
+              if detail_colour_lock or has_single_colour_family(profile) else '')
     material = material_prompt(data.get('fabric_type', 'unspecified'), data['garment_type'],
                                data.get('garment_style'), data.get('garment_details'))
     # Full trouser construction applies to the outfit, not to a close-up crop.
@@ -120,9 +125,19 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     if reference_template and view == 'hem':
         prompt += ('FINAL REGION LOCK: no arms, hands or skin. The complete area above the curved '
                    'hem is fabric, including both image edges. Preserve the reference crop and dark trousers. ')
+    if detail_colour_lock:
+        prompt += (
+            'FINAL FABRIC COLOUR: Image 1 is the authority for the exact fabric colours. '
+            'Match its base shade, lightness and saturation under neutral diffuse light. '
+            'Preserve each printed colour separately and retain its contrast with the base cloth. '
+            'Keep realistic local fold shadows, but do not apply a warm or cool cast, boost vibrance, '
+            'wash out the print, or inherit the brightness or tint of the original template cloth. '
+            'Apply these instructions only to shirt fabric; preserve skin, buttons, trousers and background. '
+        )
     return {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
             'prompt_version': ('catalog-template-v3' if reference_template else
                                'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2')
+                              + ('-swatch-v1' if detail_colour_lock else '')
                               + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),
             **({'output_size_multiple': 32} if reference_template else {}),
             'safety_retry_count': 0}
