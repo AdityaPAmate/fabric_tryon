@@ -1,3 +1,23 @@
+## Fixed portrait catalog (2026-11-04)
+
+Final output: one 1800 x 3200 PNG, composed locally without another AI call.
+Fixed placement: front left; three-quarter and rear close-up top right; three detail
+views below; original uploaded swatch across the bottom. Other garments retain
+their existing three detail views in the same slots. No layout or image selection.
+Images are resized proportionally with centered crops to fill fixed panels.
+Off-center subjects may need better source framing; images are never stretched.
+
+The stream retains image_ready diagnostics and adds composing and collage_ready.
+The complete event includes collage and collage_error. Missing views or failed
+composition/upload produce partial/failed status and no final collage.
+The tester selects the final collage as output, saves it locally, and archives
+catalog.collage in reports alongside source images. Hem uses existing generation
+until a separate hem reference is supplied.
+
+Validation: 69 Django tests, 5 report HTTP tests, 3 stream tests; previously generated
+live images composed locally and visually checked. No fresh Cloudflare generation
+was used for this deterministic composition change. Deployment remains separate.
+
 # Generate Catalog
 
 Branch: `codex/catalog-image-set`. No deployment is implied.

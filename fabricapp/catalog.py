@@ -12,6 +12,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from fabricapp.ai.images.catalog_collage import compose_catalog, LAYOUT
 from fabricapp.ai.main import generate_tryon_image
 from fabricapp.ai.pipeline.catalog_prompts import catalog_plan, edit_config
 from fabricapp.ai.references.catalog_reference import get_catalog_reference_path
@@ -43,6 +44,10 @@ def generate_catalog(data, stopped):
     anchor = None
     anchor_seed = None
     images, failed = [], []
+    shot_bytes = {}
+    data["fabric_image"].seek(0)
+    swatch_bytes = data["fabric_image"].read()
+    data["fabric_image"].seek(0)
     blocked = False
     for index, (view, shot) in enumerate(plan):
         if stopped.is_set():
@@ -76,6 +81,7 @@ def generate_catalog(data, stopped):
                                  'rear_close_up' if view == 'back' else
                                  'full_body' if view in ('front', 'three_quarter') else 'detail_close_up'),
                      'reference_template': template.name if template else None}
+            shot_bytes[view] = generation.image_bytes
             images.append(image)
             yield {'event': 'image_ready', 'image': image, 'completed': len(images), 'total': len(plan)}
         except Exception as exc:
@@ -87,8 +93,24 @@ def generate_catalog(data, stopped):
             yield {'event': 'image_failed', 'view': view, 'error': failure or 'image_generation_or_upload_failed',
                    'provider_code': getattr(exc, 'provider_code', None),
                    'generation': getattr(exc, 'diagnostics', None)}
-    yield {'event': 'complete', 'status': 'completed' if not failed else ('partial' if images else 'failed'),
-           'catalog_id': catalog_id, 'images': images, 'failed_views': failed, 'total': len(plan)}
+    if stopped.is_set():
+        return
+    collage, collage_error = None, None
+    if not failed:
+        yield {'event': 'composing'}
+        try:
+            payload = compose_catalog(shot_bytes, swatch_bytes, [key for key, _ in plan])
+            collage = {**upload_generated_image(payload), 'view': 'catalog', 'layout': LAYOUT,
+                       'source_views': [key for key, _ in plan], 'includes_original_swatch': True}
+            yield {'event': 'collage_ready', 'image': collage}
+        except Exception:
+            logger.exception('Catalog composition or upload failed')
+            collage_error = 'collage_composition_or_upload_failed'
+    else:
+        collage_error = 'required_views_missing'
+    yield {'event': 'complete', 'status': 'completed' if collage else ('partial' if images else 'failed'),
+           'catalog_id': catalog_id, 'images': images, 'failed_views': failed, 'total': len(plan),
+           'collage': collage, 'collage_error': collage_error}
 
 
 def catalog_stream(data):

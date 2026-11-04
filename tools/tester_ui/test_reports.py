@@ -84,6 +84,19 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(index['catalog_id'], 'test-catalog')
         self.assertEqual(index['catalog_view'], 'cuff')
 
+    def test_final_collage_is_archived_with_metadata(self):
+        payload = self.payload()
+        payload['catalog'] = {'images': [], 'status': 'completed', 'collage': {
+            'view': 'catalog', 'format': 'png', 'layout': 'portrait-catalog-v1',
+            'source_views': ['front', 'three_quarter', 'back', 'collar', 'cuff', 'hem'],
+            'local_output_path': 'outputs/generated_0001.png'}}
+        report = self.post(payload)
+        item = report['catalog']['collage']
+        self.assertEqual(item['layout'], 'portrait-catalog-v1')
+        self.assertEqual(len(item['source_views']), 6)
+        self.assertIsNone(item['copy_error'])
+        self.assertEqual((self.root / report['report_path'] / item['report_output_path']).read_bytes(), self.image.read_bytes())
+
     def test_old_request_still_saves(self):
         payload = self.payload()
         payload['request'] = {'garment_type': 'shirt'}

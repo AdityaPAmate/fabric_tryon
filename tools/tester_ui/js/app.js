@@ -73,7 +73,7 @@ function setGenerationMode() {
   document.querySelector('#camera-view').disabled = catalog;
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
   document.querySelector('#mode-help').textContent = catalog
-    ? 'One request: front, front three-quarter angle, rear close-up and three garment-specific details. Keep this page open. Images appear separately as they are ready. Pose and camera selections are ignored.'
+    ? 'One request: front, front three-quarter angle, rear close-up and three garment-specific details. Keep this page open. A fixed portrait collage appears when all views are ready. Pose and camera selections are ignored.'
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
 }
@@ -643,12 +643,36 @@ form.addEventListener("submit", async (event) => {
           const savedLabel = document.createElement('p');
           savedLabel.textContent = 'Waiting for local save…';
           card.append(heading, image, open, select, savedLabel); catalogGrid.append(card);
-          catalogSummary.textContent = `${catalogCount}/6 images ready. Each image is separate.`;
+          catalogSummary.textContent = `${catalogCount}/6 images ready. Preparing the portrait catalog.`;
           saveChain = saveChain.then(async () => {
             const saved = await saveOutputLocally(output.url, output.format || 'jpg');
             record.local_output_path = saved?.filename || null;
             catalogImage.local_output_path = record.local_output_path;
             savedLabel.textContent = saved ? `Saved: ${saved.filename}` : 'Local save failed; use Open / Save image.';
+          });
+        }
+        if (event.event === 'composing') statusMessage.textContent = 'Assembling portrait catalog…';
+        if (event.event === 'collage_ready') {
+          const output = event.image;
+          catalogReport.collage = {...output, local_output_path: null};
+          const record = {request: {...reportRequest, catalog_view: 'catalog'}, output,
+            local_output_path: null, generation_error: null, http_status: response.status,
+            catalog: catalogReport, ...reportFiles};
+          catalogRecords.push(record);
+          latestGeneration = record;
+          displayOutput(output);
+          const card = document.createElement('article');
+          card.className = 'comparison-card';
+          card.style.gridColumn = '1 / -1';
+          const title = document.createElement('h4'); title.textContent = 'Final portrait catalog';
+          const image = document.createElement('img'); image.src = output.url; image.alt = title.textContent;
+          const link = document.createElement('a'); link.href = output.url;
+          link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'Open / Download Catalog';
+          card.append(title, image, link); catalogGrid.prepend(card);
+          saveChain = saveChain.then(async () => {
+            const saved = await saveOutputLocally(output.url, output.format || 'png');
+            record.local_output_path = saved?.filename || null;
+            catalogReport.collage.local_output_path = record.local_output_path;
           });
         }
         if (event.event === 'image_failed') {
@@ -674,12 +698,14 @@ form.addEventListener("submit", async (event) => {
         if (event.event === 'complete') {
           finalEvent = event;
           catalogReport.status = event.status;
+          catalogReport.collage_error = event.collage_error || null;
         }
       });
       const duration = requestTimer.stop();
       catalogRecords.forEach(record => { record.request_duration_ms = duration; });
       if (!finalEvent) throw new Error('Connection ended before the catalog completed. Images already displayed remain available.');
       statusMessage.textContent = `Catalog ${finalEvent.status}: ${catalogCount}/${finalEvent.total} images ready.`;
+      statusMessage.textContent += finalEvent.collage ? ' Portrait catalog ready.' : ' Final collage unavailable: ' + (finalEvent.collage_error || 'server update required') + '.';
       catalogSummary.textContent = statusMessage.textContent + (failedViews.length ? ` Failed views: ${failedViews.join(', ')}.` : '');
       if (catalogCount) feedbackSection.classList.remove('hidden');
       else throw new Error('No catalog images were generated. See the failed views.');

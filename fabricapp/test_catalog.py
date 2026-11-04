@@ -53,7 +53,8 @@ class CatalogTests(SimpleTestCase):
                             for event in events if event['event'] == 'image_ready'))
         self.assertEqual(front.call_count, 1)
         self.assertEqual(edit.call_count, 5)
-        self.assertEqual(upload.call_count, 6)
+        self.assertEqual(upload.call_count, 7)
+        self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-v1")
         self.assertFalse(front.call_args.kwargs['options']['draft_mode'])
         for view, call in zip(['three_quarter', 'back', 'collar', 'cuff', 'hem'], edit.call_args_list):
             template = get_catalog_reference_path('shirt', view)
@@ -179,3 +180,34 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(ready, ['collar', 'cuff'])
         self.assertEqual(events[-1]['status'], 'partial')
         self.assertEqual(edit.call_count, 2)
+
+
+class CollageTests(SimpleTestCase):
+    def test_fixed_portrait_order_and_original_swatch(self):
+        from fabricapp.ai.images.catalog_collage import compose_catalog
+        views = ['front', 'three_quarter', 'back', 'collar', 'cuff', 'hem']
+        colors = ['red', 'green', 'blue', 'yellow', 'cyan', 'magenta']
+        shots = {}
+        for view, color in zip(views, colors):
+            out = io.BytesIO()
+            Image.new('RGB', (100, 100), color).save(out, 'PNG')
+            shots[view] = out.getvalue()
+        result = Image.open(io.BytesIO(compose_catalog(shots, picture(), views)))
+        self.assertEqual(result.size, (1800, 3200))
+        points = [(380, 1200), (1000, 400), (1500, 400), (1200, 1200), (1200, 1800), (1200, 2300)]
+        for point, color in zip(points, colors):
+            self.assertEqual(result.getpixel(point), Image.new('RGB', (1, 1), color).getpixel((0, 0)))
+        self.assertEqual(result.getpixel((900, 2800)), (130, 35, 48))
+        with self.assertRaises(ValueError):
+            compose_catalog({}, picture(), views)
+
+    @patch('fabricapp.catalog.upload_generated_image')
+    @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
+    @patch('fabricapp.catalog.generate_tryon_image', return_value=GenerationResult(picture(), 42))
+    def test_collage_upload_failure_is_partial(self, front, edit, upload):
+        upload.side_effect = [{'url': 'https://example.com/photo.png'}] * 6 + [RuntimeError('upload failed')]
+        events = list(generate_catalog(CatalogTests().data(), threading.Event()))
+        self.assertEqual(events[-1]['status'], 'partial')
+        self.assertIsNone(events[-1]['collage'])
+        self.assertEqual(events[-1]['collage_error'], 'collage_composition_or_upload_failed')
+        self.assertEqual(len(events[-1]['images']), 6)

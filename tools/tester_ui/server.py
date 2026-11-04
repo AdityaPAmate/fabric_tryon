@@ -76,7 +76,10 @@ def save_catalog_outputs(catalog: dict | None, report_dir: Path) -> dict | None:
     saved['images'] = []
     directory = report_dir / 'catalog_images'
     directory.mkdir()
-    for index, image in enumerate(catalog.get('images', []), 1):
+    entries = list(catalog.get('images', []))
+    if catalog.get('collage'):
+        entries.append({**catalog['collage'], 'view': 'catalog'})
+    for index, image in enumerate(entries, 1):
         item = dict(image)
         view = re.sub(r'[^a-z0-9_-]', '_', str(image.get('view', 'image')).lower())
         extension = EXTENSIONS.get(str(image.get('format', 'jpg')).lower(), 'jpg')
@@ -96,7 +99,10 @@ def save_catalog_outputs(catalog: dict | None, report_dir: Path) -> dict | None:
             item['report_output_path'] = str(destination.relative_to(report_dir))
         except Exception as error:
             item['copy_error'] = str(error)
-        saved['images'].append(item)
+        if image.get('view') == 'catalog':
+            saved['collage'] = item
+        else:
+            saved['images'].append(item)
     return saved
 
 
