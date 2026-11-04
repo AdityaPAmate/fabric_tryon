@@ -19,17 +19,12 @@ FABRIC_OUTLINE = [
 ]
 
 
-def render_shirt_collar(reference, swatch, crop_box=None):
+def load_shirt_collar_mask(reference):
     reference_bytes = reference.read_bytes()
     if sha256(reference_bytes).hexdigest() != REFERENCE_SHA256:
         raise ValueError('Shirt collar reference changed and needs a matching fabric mask.')
     with Image.open(io.BytesIO(reference_bytes)) as source:
         base = source.convert('RGB')
-    with Image.open(io.BytesIO(swatch)) as source:
-        fabric = ImageOps.exif_transpose(source).convert('RGB')
-    if crop_box:
-        fabric = fabric.crop(crop_box)
-
     mask = Image.new('L', base.size)
     draw = ImageDraw.Draw(mask)
     draw.polygon(FABRIC_OUTLINE, fill=255)
@@ -44,6 +39,16 @@ def render_shirt_collar(reference, swatch, crop_box=None):
                   (499, 596), (485, 597), (471, 591), (460, 582),
                   (454, 571)], fill=0)
     draw.ellipse((679, 857, 738, 921), fill=0)
+    return base, mask
+
+
+def render_shirt_collar(reference, swatch, crop_box=None):
+    base, mask = load_shirt_collar_mask(reference)
+    with Image.open(io.BytesIO(swatch)) as source:
+        fabric = ImageOps.exif_transpose(source).convert('RGB')
+    if crop_box:
+        fabric = fabric.crop(crop_box)
+
     texture = ImageOps.fit(fabric, base.size, Image.Resampling.LANCZOS)
     # Keep fabric-only lighting subtle around the reference midtone.
     shade = base.convert('L').point(

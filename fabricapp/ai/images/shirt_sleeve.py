@@ -29,12 +29,26 @@ def _panel_texture(fabric, size, angle):
     return tile.crop((left, top, left + width, top + height))
 
 
-def render_shirt_sleeve(reference, swatch, crop_box=None):
+def load_shirt_sleeve_mask(reference):
     reference_bytes = reference.read_bytes()
     if sha256(reference_bytes).hexdigest() != REFERENCE_SHA256:
         raise ValueError('Shirt sleeve reference changed and needs a matching fabric mask.')
     with Image.open(io.BytesIO(reference_bytes)) as source:
         base = source.convert('RGB')
+    # In this fixed reference the exposed wrist is warm and the cloth is neutral.
+    red, _, blue = base.split()
+    fabric_mask = ImageChops.subtract(red, blue).point(
+        lambda difference: max(0, min(255, (24 - difference) * 16))
+    )
+    draw = ImageDraw.Draw(fabric_mask)
+    for button in BUTTONS:
+        draw.ellipse(button, fill=0)
+
+    return base, fabric_mask
+
+
+def render_shirt_sleeve(reference, swatch, crop_box=None):
+    base, fabric_mask = load_shirt_sleeve_mask(reference)
     with Image.open(io.BytesIO(swatch)) as source:
         fabric = ImageOps.exif_transpose(source).convert('RGB')
     if crop_box:
@@ -45,15 +59,6 @@ def render_shirt_sleeve(reference, swatch, crop_box=None):
         panel = Image.new('L', base.size)
         ImageDraw.Draw(panel).polygon(outline, fill=255)
         texture.paste(_panel_texture(fabric, base.size, angle), (0, 0), panel)
-
-    # In this fixed reference the exposed wrist is warm and the cloth is neutral.
-    red, _, blue = base.split()
-    fabric_mask = ImageChops.subtract(red, blue).point(
-        lambda difference: max(0, min(255, (24 - difference) * 16))
-    )
-    draw = ImageDraw.Draw(fabric_mask)
-    for button in BUTTONS:
-        draw.ellipse(button, fill=0)
 
     # Multiply by neutral shading to retain folds without boosting saturation.
     # Keep fabric-only lighting subtle around the reference midtone.

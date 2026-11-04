@@ -33,6 +33,7 @@ import base64
 import gc
 import hashlib
 import io
+from PIL import Image
 import json
 import logging
 import os
@@ -217,6 +218,7 @@ def generate_tryon_image(
     scenario=None,
     pose_reference_path=None,
     prompt_config=None,
+    fabric_mask=None,
 ):
     """
     Main entry point. The serializer has already validated the
@@ -276,7 +278,13 @@ def generate_tryon_image(
         "input_image_0": ("subject.jpg", subject_buffer, "image/jpeg"),
         "input_image_1": ("garment_source.jpg", garment_source_buffer, "image/jpeg"),
     }
-    if reference_buffer is not None:
+    if fabric_mask is not None:
+        mask_buffer = io.BytesIO()
+        with Image.open(io.BytesIO(subject_buffer.getvalue())) as subject:
+            with Image.open(io.BytesIO(fabric_mask)) as mask:
+                mask.resize(subject.size, Image.Resampling.NEAREST).save(mask_buffer, format="PNG")
+        files["input_image_2"] = ("fabric_mask.png", mask_buffer, "image/png")
+    elif reference_buffer is not None:
         files["input_image_2"] = ("reference.jpg", reference_buffer, "image/jpeg")
 
     logger.info(

@@ -18,22 +18,27 @@ FABRIC_OUTLINE = [
 ]
 
 
-def render_shirt_hem(reference, swatch, crop_box=None):
+def load_shirt_hem_mask(reference):
     reference_bytes = reference.read_bytes()
     if sha256(reference_bytes).hexdigest() != REFERENCE_SHA256:
         raise ValueError('Shirt hem reference changed and needs a matching fabric mask.')
     with Image.open(io.BytesIO(reference_bytes)) as source:
         base = source.convert('RGB')
+    mask = Image.new('L', base.size)
+    draw = ImageDraw.Draw(mask)
+    draw.polygon(FABRIC_OUTLINE, fill=255)
+    draw.ellipse((1199, 138, 1275, 213), fill=0)
+    return base, mask
+
+
+def render_shirt_hem(reference, swatch, crop_box=None):
+    base, mask = load_shirt_hem_mask(reference)
     with Image.open(io.BytesIO(swatch)) as source:
         fabric = ImageOps.exif_transpose(source).convert('RGB')
     if crop_box:
         fabric = fabric.crop(crop_box)
     # Keep the bottom of the swatch visible so bordered prints retain their hem motif.
     texture = ImageOps.fit(fabric, base.size, Image.Resampling.LANCZOS, centering=(0.5, 1.0))
-    mask = Image.new('L', base.size)
-    draw = ImageDraw.Draw(mask)
-    draw.polygon(FABRIC_OUTLINE, fill=255)
-    draw.ellipse((1199, 138, 1275, 213), fill=0)
     # Retain the reference's subtle fabric shading without shifting the swatch hue.
     # Keep fabric-only lighting subtle around the reference midtone.
     shade = base.convert('L').point(
