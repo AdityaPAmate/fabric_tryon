@@ -1,3 +1,17 @@
+## Hem and framing update (2026-11-04)
+
+Shirt hem now uses the supplied packaged hem.png, like collar and cuff.
+Template prompts cover all shirt regions, keep trousers/skin/buttons separate,
+and forbid invented limbs in the hem reference. Three-quarter is now a close-up
+from head through garment hem, with no lower legs or shoes.
+The portrait-catalog-v2 sleeve/cuff panel contains the complete image with white
+side padding where needed, rather than cropping away cuff and wrist edges.
+Live checked fabric tests verified sleeve replacement and close-up angle. A second
+hem-only test corrected invented limbs and preserved the supplied hem geometry.
+70 tests passed; the final prompt was rechecked with 16 catalog tests.
+Other panel positions are unchanged. Tests cover all three templates, partial
+failure independence, and preservation of sleeve image edges.
+
 ## Fixed portrait catalog (2026-11-04)
 
 Final output: one 1800 x 3200 PNG, composed locally without another AI call.

@@ -79,7 +79,8 @@ def generate_catalog(data, stopped):
                      'generation': generation.diagnostics,
                      'framing': ('template_close_up' if template else
                                  'rear_close_up' if view == 'back' else
-                                 'full_body' if view in ('front', 'three_quarter') else 'detail_close_up'),
+                                 'three_quarter_close_up' if view == 'three_quarter' else
+                                 'full_body' if view == 'front' else 'detail_close_up'),
                      'reference_template': template.name if template else None}
             shot_bytes[view] = generation.image_bytes
             images.append(image)

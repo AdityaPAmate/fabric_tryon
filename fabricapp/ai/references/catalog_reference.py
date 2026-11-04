@@ -2,7 +2,7 @@
 from pathlib import Path
 
 CATALOG_REFERENCE_DIR = Path(__file__).resolve().parent / 'assets' / 'catalog'
-SHIRT_TEMPLATES = {'collar': 'shirt_collar.png', 'cuff': 'sleeve.png'}
+SHIRT_TEMPLATES = {'collar': 'shirt_collar.png', 'cuff': 'sleeve.png', 'hem': 'hem.png'}
 
 
 def get_catalog_reference_path(garment_type, view):

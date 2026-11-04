@@ -54,7 +54,7 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(front.call_count, 1)
         self.assertEqual(edit.call_count, 5)
         self.assertEqual(upload.call_count, 7)
-        self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-v1")
+        self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-v2")
         self.assertFalse(front.call_args.kwargs['options']['draft_mode'])
         for view, call in zip(['three_quarter', 'back', 'collar', 'cuff', 'hem'], edit.call_args_list):
             template = get_catalog_reference_path('shirt', view)
@@ -136,7 +136,7 @@ class CatalogTests(SimpleTestCase):
         self.assertIn('FINAL CAMERA REQUIREMENT: REAR CLOSE-UP', prompt)
 
     def test_templates_are_packaged_and_keep_reference_geometry(self):
-        for view in ('collar', 'cuff'):
+        for view in ('collar', 'cuff', 'hem'):
             path = get_catalog_reference_path('shirt', view)
             self.assertTrue(path.is_file())
             data = self.data()
@@ -177,9 +177,9 @@ class CatalogTests(SimpleTestCase):
     def test_detail_templates_work_even_if_front_generation_is_rejected(self, front, edit, upload):
         events = list(generate_catalog(self.data(), threading.Event()))
         ready = [event['image']['view'] for event in events if event['event'] == 'image_ready']
-        self.assertEqual(ready, ['collar', 'cuff'])
+        self.assertEqual(ready, ['collar', 'cuff', 'hem'])
         self.assertEqual(events[-1]['status'], 'partial')
-        self.assertEqual(edit.call_count, 2)
+        self.assertEqual(edit.call_count, 3)
 
 
 class CollageTests(SimpleTestCase):
@@ -211,3 +211,18 @@ class CollageTests(SimpleTestCase):
         self.assertIsNone(events[-1]['collage'])
         self.assertEqual(events[-1]['collage_error'], 'collage_composition_or_upload_failed')
         self.assertEqual(len(events[-1]['images']), 6)
+
+
+    def test_sleeve_panel_preserves_all_four_edges(self):
+        from fabricapp.ai.images.catalog_collage import compose_catalog
+        views = ['front', 'three_quarter', 'back', 'collar', 'cuff', 'hem']
+        source = Image.new('RGB', (300, 200), 'blue')
+        from PIL import ImageDraw
+        ImageDraw.Draw(source).rectangle((0, 0, 299, 199), outline='red', width=8)
+        buffer = io.BytesIO(); source.save(buffer, 'PNG')
+        shots = {view: picture() for view in views}; shots['cuff'] = buffer.getvalue()
+        image = Image.open(io.BytesIO(compose_catalog(shots, picture(), views)))
+        # 300:200 source fits to 702x468, centered in a 1028x468 slot.
+        for point in [(939, 1800), (1633, 1800), (1200, 1588), (1200, 2048)]:
+            self.assertGreater(image.getpixel(point)[0], 200)
+            self.assertLess(image.getpixel(point)[2], 50)

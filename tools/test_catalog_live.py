@@ -73,6 +73,8 @@ def main():
     from fabricapp.catalog import generate_catalog
     def capture(data, stopped):
         for event in generate_catalog(data, stopped):
+            if event['event'] == 'composing':
+                current_view[0] = 'catalog'
             if event['event'] == 'generating':
                 current_view[0] = event['view']
             yield event

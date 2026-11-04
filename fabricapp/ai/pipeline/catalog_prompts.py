@@ -28,13 +28,13 @@ def catalog_plan(garment):
              'with only a small adjoining section of shirt fabric and trousers; exclude face and chest'),
         ]
     return [('front', 'front full-body view'),
-            ('three_quarter', 'FRONT THREE-QUARTER full-body photograph: rotate the ENTIRE torso and hips '
+            ('three_quarter', 'FRONT THREE-QUARTER close-up photograph: rotate the ENTIRE torso and hips '
              '45 degrees to the model\'s left from the front reference. Show a clearly diagonal chest, '
              'a visible side panel from armpit to hem, a foreshortened far shoulder and the front button line. '
              'The near shoulder is substantially closer to the camera than the far shoulder. '
              'Keep the front and side of the shirt both visible. The head follows the torso turn. '
              'Do not repeat the straight-on front pose and do not rotate all the way to a 90-degree side profile. '
-             'Show head to shoes'),
+             'Frame from head to just below the garment hem; exclude lower legs and shoes'),
             ('back', 'REAR CLOSE-UP product photograph, facing directly away from the camera. '
              'Fill the frame with ' + back_crop + '. Do not frame a complete head-to-feet person')] + details
 
@@ -51,7 +51,7 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     if reference_template:
         prompt = (
             f'Edit image 0, the supplied {view} close-up reference photograph. '
-            'Keep its exact crop, camera angle, garment geometry, collar/cuff shape, seams, button positions, '
+            'Keep its exact crop, camera angle, garment geometry, collar/cuff/hem shape, seams, button positions, '
             'skin, arm or neck pose and actual non-cloth background. Replace ALL visible shirt fabric in image 0 with '
             'the fabric in image 1, including the collar leaves, collar stand, placket, cuff and adjoining '
             'shirt panels wherever present. Remove the original white or blue cloth colour and texture. '
@@ -63,7 +63,19 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
             prompt += ('REGION CHECK: the large shirt torso behind the arm, on the upper and right side '
                        'of the photograph, is ALSO shirt fabric, not background. Replace that entire torso '
                        'and its vertical button placket with the same swatch pattern as the cuff and sleeve. '
+                       'Replace the complete sleeve, cuff face, cuff edges, sleeve placket and all torso fabric. '
+                       'Carry the same pattern continuously across each cloth region with realistic fold shading. '
+                       'Do not leave white patches or transfer fabric onto the exposed wrist, hand or buttons. '
+                       'Preserve the entire visible cuff and arm from the reference without tightening the crop. '
                        'Leave no original plain white shirt panels behind the arm. ')
+        if view == 'hem':
+            prompt += ('Replace all white shirt fabric including the curved hem edge and button placket. '
+                       'Keep the dark trousers and non-cloth background unchanged. '
+                       'Preserve the full curved hem, seam stitching and button positions. '
+                       'Every region above the curved hem seam is SHIRT FABRIC, including the far left '
+                       'and right edges. There are NO arms, hands or exposed skin in this reference; '
+                       'do not invent skin or limbs. The only regions below the seam are the existing '
+                       'dark trousers and the narrow background at the left edge. ')
     else:
         anchor_slot = 2 if view == 'three_quarter' else 0
         prompt = (
@@ -87,15 +99,15 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
             # A compact camera task avoids the long preservation instructions
             # overpowering the requested rotation of a frontal reference.
             prompt = (
-                'CAMERA TASK: generate a NEW full-body FRONT THREE-QUARTER PROFILE photograph. '
+                'CAMERA TASK: generate a NEW close-up FRONT THREE-QUARTER PROFILE photograph. '
                 'Image 0 is a blank canvas. Image 2 is the person and outfit identity reference only. '
                 'Move the camera 45 degrees around the person toward their left side, halfway between '
                 'a straight front view and a side profile. Show the front chest AND the left side panel '
                 'of the garment. The far shoulder is partly hidden behind the chest, the near shoulder '
                 'is prominent, and the front button line is offset from the visible torso centre. '
-                'Head, torso, hips and feet must share this oblique orientation. Show both eyes in a '
+                'Head, torso and hips must share this oblique orientation. Show both eyes in a '
                 'three-quarter face, not a straight-on face. Keep the SAME person and finished outfit '
-                'from image 2, full shirt and both shoes in frame. Image 1 supplies the fabric. '
+                'from image 2. Frame head to just below the garment hem, filling the frame with the upper body. Exclude lower legs and shoes. Image 1 supplies the fabric. '
                 'Preserve the hem placement and all separate clothing. '
                 + ('LOCATION: ' + background + '. ' if background else 'Keep the location from image 2. ')
                 + 'One realistic photograph, no collage or text. '
@@ -103,10 +115,10 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     prompt += colour + material
     # Repeat the short framing requirement last, after material instructions.
     prompt += ('FINAL CROP: match image 0 exactly. ' if reference_template else
-               'FINAL CAMERA REQUIREMENT: an obvious oblique front-and-side view, not the original frontal pose. '
+               'FINAL CAMERA REQUIREMENT: an obvious oblique front-and-side view, not the original frontal pose; close-up from head to just below garment hem, no lower legs or shoes. '
                if view == 'three_quarter' else 'FINAL CAMERA REQUIREMENT: ' + shot + '. ')
     return {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
-            'prompt_version': ('catalog-template-v2' if reference_template else
-                               'catalog-angle-v1' if view == 'three_quarter' else 'catalog-edit-v2'),
+            'prompt_version': ('catalog-template-v3' if reference_template else
+                               'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2'),
             **({'output_size_multiple': 32} if reference_template else {}),
             'safety_retry_count': 0}
