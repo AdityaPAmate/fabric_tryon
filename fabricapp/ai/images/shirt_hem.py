@@ -6,13 +6,15 @@ from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 
 # The trace belongs to this exact reference. A replacement photo needs its own trace.
-REFERENCE_SHA256 = '46f13a1d0a61bc09b32db025c481d239ec516cb206c2dd8f6a6407dd5a88c2c2'
+REFERENCE_SHA256 = '9929effbb04f4406ac066063537b9a89d4be9db11d3d8f55c50364e66e40d90c'
 FABRIC_OUTLINE = [
-    (127, 0), (1672, 0), (1672, 714), (1620, 724), (1530, 740),
-    (1450, 748), (1320, 759), (1315, 741), (1210, 741), (1100, 737),
-    (1000, 727), (900, 724), (800, 708), (700, 686), (600, 660),
-    (500, 624), (400, 579), (320, 532), (240, 481), (175, 433),
-    (127, 390), (97, 362), (109, 286), (110, 193), (117, 101),
+    (127, 0), (1672, 0), (1672, 698), (1590, 721), (1500, 748),
+    (1400, 775), (1315, 796), (1307, 774), (1294, 729), (1262, 638),
+    (1232, 548), (1213, 495), (1194, 550), (1161, 635), (1129, 726),
+    (1101, 800), (1000, 782), (900, 765), (800, 745), (700, 720),
+    (600, 691), (500, 656), (400, 612), (320, 570), (240, 518),
+    (175, 466), (124, 407), (87, 368), (86, 360), (93, 332),
+    (104, 229), (117, 110),
 ]
 
 
@@ -31,7 +33,7 @@ def render_shirt_hem(reference, swatch, crop_box=None):
     mask = Image.new('L', base.size)
     draw = ImageDraw.Draw(mask)
     draw.polygon(FABRIC_OUTLINE, fill=255)
-    draw.ellipse((1314, 121, 1384, 197), fill=0)
+    draw.ellipse((1199, 138, 1275, 213), fill=0)
     # Retain the reference's subtle fabric shading without shifting the swatch hue.
     shade = base.convert('L').point(lambda value: min(255, round(value * 255 / 235)))
     texture = ImageChops.multiply(texture, Image.merge('RGB', (shade, shade, shade)))

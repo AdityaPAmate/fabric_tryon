@@ -70,7 +70,7 @@ class CatalogTests(SimpleTestCase):
         with Image.open(io.BytesIO(upload.call_args_list[5].args[0])) as hem:
             with Image.open(get_catalog_reference_path('shirt', 'hem')) as reference:
                 self.assertEqual(hem.size, reference.size)
-                for point in [(20, 20), (800, 850), (1350, 165)]:
+                for point in [(20, 20), (800, 850), (1235, 175), (1210, 680)]:
                     self.assertEqual(hem.getpixel(point), reference.convert('RGB').getpixel(point))
                 self.assertNotEqual(hem.getpixel((500, 300)), reference.convert('RGB').getpixel((500, 300)))
 
