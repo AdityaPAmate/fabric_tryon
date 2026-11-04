@@ -49,14 +49,14 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(events[-1]['status'], 'completed')
         self.assertEqual(events[0]['catalog_id'], events[-1]['catalog_id'])
         self.assertTrue(events[0]['catalog_id'])
-        self.assertTrue(all(event['image']['generation_seed'] == (None if event['image']['view'] == 'hem' else 42)
+        self.assertTrue(all(event['image']['generation_seed'] == (None if event['image']['view'] in ('cuff', 'hem') else 42)
                             for event in events if event['event'] == 'image_ready'))
         self.assertEqual(front.call_count, 1)
-        self.assertEqual(edit.call_count, 4)
+        self.assertEqual(edit.call_count, 3)
         self.assertEqual(upload.call_count, 7)
         self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-v2")
         self.assertFalse(front.call_args.kwargs['options']['draft_mode'])
-        for view, call in zip(['close_up', 'back', 'collar', 'cuff'], edit.call_args_list):
+        for view, call in zip(['close_up', 'back', 'collar'], edit.call_args_list):
             template = get_catalog_reference_path('shirt', view)
             expected = template.read_bytes() if template else picture()
             self.assertTrue(call.kwargs['person_image'].getvalue() == expected, view)
@@ -67,6 +67,15 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(ready['collar']['reference_template'], 'shirt_collar.png')
         self.assertEqual(ready['cuff']['reference_template'], 'sleeve.png')
         self.assertEqual(ready['hem']['generation']['method'], 'masked_swatch_composite')
+        self.assertEqual(ready['cuff']['generation']['method'], 'masked_swatch_composite')
+        with Image.open(io.BytesIO(upload.call_args_list[4].args[0])) as cuff:
+            with Image.open(get_catalog_reference_path('shirt', 'cuff')) as source:
+                reference = source.convert('RGB')
+                self.assertEqual(cuff.size, reference.size)
+                for point in [(1300, 800), (675, 735), (1060, 165), (1065, 520)]:
+                    self.assertEqual(cuff.getpixel(point), reference.getpixel(point))
+                for point in [(100, 150), (730, 520), (1300, 250)]:
+                    self.assertNotEqual(cuff.getpixel(point), reference.getpixel(point))
         with Image.open(io.BytesIO(upload.call_args_list[5].args[0])) as hem:
             with Image.open(get_catalog_reference_path('shirt', 'hem')) as reference:
                 self.assertEqual(hem.size, reference.size)
@@ -91,7 +100,7 @@ class CatalogTests(SimpleTestCase):
     def test_quota_stops_further_provider_calls(self, upload, front, edit):
         events = list(generate_catalog(self.data(), threading.Event()))
         self.assertEqual(events[-1]['status'], 'partial')
-        self.assertEqual(len(events[-1]['failed_views']), 5)
+        self.assertEqual(len(events[-1]['failed_views']), 4)
         edit.assert_not_called()
 
     @patch('fabricapp.catalog.generate_tryon_image')
@@ -190,7 +199,7 @@ class CatalogTests(SimpleTestCase):
         ready = [event['image']['view'] for event in events if event['event'] == 'image_ready']
         self.assertEqual(ready, ['collar', 'cuff', 'hem'])
         self.assertEqual(events[-1]['status'], 'partial')
-        self.assertEqual(edit.call_count, 2)
+        self.assertEqual(edit.call_count, 1)
 
 
 class CollageTests(SimpleTestCase):

@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from fabricapp.ai.images.catalog_collage import compose_catalog, LAYOUT
 from fabricapp.ai.images.shirt_hem import render_shirt_hem
+from fabricapp.ai.images.shirt_sleeve import render_shirt_sleeve
 from fabricapp.ai.main import generate_tryon_image
 from fabricapp.ai.pipeline.catalog_prompts import catalog_plan, edit_config
 from fabricapp.ai.references.catalog_reference import get_catalog_reference_path
@@ -54,8 +55,10 @@ def generate_catalog(data, stopped):
         if stopped.is_set():
             return
         template = get_catalog_reference_path(data['garment_type'], view)
-        local_hem = template is not None and data['garment_type'] == 'shirt' and view == 'hem'
-        if (blocked and not local_hem) or (view != 'front' and anchor is None and template is None):
+        local_renderer = None
+        if template and data['garment_type'] == 'shirt':
+            local_renderer = {'hem': render_shirt_hem, 'cuff': render_shirt_sleeve}.get(view)
+        if (blocked and not local_renderer) or (view != 'front' and anchor is None and template is None):
             failed.append(view)
             yield {'event': 'image_failed', 'view': view, 'error': 'generation_unavailable' if blocked else 'front_reference_failed'}
             continue
@@ -68,9 +71,9 @@ def generate_catalog(data, stopped):
                 generation = generate_tryon_image(**data, camera_view='front')
                 # Keep the reference even if delivery upload fails.
                 anchor, anchor_seed = generation.image_bytes, generation.effective_seed
-            elif local_hem:
+            elif local_renderer:
                 generation = GenerationResult(
-                    render_shirt_hem(template, swatch_bytes, data.get('options', {}).get('fabric_crop_box')),
+                    local_renderer(template, swatch_bytes, data.get('options', {}).get('fabric_crop_box')),
                     None, {'method': 'masked_swatch_composite'},
                 )
             else:
