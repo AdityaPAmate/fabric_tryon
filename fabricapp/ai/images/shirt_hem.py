@@ -37,7 +37,7 @@ def render_shirt_hem(reference, swatch, crop_box=None):
     # Retain the reference's subtle fabric shading without shifting the swatch hue.
     # Keep fabric-only lighting subtle around the reference midtone.
     shade = base.convert('L').point(
-        lambda value: round(255 * max(0.88, min(1.03, 1 + (value - 228) / 500)) / 1.03)
+        lambda value: round(255 * max(0.78, min(1.03, 1 + (value - 228) / 220)) / 1.03)
     )
     texture = ImageChops.multiply(texture, Image.merge('RGB', (shade, shade, shade)))
     texture = ImageEnhance.Brightness(texture).enhance(1.03)

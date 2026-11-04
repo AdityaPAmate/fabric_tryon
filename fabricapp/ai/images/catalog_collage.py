@@ -22,7 +22,7 @@ def compose_catalog(shots, swatch, views):
                     ImageOps.pad(source, (width, height), color='white'))
             canvas.paste(tile, box[:2])
     for view, box in zip(views, boxes):
-        place(shots[view], box, crop=view not in ('cuff', 'sleeve', 'hem'))
+        place(shots[view], box, crop=view not in ('close_up', 'cuff', 'sleeve', 'hem'))
     place(swatch, (36, 2544, 1764, 3072), crop=True)
     draw = ImageDraw.Draw(canvas)
     font = ImageFont.load_default(size=40)

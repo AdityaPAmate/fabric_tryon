@@ -58,7 +58,7 @@ def render_shirt_sleeve(reference, swatch, crop_box=None):
     # Multiply by neutral shading to retain folds without boosting saturation.
     # Keep fabric-only lighting subtle around the reference midtone.
     shade = base.convert('L').point(
-        lambda value: round(255 * max(0.88, min(1.03, 1 + (value - 222) / 500)) / 1.03)
+        lambda value: round(255 * max(0.78, min(1.03, 1 + (value - 222) / 220)) / 1.03)
     )
     shaded_texture = ImageChops.multiply(texture, Image.merge('RGB', (shade, shade, shade)))
     shaded_texture = ImageEnhance.Brightness(shaded_texture).enhance(1.03)

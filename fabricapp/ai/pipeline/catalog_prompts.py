@@ -39,9 +39,11 @@ def catalog_plan(garment):
              'Do not repeat the straight-on front pose and do not rotate all the way to a 90-degree side profile. '
              'Frame from head to just below the garment hem; exclude lower legs and shoes')
     if garment == 'shirt':
-        angle = ('close_up', 'straight-on close-up of the head, shoulders and upper chest. '
-                 'Keep shoulders square to the camera. Turn only the head slightly and direct the eyes '
-                 'toward a point outside the frame. No eye contact with the camera')
+        angle = ('close_up', 'natural eye-level portrait framed from just above the hair to mid-chest, '
+                 'with comfortable room around both shoulders. Preserve the face, neck and shoulder '
+                 'proportions of image 2. Keep the head nearly straight, with at most a very slight turn. '
+                 'Both eyes look at a point just beside the camera at eye level. No eye contact with the camera. '
+                 'Use natural portrait perspective with a relaxed upright posture')
     return [('front', 'front full-body view'), angle,
             ('back', 'REAR CLOSE-UP product photograph, facing directly away from the camera. '
              'Fill the frame with ' + back_crop + '. Do not frame a complete head-to-feet person')] + details
@@ -147,7 +149,7 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
         prompt += 'FINAL REGION LOCK: edit only the existing shirt fabric in image 0. Preserve all other regions. '
     return {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
             'prompt_version': ('catalog-template-v3' if reference_template else
-                               'catalog-close-up-v1' if view == 'close_up' else
+                               'catalog-close-up-v2' if view == 'close_up' else
                                'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2')
                               + ('-swatch-v1' if detail_colour_lock else '')
                               + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),
