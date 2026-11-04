@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from fabricapp.ai.images.catalog_collage import compose_catalog, LAYOUT
+from fabricapp.ai.images.shirt_collar import render_shirt_collar
 from fabricapp.ai.images.shirt_hem import render_shirt_hem
 from fabricapp.ai.images.shirt_sleeve import render_shirt_sleeve
 from fabricapp.ai.main import generate_tryon_image
@@ -57,7 +58,7 @@ def generate_catalog(data, stopped):
         template = get_catalog_reference_path(data['garment_type'], view)
         local_renderer = None
         if template and data['garment_type'] == 'shirt':
-            local_renderer = {'hem': render_shirt_hem, 'cuff': render_shirt_sleeve}.get(view)
+            local_renderer = {'hem': render_shirt_hem, 'cuff': render_shirt_sleeve, 'collar': render_shirt_collar}.get(view)
         if (blocked and not local_renderer) or (view != 'front' and anchor is None and template is None):
             failed.append(view)
             yield {'event': 'image_failed', 'view': view, 'error': 'generation_unavailable' if blocked else 'front_reference_failed'}

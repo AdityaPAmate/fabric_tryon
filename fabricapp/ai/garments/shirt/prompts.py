@@ -72,8 +72,8 @@ NOTE_PRIORITY = (
     "selected body build, sleeve treatment, shirt hem placement and identity. "
 )
 PRESSED_FINISH = (
-    "SHIRT FINISH: show a freshly ironed shirt with smooth panels and crisp seams. "
-    "Keep the fabric texture and only the small natural folds needed for the pose. "
+    "SHIRT FINISH: show a professionally tailored, freshly pressed shirt with smooth panels, crisp collar points and straight, neat seams. "
+    "Keep the fabric texture and only small natural folds at bends. Avoid bunched fabric, puckered seams and deep wrinkles across the chest, back and sleeves. "
 )
 FINAL = "FINAL PRESENTATION: one fully clothed person in a realistic fashion-catalogue photograph. "
 RETRY_PRESENTATION = (
