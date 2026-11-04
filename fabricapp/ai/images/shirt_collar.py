@@ -2,7 +2,7 @@
 import io
 from hashlib import sha256
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 
 REFERENCE_SHA256 = '5721478cd3cf16600278a81f35b945860dd1e419cbdf874bb9a3b72d4bea70bb'
@@ -45,8 +45,12 @@ def render_shirt_collar(reference, swatch, crop_box=None):
                   (454, 571)], fill=0)
     draw.ellipse((679, 857, 738, 921), fill=0)
     texture = ImageOps.fit(fabric, base.size, Image.Resampling.LANCZOS)
-    shade = base.convert('L').point(lambda value: min(255, round(value * 255 / 210)))
+    # Keep fabric-only lighting subtle around the reference midtone.
+    shade = base.convert('L').point(
+        lambda value: round(255 * max(0.88, min(1.03, 1 + (value - 210) / 500)) / 1.03)
+    )
     texture = ImageChops.multiply(texture, Image.merge('RGB', (shade, shade, shade)))
+    texture = ImageEnhance.Brightness(texture).enhance(1.03)
     output = io.BytesIO()
     Image.composite(texture, base, mask).save(output, format='PNG')
     return output.getvalue()

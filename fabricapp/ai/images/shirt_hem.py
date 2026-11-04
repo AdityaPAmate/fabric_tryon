@@ -2,7 +2,7 @@
 import io
 from hashlib import sha256
 
-from PIL import Image, ImageChops, ImageDraw, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageOps
 
 
 # The trace belongs to this exact reference. A replacement photo needs its own trace.
@@ -35,8 +35,12 @@ def render_shirt_hem(reference, swatch, crop_box=None):
     draw.polygon(FABRIC_OUTLINE, fill=255)
     draw.ellipse((1199, 138, 1275, 213), fill=0)
     # Retain the reference's subtle fabric shading without shifting the swatch hue.
-    shade = base.convert('L').point(lambda value: min(255, round(value * 255 / 235)))
+    # Keep fabric-only lighting subtle around the reference midtone.
+    shade = base.convert('L').point(
+        lambda value: round(255 * max(0.88, min(1.03, 1 + (value - 228) / 500)) / 1.03)
+    )
     texture = ImageChops.multiply(texture, Image.merge('RGB', (shade, shade, shade)))
+    texture = ImageEnhance.Brightness(texture).enhance(1.03)
     result = Image.composite(texture, base, mask)
     output = io.BytesIO()
     result.save(output, format='PNG')

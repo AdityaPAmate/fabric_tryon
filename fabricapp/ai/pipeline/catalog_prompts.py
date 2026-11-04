@@ -17,6 +17,9 @@ DETAILS = {
 def catalog_plan(garment):
     back_crop = ('the rear waistband, seat and trouser legs down to their hems, excluding head, upper torso and shoes'
                  if garment == 'pant' else 'the back of the garment from shoulders to its lower hem, excluding the face, legs and shoes')
+    if garment == 'shirt':
+        back_crop = ('the entire back of the head with a little space above the hair, shoulders, '
+                     'and the full shirt down to its lower hem. Keep the face turned away')
     details = [(key, f'tight product detail photograph of the {part} only; fill the frame with this area, not the full person')
                for key, part in DETAILS[garment]]
     if garment == 'shirt':

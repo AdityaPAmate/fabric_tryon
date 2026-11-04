@@ -3,7 +3,7 @@ import io
 from hashlib import sha256
 from math import ceil, cos, radians, sin
 
-from PIL import Image, ImageChops, ImageDraw, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageOps
 
 
 REFERENCE_SHA256 = '5428c3a4726b9806d96f78c2c8a3993385c6f8b60cd7177b868ff6a9785adbb7'
@@ -56,8 +56,12 @@ def render_shirt_sleeve(reference, swatch, crop_box=None):
         draw.ellipse(button, fill=0)
 
     # Multiply by neutral shading to retain folds without boosting saturation.
-    shade = base.convert('L').point(lambda value: min(255, round(value * 255 / 235)))
+    # Keep fabric-only lighting subtle around the reference midtone.
+    shade = base.convert('L').point(
+        lambda value: round(255 * max(0.88, min(1.03, 1 + (value - 222) / 500)) / 1.03)
+    )
     shaded_texture = ImageChops.multiply(texture, Image.merge('RGB', (shade, shade, shade)))
+    shaded_texture = ImageEnhance.Brightness(shaded_texture).enhance(1.03)
     output = io.BytesIO()
     Image.composite(shaded_texture, base, fabric_mask).save(output, format='PNG')
     return output.getvalue()
