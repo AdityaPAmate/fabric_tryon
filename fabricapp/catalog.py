@@ -13,10 +13,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from fabricapp.ai.images.catalog_collage import compose_catalog, LAYOUT
+from fabricapp.ai.images.shirt_hem import render_shirt_hem
 from fabricapp.ai.main import generate_tryon_image
 from fabricapp.ai.pipeline.catalog_prompts import catalog_plan, edit_config
 from fabricapp.ai.references.catalog_reference import get_catalog_reference_path
-from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image as generate_edit, CloudflareGenerationError
+from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image as generate_edit, CloudflareGenerationError, GenerationResult
 from fabricapp.serializers import FabricTryOnRequestSerializer
 from fabricapp.services.cloudinary_service import upload_generated_image
 
@@ -53,7 +54,8 @@ def generate_catalog(data, stopped):
         if stopped.is_set():
             return
         template = get_catalog_reference_path(data['garment_type'], view)
-        if blocked or (view != 'front' and anchor is None and template is None):
+        local_hem = template is not None and data['garment_type'] == 'shirt' and view == 'hem'
+        if (blocked and not local_hem) or (view != 'front' and anchor is None and template is None):
             failed.append(view)
             yield {'event': 'image_failed', 'view': view, 'error': 'generation_unavailable' if blocked else 'front_reference_failed'}
             continue
@@ -66,6 +68,11 @@ def generate_catalog(data, stopped):
                 generation = generate_tryon_image(**data, camera_view='front')
                 # Keep the reference even if delivery upload fails.
                 anchor, anchor_seed = generation.image_bytes, generation.effective_seed
+            elif local_hem:
+                generation = GenerationResult(
+                    render_shirt_hem(template, swatch_bytes, data.get('options', {}).get('fabric_crop_box')),
+                    None, {'method': 'masked_swatch_composite'},
+                )
             else:
                 generation = generate_edit(
                     person_image=io.BytesIO(template.read_bytes() if template else anchor), fabric_image=data['fabric_image'],
@@ -89,7 +96,7 @@ def generate_catalog(data, stopped):
             logger.exception('Catalog shot failed: %s', view)
             failed.append(view)
             failure = exc.failure_type if isinstance(exc, CloudflareGenerationError) else None
-            blocked = failure in ('allocation_exhausted', 'authentication_error') or (
+            blocked = blocked or failure in ('allocation_exhausted', 'authentication_error') or (
                 isinstance(exc, CloudflareGenerationError) and exc.status_code in (401, 403, 429))
             yield {'event': 'image_failed', 'view': view, 'error': failure or 'image_generation_or_upload_failed',
                    'provider_code': getattr(exc, 'provider_code', None),
