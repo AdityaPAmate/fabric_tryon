@@ -40,6 +40,7 @@ class CatalogTests(SimpleTestCase):
         response = APIClient().post('/api/generate-catalog/', {
             'fabric_image': SimpleUploadedFile('swatch.png', picture(), content_type='image/png'),
             'garment_type': 'shirt', 'gender': 'men', 'fabric_type': 'velvet',
+            'body_type': 'trim', 'face_choice': 'raghav',
         }, format='multipart')
         self.assertEqual(response.status_code, 200)
         events = [json.loads(chunk) for chunk in response.streaming_content]
@@ -51,12 +52,16 @@ class CatalogTests(SimpleTestCase):
         self.assertTrue(events[0]['catalog_id'])
         self.assertTrue(all(event['image']['generation_seed'] == (None if event['image']['view'] in ('collar', 'cuff', 'hem') else 42)
                             for event in events if event['event'] == 'image_ready'))
-        self.assertEqual(front.call_count, 1)
-        self.assertEqual(edit.call_count, 2)
+        self.assertEqual([call.kwargs['camera_view'] for call in front.call_args_list], ['front', 'close_up'])
+        front_args, close_args = [call.kwargs for call in front.call_args_list]
+        self.assertEqual(close_args, {**front_args, 'camera_view': 'close_up'})
+        self.assertEqual(close_args['body_type'], 'trim')
+        self.assertEqual(close_args['face_choice'], 'raghav')
+        self.assertEqual(edit.call_count, 1)
         self.assertEqual(upload.call_count, 7)
         self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-v2")
         self.assertFalse(front.call_args.kwargs['options']['draft_mode'])
-        for view, call in zip(['close_up', 'back'], edit.call_args_list):
+        for view, call in zip(['back'], edit.call_args_list):
             template = get_catalog_reference_path('shirt', view)
             expected = template.read_bytes() if template else picture()
             self.assertTrue(call.kwargs['person_image'].getvalue() == expected, view)
@@ -95,8 +100,7 @@ class CatalogTests(SimpleTestCase):
     @patch('fabricapp.catalog.generate_edit')
     @patch('fabricapp.catalog.generate_tryon_image', return_value=GenerationResult(picture(), 42))
     def test_failed_detail_does_not_discard_other_images(self, front, edit, upload):
-        edit.side_effect = [GenerationResult(picture(), 42), CloudflareGenerationError('rejected'),
-                            *[GenerationResult(picture(), 42)] * 3]
+        edit.side_effect = CloudflareGenerationError('rejected')
         events = list(generate_catalog(self.data(), threading.Event()))
         self.assertEqual(events[-1]['status'], 'partial')
         self.assertEqual(events[-1]['failed_views'], ['back'])
@@ -154,7 +158,7 @@ class CatalogTests(SimpleTestCase):
             self.assertIn('REAR CLOSE-UP', plan['back'])
             self.assertNotIn('back full-body', plan['back'])
             if garment == 'shirt':
-                self.assertIn('No eye contact', plan['close_up'])
+                self.assertIn('close_up', plan)
             else:
                 self.assertIn('45 degrees', plan['three_quarter'])
         data = self.data()

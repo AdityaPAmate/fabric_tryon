@@ -39,11 +39,7 @@ def catalog_plan(garment):
              'Do not repeat the straight-on front pose and do not rotate all the way to a 90-degree side profile. '
              'Frame from head to just below the garment hem; exclude lower legs and shoes')
     if garment == 'shirt':
-        angle = ('close_up', 'natural eye-level portrait framed from just above the hair to mid-chest, '
-                 'with comfortable room around both shoulders. Preserve the face, neck and shoulder '
-                 'proportions of image 2. Keep the head nearly straight, with at most a very slight turn. '
-                 'Both eyes look at a point just beside the camera at eye level. No eye contact with the camera. '
-                 'Use natural portrait perspective with a relaxed upright posture')
+        angle = ('close_up', 'standard camera close-up')
     return [('front', 'front full-body view'), angle,
             ('back', 'REAR CLOSE-UP product photograph, facing directly away from the camera. '
              'Fill the frame with ' + back_crop + '. Do not frame a complete head-to-feet person')] + details
@@ -90,7 +86,7 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
                        'Preserve every region outside the shirt fabric, including trousers, skin and '
                        'background, in its original position. Do not reconstruct the photograph. ')
     else:
-        anchor_slot = 2 if view in ('three_quarter', 'close_up') else 0
+        anchor_slot = 2 if view == 'three_quarter' else 0
         prompt = (
             f'Create exactly ONE NEW photograph: {shot}. Image {anchor_slot} is the approved front photograph of this catalogue. '
             + ('Image 0 is a blank canvas, not the pose to preserve. Compose the requested new framing and pose '
@@ -149,7 +145,6 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
         prompt += 'FINAL REGION LOCK: edit only the existing shirt fabric in image 0. Preserve all other regions. '
     return {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
             'prompt_version': ('catalog-template-v3' if reference_template else
-                               'catalog-close-up-v2' if view == 'close_up' else
                                'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2')
                               + ('-swatch-v1' if detail_colour_lock else '')
                               + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),

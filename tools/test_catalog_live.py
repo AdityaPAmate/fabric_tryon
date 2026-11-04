@@ -28,13 +28,15 @@ def main():
     parser.add_argument('--face-choice')
     parser.add_argument('--background')
     parser.add_argument('--reference', help='Existing front output for a focused view prompt recheck')
-    parser.add_argument('--views', nargs='+', default=['close_up', 'collar', 'cuff', 'hem'])
+    parser.add_argument('--views', nargs='+', default=['back'])
     args = parser.parse_args()
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
     events = []
     current_view = ['front']
 
+    if args.reference and 'close_up' in args.views:
+        parser.error('Run a catalog without --reference to test the standard close-up.')
     if args.reference:
         import io
         from fabricapp.catalog import catalog_plan, edit_config, generate_edit
@@ -49,7 +51,7 @@ def main():
             source = template if template else Path(args.reference)
             result = generate_edit(person_image=io.BytesIO(source.read_bytes()),
                                    fabric_image=data['fabric_image'], garment_type='shirt',
-                                   scenario='person_pose' if view == 'close_up' else 'person_photo', options=data['options'],
+                                   scenario='person_photo', options=data['options'],
                                    prompt_config=edit_config(data, shot, 42, view=view, reference_template=template))
             (output / f'{view}.jpeg').write_bytes(result.image_bytes)
             image = {'view': view, **upload_generated_image(result.image_bytes),

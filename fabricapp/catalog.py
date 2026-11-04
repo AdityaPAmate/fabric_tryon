@@ -59,7 +59,8 @@ def generate_catalog(data, stopped):
         local_renderer = None
         if template and data['garment_type'] == 'shirt':
             local_renderer = {'hem': render_shirt_hem, 'cuff': render_shirt_sleeve, 'collar': render_shirt_collar}.get(view)
-        if (blocked and not local_renderer) or (view != 'front' and anchor is None and template is None):
+        camera_view = view if view in ('front', 'close_up') else None
+        if (blocked and not local_renderer) or (not camera_view and anchor is None and template is None):
             failed.append(view)
             yield {'event': 'image_failed', 'view': view, 'error': 'generation_unavailable' if blocked else 'front_reference_failed'}
             continue
@@ -68,10 +69,11 @@ def generate_catalog(data, stopped):
             for key in ('person_image', 'fabric_image', 'face_image'):
                 if data.get(key):
                     data[key].seek(0)
-            if view == 'front':
-                generation = generate_tryon_image(**data, camera_view='front')
-                # Keep the reference even if delivery upload fails.
-                anchor, anchor_seed = generation.image_bytes, generation.effective_seed
+            if camera_view:
+                generation = generate_tryon_image(**data, camera_view=camera_view)
+                if view == 'front':
+                    # Keep the reference even if delivery upload fails.
+                    anchor, anchor_seed = generation.image_bytes, generation.effective_seed
             elif local_renderer:
                 generation = GenerationResult(
                     local_renderer(template, swatch_bytes, data.get('options', {}).get('fabric_crop_box')),
@@ -81,7 +83,7 @@ def generate_catalog(data, stopped):
                 generation = generate_edit(
                     person_image=io.BytesIO(template.read_bytes() if template else anchor), fabric_image=data['fabric_image'],
                     garment_type=data['garment_type'], garment_style=data.get('garment_style'),
-                    scenario='person_pose' if view in ('three_quarter', 'close_up') else 'person_photo', options=data.get('options', {}),
+                    scenario='person_pose' if view == 'three_quarter' else 'person_photo', options=data.get('options', {}),
                     prompt_config=edit_config(data, shot, anchor_seed if anchor_seed is not None else data.get('seed', 42),
                                              reference_template=template, view=view),
                 )
