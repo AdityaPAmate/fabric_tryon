@@ -3,7 +3,7 @@ import io
 from hashlib import sha256
 from math import ceil, cos, radians, sin
 
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 
 REFERENCE_SHA256 = '5428c3a4726b9806d96f78c2c8a3993385c6f8b60cd7177b868ff6a9785adbb7'
@@ -62,6 +62,11 @@ def render_shirt_sleeve(reference, swatch, crop_box=None):
     )
     shaded_texture = ImageChops.multiply(texture, Image.merge('RGB', (shade, shade, shade)))
     shaded_texture = ImageEnhance.Brightness(shaded_texture).enhance(1.03)
+    # Soft contact shadow along the fabric boundary and around buttons.
+    contact = fabric_mask.filter(ImageFilter.GaussianBlur(18)).point(
+        lambda coverage: round(189 + 66 * coverage / 255)
+    )
+    shaded_texture = ImageChops.multiply(shaded_texture, Image.merge('RGB', (contact, contact, contact)))
     output = io.BytesIO()
     Image.composite(shaded_texture, base, fabric_mask).save(output, format='PNG')
     return output.getvalue()

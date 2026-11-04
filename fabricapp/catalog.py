@@ -75,7 +75,7 @@ def generate_catalog(data, stopped):
             elif local_renderer:
                 generation = GenerationResult(
                     local_renderer(template, swatch_bytes, data.get('options', {}).get('fabric_crop_box')),
-                    None, {'method': 'masked_swatch_composite'},
+                    None, {'method': 'masked_swatch_composite', 'lighting': 'soft_contact_v1'},
                 )
             else:
                 generation = generate_edit(

@@ -51,6 +51,11 @@ def render_shirt_collar(reference, swatch, crop_box=None):
     )
     texture = ImageChops.multiply(texture, Image.merge('RGB', (shade, shade, shade)))
     texture = ImageEnhance.Brightness(texture).enhance(1.03)
+    # Soft contact shadow along the fabric boundary and around buttons.
+    contact = mask.filter(ImageFilter.GaussianBlur(18)).point(
+        lambda coverage: round(189 + 66 * coverage / 255)
+    )
+    texture = ImageChops.multiply(texture, Image.merge('RGB', (contact, contact, contact)))
     output = io.BytesIO()
     Image.composite(texture, base, mask).save(output, format='PNG')
     return output.getvalue()
