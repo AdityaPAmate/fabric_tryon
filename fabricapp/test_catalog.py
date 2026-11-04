@@ -30,7 +30,7 @@ class CatalogTests(SimpleTestCase):
             plan = catalog_plan(garment)
             self.assertEqual(len(plan), 6)
             self.assertEqual(len({key for key, _ in plan}), 6)
-            self.assertEqual([key for key, _ in plan[:3]], ['front', 'three_quarter', 'back'])
+            self.assertEqual([key for key, _ in plan[:3]], ['front', 'close_up' if garment == 'shirt' else 'three_quarter', 'back'])
         self.assertEqual([key for key, _ in catalog_plan('pant')[3:]], ['waistband', 'pocket', 'hem'])
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/photo.png'})
@@ -45,7 +45,7 @@ class CatalogTests(SimpleTestCase):
         events = [json.loads(chunk) for chunk in response.streaming_content]
         response.close()
         self.assertEqual([e['image']['view'] for e in events if e['event'] == 'image_ready'],
-                         ['front', 'three_quarter', 'back', 'collar', 'cuff', 'hem'])
+                         ['front', 'close_up', 'back', 'collar', 'cuff', 'hem'])
         self.assertEqual(events[-1]['status'], 'completed')
         self.assertEqual(events[0]['catalog_id'], events[-1]['catalog_id'])
         self.assertTrue(events[0]['catalog_id'])
@@ -56,11 +56,11 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(upload.call_count, 7)
         self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-v2")
         self.assertFalse(front.call_args.kwargs['options']['draft_mode'])
-        for view, call in zip(['three_quarter', 'back', 'collar', 'cuff', 'hem'], edit.call_args_list):
+        for view, call in zip(['close_up', 'back', 'collar', 'cuff', 'hem'], edit.call_args_list):
             template = get_catalog_reference_path('shirt', view)
             expected = template.read_bytes() if template else picture()
             self.assertTrue(call.kwargs['person_image'].getvalue() == expected, view)
-            self.assertEqual(call.kwargs['scenario'], 'person_pose' if view == 'three_quarter' else 'person_photo')
+            self.assertEqual(call.kwargs['scenario'], 'person_pose' if view == 'close_up' else 'person_photo')
             self.assertIn('exact crop' if template else 'SAME person', call.kwargs['prompt_config']['prompt'])
             self.assertIn('velvet', call.kwargs['prompt_config']['prompt'])
         ready = {e['image']['view']: e['image'] for e in events if e['event'] == 'image_ready'}
@@ -128,7 +128,10 @@ class CatalogTests(SimpleTestCase):
             plan = dict(catalog_plan(garment))
             self.assertIn('REAR CLOSE-UP', plan['back'])
             self.assertNotIn('back full-body', plan['back'])
-            self.assertIn('45 degrees', plan['three_quarter'])
+            if garment == 'shirt':
+                self.assertIn('No eye contact', plan['close_up'])
+            else:
+                self.assertIn('45 degrees', plan['three_quarter'])
         data = self.data()
         data['background'] = 'white_marble_terrace'
         prompt = edit_config(data, dict(catalog_plan('shirt'))['back'], 42, view='back')['prompt']

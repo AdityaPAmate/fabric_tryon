@@ -140,6 +140,7 @@ def build_prompt(
                  for part in parts]
     if note:
         parts.append("STYLE NOTE: " + note.rstrip(".") + ". " + prompts.NOTE_PRIORITY)
+    parts.append(prompts.PRESSED_FINISH)
     parts.append(prompts.FINAL)
     parts.append(prompts.output_contract(scenario, camera, details))
     prompt = "".join(parts)

@@ -28,7 +28,7 @@ def main():
     parser.add_argument('--face-choice')
     parser.add_argument('--background')
     parser.add_argument('--reference', help='Existing front output for a focused view prompt recheck')
-    parser.add_argument('--views', nargs='+', default=['three_quarter', 'collar', 'cuff', 'hem'])
+    parser.add_argument('--views', nargs='+', default=['close_up', 'collar', 'cuff', 'hem'])
     args = parser.parse_args()
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
@@ -49,7 +49,7 @@ def main():
             source = template if template else Path(args.reference)
             result = generate_edit(person_image=io.BytesIO(source.read_bytes()),
                                    fabric_image=data['fabric_image'], garment_type='shirt',
-                                   scenario='person_pose' if view == 'three_quarter' else 'person_photo', options=data['options'],
+                                   scenario='person_pose' if view == 'close_up' else 'person_photo', options=data['options'],
                                    prompt_config=edit_config(data, shot, 42, view=view, reference_template=template))
             (output / f'{view}.jpeg').write_bytes(result.image_bytes)
             image = {'view': view, **upload_generated_image(result.image_bytes),

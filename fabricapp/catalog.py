@@ -70,7 +70,7 @@ def generate_catalog(data, stopped):
                 generation = generate_edit(
                     person_image=io.BytesIO(template.read_bytes() if template else anchor), fabric_image=data['fabric_image'],
                     garment_type=data['garment_type'], garment_style=data.get('garment_style'),
-                    scenario='person_pose' if view == 'three_quarter' else 'person_photo', options=data.get('options', {}),
+                    scenario='person_pose' if view in ('three_quarter', 'close_up') else 'person_photo', options=data.get('options', {}),
                     prompt_config=edit_config(data, shot, anchor_seed if anchor_seed is not None else data.get('seed', 42),
                                              reference_template=template, view=view),
                 )

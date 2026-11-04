@@ -1,6 +1,7 @@
 """Catalog shot selection and instructions, separate from HTTP orchestration."""
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours, has_single_colour_family, colour_reference_prompt
 from fabricapp.ai.fabric.fabric_material import material_prompt, fabric_target
+from fabricapp.ai.garments.shirt.prompts import PRESSED_FINISH
 from fabricapp.ai.scene.backgrounds import BACKGROUND_DESCRIPTIONS
 
 DETAILS = {
@@ -27,14 +28,18 @@ def catalog_plan(garment):
             ('hem', 'extreme close-up of the lower shirt hem, curved edge and hem stitching, '
              'with only a small adjoining section of shirt fabric and trousers; exclude face and chest'),
         ]
-    return [('front', 'front full-body view'),
-            ('three_quarter', 'FRONT THREE-QUARTER close-up photograph: rotate the ENTIRE torso and hips '
+    angle = ('three_quarter', 'FRONT THREE-QUARTER close-up photograph: rotate the ENTIRE torso and hips '
              '45 degrees to the model\'s left from the front reference. Show a clearly diagonal chest, '
              'a visible side panel from armpit to hem, a foreshortened far shoulder and the front button line. '
              'The near shoulder is substantially closer to the camera than the far shoulder. '
              'Keep the front and side of the shirt both visible. The head follows the torso turn. '
              'Do not repeat the straight-on front pose and do not rotate all the way to a 90-degree side profile. '
-             'Frame from head to just below the garment hem; exclude lower legs and shoes'),
+             'Frame from head to just below the garment hem; exclude lower legs and shoes')
+    if garment == 'shirt':
+        angle = ('close_up', 'straight-on close-up of the head, shoulders and upper chest. '
+                 'Keep shoulders square to the camera. Turn only the head slightly and direct the eyes '
+                 'toward a point outside the frame. No eye contact with the camera')
+    return [('front', 'front full-body view'), angle,
             ('back', 'REAR CLOSE-UP product photograph, facing directly away from the camera. '
              'Fill the frame with ' + back_crop + '. Do not frame a complete head-to-feet person')] + details
 
@@ -74,18 +79,16 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
                        'Preserve the entire visible cuff and arm from the reference without tightening the crop. '
                        'Leave no original plain white shirt panels behind the arm. ')
         if view == 'hem':
-            prompt += ('Replace all white shirt fabric including the curved hem edge and button placket. '
-                       'Keep the dark trousers and non-cloth background unchanged. '
-                       'Preserve the full curved hem, seam stitching and button positions. '
-                       'Every region above the curved hem seam is SHIRT FABRIC, including the far left '
-                       'and right edges. There are NO arms, hands or exposed skin in this reference; '
-                       'do not invent skin or limbs. The only regions below the seam are the existing '
-                       'dark trousers and the narrow background at the left edge. ')
+            prompt += ('Use image 0 as the base photograph and perform a fabric-only edit in place. '
+                       'Identify the actual visible shirt fabric boundaries in image 0, including the hem '
+                       'and placket. Preserve the exact silhouette, folds, stitching and buttons. '
+                       'Preserve every region outside the shirt fabric, including trousers, skin and '
+                       'background, in its original position. Do not reconstruct the photograph. ')
     else:
-        anchor_slot = 2 if view == 'three_quarter' else 0
+        anchor_slot = 2 if view in ('three_quarter', 'close_up') else 0
         prompt = (
             f'Create exactly ONE NEW photograph: {shot}. Image {anchor_slot} is the approved front photograph of this catalogue. '
-            + ('Image 0 is a blank canvas, not the pose to preserve. Reconstruct the requested new camera angle '
+            + ('Image 0 is a blank canvas, not the pose to preserve. Compose the requested new framing and pose '
                'using image 2 only as the identity, outfit and location reference. ' if anchor_slot == 2 else '') +
             'Show the SAME person wearing the SAME finished outfit, with the same fit, seams, buttons, '
             'colours, fabric pattern size and material. Change only camera angle or framing as requested. '
@@ -118,13 +121,16 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
                 + 'One realistic photograph, no collage or text. '
             )
     prompt += colour + material
+    if data['garment_type'] == 'shirt':
+        if reference_template and view == 'hem':
+            prompt += ('Give the replacement fabric a smooth pressed appearance within the existing '
+                       'folds and silhouette. Preserve the reference geometry. ')
+        else:
+            prompt += PRESSED_FINISH
     # Repeat the short framing requirement last, after material instructions.
     prompt += ('FINAL CROP: match image 0 exactly. ' if reference_template else
                'FINAL CAMERA REQUIREMENT: an obvious oblique front-and-side view, not the original frontal pose; close-up from head to just below garment hem, no lower legs or shoes. '
                if view == 'three_quarter' else 'FINAL CAMERA REQUIREMENT: ' + shot + '. ')
-    if reference_template and view == 'hem':
-        prompt += ('FINAL REGION LOCK: no arms, hands or skin. The complete area above the curved '
-                   'hem is fabric, including both image edges. Preserve the reference crop and dark trousers. ')
     if detail_colour_lock:
         prompt += (
             'FINAL FABRIC COLOUR: Image 1 is the authority for the exact fabric colours. '
@@ -134,8 +140,11 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
             'wash out the print, or inherit the brightness or tint of the original template cloth. '
             'Apply these instructions only to shirt fabric; preserve skin, buttons, trousers and background. '
         )
+    if reference_template and view == 'hem':
+        prompt += 'FINAL REGION LOCK: edit only the existing shirt fabric in image 0. Preserve all other regions. '
     return {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
             'prompt_version': ('catalog-template-v3' if reference_template else
+                               'catalog-close-up-v1' if view == 'close_up' else
                                'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2')
                               + ('-swatch-v1' if detail_colour_lock else '')
                               + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),

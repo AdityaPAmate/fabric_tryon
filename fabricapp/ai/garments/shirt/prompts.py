@@ -71,6 +71,10 @@ NOTE_PRIORITY = (
     "Apply this note to remaining styling choices while retaining the "
     "selected body build, sleeve treatment, shirt hem placement and identity. "
 )
+PRESSED_FINISH = (
+    "SHIRT FINISH: show a freshly ironed shirt with smooth panels and crisp seams. "
+    "Keep the fabric texture and only the small natural folds needed for the pose. "
+)
 FINAL = "FINAL PRESENTATION: one fully clothed person in a realistic fashion-catalogue photograph. "
 RETRY_PRESENTATION = (
     "Keep the outfit opaque and fully buttoned from upper chest, with "
