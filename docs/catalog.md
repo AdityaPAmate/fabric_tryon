@@ -1,3 +1,20 @@
+## Dark brown colour refinement (2026-11-04)
+
+The reported shirt catalog 2026-11-04_120928_001 used the same swatch bytes
+for all six requests. Recomposition matched the saved collage exactly: the colour
+variation originated during generation, not composition.
+
+Single-family dark orange-brown RGB profiles now use the label dark chocolate
+brown and explicit original-swatch colour priority. This narrowly gated prompt
+reduces orange grading and dark-fabric brightening. White, blue and multicolour
+prompts retain their prior behavior. Diagnostics append brown-v2 when active.
+
+Live validation: three targeted shots, then a complete six-shot catalog with the
+reported swatch and Raghav face (test runner uses trim body), then a final hem
+region-lock check. Cuff and collar improved visually; front/back still differ in
+lightness from the swatch. This is a measured improvement, not exact colour fidelity.
+No blanket pixel recolouring is applied to skin, scenery or patterned fabrics.
+
 ## Hem and framing update (2026-11-04)
 
 Shirt hem now uses the supplied packaged hem.png, like collar and cuff.

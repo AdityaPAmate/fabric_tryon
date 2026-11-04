@@ -226,3 +226,14 @@ class CollageTests(SimpleTestCase):
         for point in [(939, 1800), (1633, 1800), (1200, 1588), (1200, 2048)]:
             self.assertGreater(image.getpixel(point)[0], 200)
             self.assertLess(image.getpixel(point)[2], 50)
+
+
+class BrownColourTests(SimpleTestCase):
+    def test_dark_brown_priority_is_not_applied_to_white_or_blue(self):
+        from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours, colour_reference_prompt
+        for color, expected in [('#3e281b', True), ('#ffffff', False), ('#204080', False)]:
+            buffer = io.BytesIO()
+            Image.new('RGB', (64, 64), color).save(buffer, 'PNG'); buffer.seek(0)
+            prompt = colour_reference_prompt(measure_fabric_colours(buffer), 'shirt')
+            self.assertEqual('COLOUR PRIORITY' in prompt, expected)
+            self.assertEqual('dark chocolate brown' in prompt, expected)

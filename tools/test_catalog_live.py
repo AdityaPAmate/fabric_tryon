@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--draft', action='store_true')
     parser.add_argument('--material', default='unspecified')
     parser.add_argument('--face-image')
+    parser.add_argument('--face-choice')
     parser.add_argument('--background')
     parser.add_argument('--reference', help='Existing front output for a focused view prompt recheck')
     parser.add_argument('--views', nargs='+', default=['three_quarter', 'collar', 'cuff', 'hem'])
@@ -88,6 +89,8 @@ def main():
             'fabric_type': args.material,
             'seed': '42', 'options': json.dumps({'draft_mode': args.draft}),
         }
+        if args.face_choice:
+            payload['face_choice'] = args.face_choice
         if args.face_image:
             payload['face_image'] = SimpleUploadedFile(Path(args.face_image).name, Path(args.face_image).read_bytes())
         if args.background:

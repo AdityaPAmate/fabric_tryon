@@ -117,8 +117,12 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     prompt += ('FINAL CROP: match image 0 exactly. ' if reference_template else
                'FINAL CAMERA REQUIREMENT: an obvious oblique front-and-side view, not the original frontal pose; close-up from head to just below garment hem, no lower legs or shoes. '
                if view == 'three_quarter' else 'FINAL CAMERA REQUIREMENT: ' + shot + '. ')
+    if reference_template and view == 'hem':
+        prompt += ('FINAL REGION LOCK: no arms, hands or skin. The complete area above the curved '
+                   'hem is fabric, including both image edges. Preserve the reference crop and dark trousers. ')
     return {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
             'prompt_version': ('catalog-template-v3' if reference_template else
-                               'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2'),
+                               'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2')
+                              + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),
             **({'output_size_multiple': 32} if reference_template else {}),
             'safety_retry_count': 0}

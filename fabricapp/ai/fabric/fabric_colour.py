@@ -73,13 +73,22 @@ def colour_reference_prompt(profile, target="jacket"):
         rgb = [round(sum(c['rgb'][channel] * c['coverage'] for c in profile['colours']) / total)
                for channel in range(3)]
         colour_hex = '#' + ''.join(f'{v:02X}' for v in rgb)
+        name = colour_name(rgb)
+        if name == 'deep orange-brown':
+            name = 'dark chocolate brown'
         return (
-            'COLOUR REFERENCE: the ' + target + ' fabric is ' + colour_name(rgb) + ' (' + colour_hex + '). '
+            'COLOUR REFERENCE: the ' + target + ' fabric is ' + name + ' (' + colour_hex + '). '
             'This measured swatch colour defines the ' + target
             + (', including its lapels and sleeves. ' if target == 'jacket' else ', across its fabric panels. ')
             + 'Keep this colour family visibly present in the fabric midtones throughout the ' + target + ', '
             'with its original saturation and lightness. Image 1 supplies the fabric details; '
             'fold shading varies around this colour. '
+            + ('COLOUR PRIORITY: copy the actual swatch pixels, not a lighter interpretation of the colour name. '
+            'Do not auto-brighten a dark swatch, desaturate it to grey, or add an orange/red colour grade. '
+            'Use neutral diffuse light on the fabric; keep scene colour casts off the garment. '
+            'The original swatch overrides the colour of the person/reference garment. '
+            'Preserve dark fabric midtones while keeping seams and folds visible. '
+               if name == 'dark chocolate brown' else '')
         )
     entries = '; '.join(f"{c['name']} {c['hex']} (about {round(c['coverage'] * 100)}%)"
                         for c in profile['colours'])

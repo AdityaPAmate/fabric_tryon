@@ -36,4 +36,6 @@ def apply_fabric_conditioning(config, context, garment_type, garment_style=None,
         result["fabric_colour_reference"] = profile
     result["prompt_version"] = (garment_type + "-material-v1-" + fabric_type
                                 if fabric_type != "unspecified" else garment_type + "-colour-v1")
+    if "COLOUR PRIORITY:" in prefix:
+        result["prompt_version"] += "-brown-v2"
     return result
