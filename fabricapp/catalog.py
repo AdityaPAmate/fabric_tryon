@@ -18,6 +18,7 @@ from fabricapp.ai.images.catalog_collage import compose_catalog, LAYOUT
 from fabricapp.ai.images.shirt_collar import load_shirt_collar_mask, render_shirt_collar
 from fabricapp.ai.images.shirt_hem import load_shirt_hem_mask, render_shirt_hem
 from fabricapp.ai.images.shirt_sleeve import load_shirt_sleeve_mask, render_shirt_sleeve
+from fabricapp.ai.scene.garment_lighting import apply_garment_lighting
 from fabricapp.ai.main import generate_tryon_image
 from fabricapp.ai.pipeline.catalog_prompts import catalog_plan, edit_config
 from fabricapp.ai.references.catalog_reference import get_catalog_reference_path
@@ -61,6 +62,7 @@ def generate_masked_shirt_detail(data, template, view, seed, swatch_bytes):
         'prompt_version': 'catalog-masked-detail-v1', 'output_size_multiple': 32,
         'safety_retry_count': 0,
     }
+    config = apply_garment_lighting(config, 'shirt')
     result = generate_edit(
         person_image=io.BytesIO(template.read_bytes()), fabric_image=data['fabric_image'],
         fabric_mask=mask_png.getvalue(), garment_type='shirt', scenario='person_photo',

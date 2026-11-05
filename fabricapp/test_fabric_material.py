@@ -126,3 +126,28 @@ class FabricMaterialTests(SimpleTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn('fabric_type', response.data)
         generate.assert_not_called(); upload.assert_not_called()
+
+
+class GarmentLightingTests(SimpleTestCase):
+    def test_lighting_applies_to_all_requested_garments_and_fallbacks(self):
+        from fabricapp.ai.scene.garment_lighting import apply_garment_lighting
+        config = {'prompt': 'Keep folds.', 'safety_fallback_prompt': 'Keep the person.',
+                  'prompt_version': 'example-v1'}
+        for garment in ('shirt', 'blazer', 'kurta', 'kurti_pant', 'pant'):
+            result = apply_garment_lighting(config, garment)
+            for key in ('prompt', 'safety_fallback_prompt'):
+                self.assertIn('FINAL GARMENT LIGHTING', result[key])
+                self.assertIn('gentle contact shadows', result[key])
+                self.assertIn('original colour contrast', result[key])
+            self.assertEqual(result['prompt_version'], 'example-v1-lighting-v1')
+        self.assertEqual(config['prompt'], 'Keep folds.')
+        self.assertIs(apply_garment_lighting(config, 'saree'), config)
+
+    def test_appended_retry_keeps_primary_prefix(self):
+        from fabricapp.ai.scene.garment_lighting import apply_garment_lighting
+        result = apply_garment_lighting({
+            'prompt': 'Keep the garment. ',
+            'safety_fallback_prompt': 'Keep the garment. RETRY PRESENTATION: fully clothed.',
+        }, 'kurta')
+        self.assertTrue(result['safety_fallback_prompt'].startswith(result['prompt']))
+        self.assertEqual(result['safety_fallback_prompt'].count('FINAL GARMENT LIGHTING'), 1)

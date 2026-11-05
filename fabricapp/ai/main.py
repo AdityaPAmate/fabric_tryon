@@ -1,5 +1,6 @@
 """Public AI entry point used by the API view."""
 
+from fabricapp.ai.scene.garment_lighting import apply_garment_lighting
 from fabricapp.timing import timed_stage
 from fabricapp.ai.providers.cloudflare_engine import (
     CloudflareGenerationError,
@@ -97,6 +98,8 @@ def generate_tryon_image(
             )
     except PromptRoutingError as exc:
         raise CloudflareGenerationError(str(exc)) from exc
+
+    prompt_config = apply_garment_lighting(prompt_config, garment_type)
 
     # Target interface for the refactored engine:
     # it prepares images and calls the model, but does not build prompts.

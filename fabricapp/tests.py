@@ -290,7 +290,7 @@ class ProviderRetryHttpTests(SimpleTestCase):
                     self.assertNotEqual(captured[0]["prompt"], captured[1]["prompt"])
                     self.assertLess(len(captured[1]["prompt"]), len(captured[0]["prompt"]))
                     trace = result.diagnostics
-                    self.assertEqual(trace["prompt_version"], "blazer-structured-v4")
+                    self.assertEqual(trace["prompt_version"], "blazer-structured-v4-lighting-v1")
                     self.assertEqual(trace["effective_seed"], 43)
                     self.assertEqual([a["fallback_prompt"] for a in trace["attempts"]], [False, True])
                     self.assertIn("input_image_2", captured[1])

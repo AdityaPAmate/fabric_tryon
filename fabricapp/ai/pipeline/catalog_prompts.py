@@ -2,6 +2,7 @@
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours, has_single_colour_family, colour_reference_prompt
 from fabricapp.ai.fabric.fabric_material import material_prompt, fabric_target
 from fabricapp.ai.garments.shirt.prompts import PRESSED_FINISH
+from fabricapp.ai.scene.garment_lighting import apply_garment_lighting
 from fabricapp.ai.scene.backgrounds import BACKGROUND_DESCRIPTIONS
 
 DETAILS = {
@@ -143,10 +144,11 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
         )
     if reference_template and view == 'hem':
         prompt += 'FINAL REGION LOCK: edit only the existing shirt fabric in image 0. Preserve all other regions. '
-    return {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
+    config = {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
             'prompt_version': ('catalog-template-v3' if reference_template else
                                'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2')
                               + ('-swatch-v1' if detail_colour_lock else '')
                               + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),
             **({'output_size_multiple': 32} if reference_template else {}),
             'safety_retry_count': 0}
+    return apply_garment_lighting(config, data['garment_type'])
