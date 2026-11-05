@@ -62,11 +62,12 @@ FABRIC = (
 )
 ANATOMY = "Show one person with two arms, two hands, two legs and two feet. "
 LIGHTING = (
-    "LIGHTING: illuminate the person and shirt with soft neutral fill light "
-    "and neutral white balance, preserving fabric hue, saturation and "
-    "midtone brightness. Keep the background's atmospheric lighting in "
-    "the scenery. "
+    "LIGHTING: use equal-intensity soft neutral-white illumination from both sides "
+    "and gentle frontal fill. Keep exposure balanced across the shirt and both sleeves. "
+    "Preserve the swatch hue, saturation, midtone lightness and visible texture. "
+    "Keep only shallow natural fold shadows with smooth transitions. "
 )
+
 NOTE_PRIORITY = (
     "Apply this note to remaining styling choices while retaining the "
     "selected body build, sleeve treatment, shirt hem placement and identity. "

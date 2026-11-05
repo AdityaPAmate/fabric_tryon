@@ -22,12 +22,32 @@ BALANCED_LIGHTING = (
     "Preserve the selected material's matte, glossy or plush surface response. "
 )
 
+SHIRT_LIGHTING = (
+    "FINAL GARMENT LIGHTING: illuminate the shirt uniformly with two large diffused "
+    "neutral-white sources of equal intensity, symmetrically placed on the camera's "
+    "left and right, and soft frontal fill. Place the person beneath a large overhead "
+    "diffusion scrim in open shade, with large white reflectors equally close on both sides. "
+    "All light reaching the shirt passes through diffusion before reaching the fabric. "
+    "Keep the exposure equal across both "
+    "shoulders, both sleeves, collar, chest, side panels and lower hem. "
+    "The same fabric should have matching diffuse midtones on both sides. "
+    "Keep gentle contact shadows only where needed to show seams, collar overlap "
+    "and natural folds, with smooth, shallow transitions. "
+    "Retain visible weave and the original colour contrast of printed motifs. "
+    "Preserve the swatch hue, saturation and midtone lightness from image 1. "
+    "Avoid one-sided sunlight, a bright side and dark side, specular hotspots, "
+    "overexposed white patches and background colour spill on the shirt. "
+    "Keep cream fabric cream and dark fabric dark under this even exposure. "
+    "Preserve the material's natural matte, silk or velvet response with broad soft highlights. "
+)
+
 
 def apply_garment_lighting(config, garment_type):
     if garment_type not in TARGETS:
         return config
     result = dict(config)
-    lighting = BALANCED_LIGHTING.format(target=TARGETS[garment_type])
+    lighting = (SHIRT_LIGHTING if garment_type == 'shirt'
+                else BALANCED_LIGHTING.format(target=TARGETS[garment_type]))
     original_primary = config.get('prompt', '')
     original_fallback = config.get('safety_fallback_prompt', '')
     appended_retry = bool(original_primary and original_fallback.startswith(original_primary))
@@ -41,5 +61,5 @@ def apply_garment_lighting(config, garment_type):
             result[key] = original + lighting
     if appended_retry:
         result['safety_fallback_prompt'] = result['prompt'] + original_fallback[len(original_primary):]
-    result['prompt_version'] = result.get('prompt_version', 'garment') + '-lighting-v1'
+    result['prompt_version'] = result.get('prompt_version', 'garment') + ('-lighting-v2-even' if garment_type == 'shirt' else '-lighting-v1')
     return result
