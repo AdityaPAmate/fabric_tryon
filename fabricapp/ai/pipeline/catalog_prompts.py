@@ -77,17 +77,24 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
             )
         elif view == 'cuff':
             prompt += (
-                'Replace the entire sleeve, cuff, sleeve placket AND the shirt torso behind the arm, '
-                'including its vertical button placket. These are all the same fabric; leave no plain '
-                'white shirt panels. Keep the complete visible cuff and exposed wrist in the exact crop. '
-                'Skin, buttons and the actual background retain their original appearance. '
+                'This reference shows one vertical sleeve ending in a broad horizontal cuff, '
+                'with a pointed sleeve placket above it and one white cuff button. '
+                'Replace all visible sleeve, cuff and sleeve-placket cloth with the same swatch; '
+                'leave no original plain white cloth. Preserve the complete cuff, its stitched edges, '
+                'single button and the exposed wrist below it. The grey areas on both sides are '
+                'background, not shirt fabric. Keep them and the skin unchanged. '
+                'There is no shirt torso or front button placket in this reference; do not add them. '
+                'Keep the sleeve vertical and do not rotate the arm or tighten the crop. '
                 'Keep the print as distinct and saturated as image 1, not grey, blurred or washed out. '
             )
         elif view == 'hem':
             prompt += (
-                'This is a tight waist-level macro of the bottom edge only: keep the large curved '
-                'hem, its stitching, the single existing button and the open placket exactly where '
+                'This is a tight waist-level macro of an untucked shirt bottom edge: keep the gently curved '
+                'hem, its stitched edge, the single white button and the nearly vertical front placket exactly where '
                 'they are in image 0. The dark trousers below the hem remain unchanged. '
+                'Preserve the small opening between the front panels at the bottom and the grey '
+                'background outside the shirt on both sides. Replace all visible shirt panels, '
+                'including the front placket and narrow turned hem, without changing their outlines. '
                 'The reference has no visible arms, hands, sleeves, collar or face; add none. '
                 'Do not pull the camera back or show any more of the person. '
             )
@@ -129,7 +136,7 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
             )
     prompt += colour + material
     if data['garment_type'] == 'shirt':
-        if reference_template and view == 'hem':
+        if reference_template:
             prompt += ('Give the replacement fabric a smooth pressed appearance within the existing '
                        'folds and silhouette. Preserve the reference geometry. ')
         else:
@@ -150,7 +157,7 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     if reference_template and view == 'hem':
         prompt += 'FINAL REGION LOCK: edit only the existing shirt fabric in image 0. Preserve all other regions. '
     config = {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
-            'prompt_version': ('catalog-template-v4-direct-ai' if reference_template else
+            'prompt_version': ('catalog-template-v5-direct-ai' if reference_template else
                                'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2')
                               + ('-swatch-v1' if detail_colour_lock else '')
                               + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),

@@ -71,7 +71,7 @@ class CatalogTests(SimpleTestCase):
         for call in edit.call_args_list[1:]:
             self.assertNotIn('fabric_mask', call.kwargs)
             self.assertNotIn('Image 2', call.kwargs['prompt_config']['prompt'])
-            self.assertIn('catalog-template-v4-direct-ai', call.kwargs['prompt_config']['prompt_version'])
+            self.assertIn('catalog-template-v5-direct-ai', call.kwargs['prompt_config']['prompt_version'])
         ready = {e['image']['view']: e['image'] for e in events if e['event'] == 'image_ready'}
         self.assertEqual(ready['collar']['reference_template'], 'shirt_collar.png')
         self.assertEqual(ready['cuff']['reference_template'], 'sleeve.png')
