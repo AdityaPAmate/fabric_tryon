@@ -62,8 +62,8 @@ FABRIC = (
 )
 ANATOMY = "Show one person with two arms, two hands, two legs and two feet. "
 LIGHTING = (
-    "LIGHTING: use equal-intensity soft neutral-white illumination from both sides "
-    "and gentle frontal fill. Keep exposure balanced across the shirt and both sleeves. "
+    "LIGHTING: use soft, colour-neutral ambient daylight in open shade. "
+    "Keep illumination balanced across the shirt and both sleeves, without direct sunlight. "
     "Preserve the swatch hue, saturation, midtone lightness and visible texture. "
     "Keep only shallow natural fold shadows with smooth transitions. "
 )

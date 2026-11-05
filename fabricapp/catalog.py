@@ -6,8 +6,6 @@ import queue
 import threading
 from uuid import uuid4
 
-from PIL import Image, ImageChops, ImageEnhance, ImageFilter, ImageStat
-
 from django.http import StreamingHttpResponse
 from rest_framework import serializers
 from rest_framework.parsers import MultiPartParser
@@ -15,86 +13,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from fabricapp.ai.images.catalog_collage import compose_catalog, LAYOUT
-from fabricapp.ai.images.shirt_collar import load_shirt_collar_mask, render_shirt_collar
-from fabricapp.ai.images.shirt_hem import load_shirt_hem_mask, render_shirt_hem
-from fabricapp.ai.images.shirt_sleeve import load_shirt_sleeve_mask, render_shirt_sleeve
-from fabricapp.ai.scene.garment_lighting import apply_garment_lighting
 from fabricapp.ai.main import generate_tryon_image
 from fabricapp.ai.pipeline.catalog_prompts import catalog_plan, edit_config
 from fabricapp.ai.references.catalog_reference import get_catalog_reference_path
-from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image as generate_edit, CloudflareGenerationError, GenerationResult
+from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image as generate_edit, CloudflareGenerationError
 from fabricapp.serializers import FabricTryOnRequestSerializer
 from fabricapp.services.cloudinary_service import upload_generated_image
 
 logger = logging.getLogger('fabricapp')
 # Bounded per web process; catalogue work must not occupy every request thread.
 CATALOG_SLOTS = threading.BoundedSemaphore(1)
-
-
-SHIRT_DETAILS = {
-    'collar': (load_shirt_collar_mask, render_shirt_collar,
-               'soft shadow directly beneath the collar points and along the inner collar roll'),
-    'cuff': (load_shirt_sleeve_mask, render_shirt_sleeve,
-             'soft shadow under the cuff overlap and along the existing sleeve fold'),
-    'hem': (load_shirt_hem_mask, render_shirt_hem,
-            'soft shadow along the existing turned hem and under the placket overlap'),
-}
-
-
-def generate_masked_shirt_detail(data, template, view, seed, swatch_bytes):
-    load_mask, _, shadow = SHIRT_DETAILS[view]
-    base, mask = load_mask(template)
-    mask_png = io.BytesIO()
-    mask.save(mask_png, format='PNG')
-    config = {
-        'prompt': (
-            'Retexture the existing shirt in image 0, in place. Image 1 is the fabric swatch. '
-            'Image 2 is the fabric mask: white means editable shirt, black means protected. '
-            'Match the exact composition, crop, seams, folds and shirt silhouette of image 0. '
-            'Keep all buttons, skin, trousers and background in their original positions. '
-            'Within the white mask, apply the swatch at a realistic scale and follow the existing '
-            'panel directions and folds. Match the swatch hue, saturation and print contrast. '
-            f'Use soft neutral light and add a {shadow}. '
-            'Keep the rest of the fabric gently lit, with a crisp pressed finish. '
-            'Avoid dark outlines around the mask and new wrinkles. Output one photograph.'
-        ),
-        'seed': seed, 'guidance': data.get('guidance', 7),
-        'prompt_version': 'catalog-masked-detail-v1', 'output_size_multiple': 32,
-        'safety_retry_count': 0,
-    }
-    config = apply_garment_lighting(config, 'shirt')
-    result = generate_edit(
-        person_image=io.BytesIO(template.read_bytes()), fabric_image=data['fabric_image'],
-        fabric_mask=mask_png.getvalue(), garment_type='shirt', scenario='person_photo',
-        options=data.get('options', {}), prompt_config=config,
-    )
-    _, render_local, _ = SHIRT_DETAILS[view]
-    local_image = render_local(template, swatch_bytes, data.get('options', {}).get('fabric_crop_box'))
-    output = apply_masked_detail_lighting(local_image, result.image_bytes, base, mask)
-    return GenerationResult(output, result.effective_seed,
-                            {**(result.diagnostics or {}), 'method': 'ai_masked_detail',
-                             'lighting': 'ai_soft_luminance_v1'})
-
-
-def apply_masked_detail_lighting(local_image, ai_image, base, mask):
-    """Use AI light and shade while keeping the original geometry and swatch."""
-    with Image.open(io.BytesIO(ai_image)) as image:
-        luminance = image.convert('L').resize(base.size, Image.Resampling.LANCZOS)
-    luminance = luminance.filter(ImageFilter.GaussianBlur(24))
-    midtone = ImageStat.Stat(luminance, mask=mask).median[0]
-    gain = luminance.point(lambda value: round(255 * max(.80, min(1.06, 1 + (value - midtone) / 200)) / 1.06))
-    # Taper the AI contribution near buttons, skin, and the shirt outline.
-    interior = mask.filter(ImageFilter.GaussianBlur(20)).point(
-        lambda value: max(0, min(255, (value - 160) * 4))
-    )
-    with Image.open(io.BytesIO(local_image)) as image:
-        local = image.convert('RGB')
-    lit = ImageChops.multiply(local, Image.merge('RGB', (gain, gain, gain)))
-    lit = ImageEnhance.Brightness(lit).enhance(1.06)
-    adjusted = Image.composite(lit, local, interior)
-    output = io.BytesIO()
-    Image.composite(adjusted, base, mask).save(output, format='PNG')
-    return output.getvalue()
 
 
 class CatalogRequestSerializer(FabricTryOnRequestSerializer):
@@ -125,12 +53,8 @@ def generate_catalog(data, stopped):
         if stopped.is_set():
             return
         template = get_catalog_reference_path(data['garment_type'], view)
-        local_renderer = None
-        if template and data['garment_type'] == 'shirt':
-            if view in SHIRT_DETAILS:
-                local_renderer = SHIRT_DETAILS[view][1]
         camera_view = view if view in ('front', 'close_up') else None
-        if (blocked and not local_renderer) or (not camera_view and anchor is None and template is None):
+        if blocked or (not camera_view and anchor is None and template is None):
             failed.append(view)
             yield {'event': 'image_failed', 'view': view, 'error': 'generation_unavailable' if blocked else 'front_reference_failed'}
             continue
@@ -144,22 +68,6 @@ def generate_catalog(data, stopped):
                 if view == 'front':
                     # Keep the reference even if delivery upload fails.
                     anchor, anchor_seed = generation.image_bytes, generation.effective_seed
-            elif local_renderer:
-                generation = None
-                fallback_reason = 'provider_unavailable'
-                if not blocked:
-                    try:
-                        generation = generate_masked_shirt_detail(data, template, view, anchor_seed if anchor_seed is not None else data.get('seed', 42), swatch_bytes)
-                    except CloudflareGenerationError as exc:
-                        logger.warning('Masked shirt detail fell back to local rendering: %s', exc)
-                        fallback_reason = exc.failure_type or 'provider_error'
-                        blocked = exc.status_code in (401, 403, 429) or fallback_reason in ('allocation_exhausted', 'authentication_error')
-                if generation is None:
-                    generation = GenerationResult(
-                        local_renderer(template, swatch_bytes, data.get('options', {}).get('fabric_crop_box')),
-                        None, {'method': 'masked_swatch_composite', 'lighting': 'soft_contact_v1',
-                               'fallback_reason': fallback_reason},
-                    )
             else:
                 generation = generate_edit(
                     person_image=io.BytesIO(template.read_bytes() if template else anchor), fabric_image=data['fabric_image'],

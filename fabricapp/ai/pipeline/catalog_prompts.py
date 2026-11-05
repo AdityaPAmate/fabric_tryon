@@ -50,7 +50,7 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     target = fabric_target(data['garment_type'], data.get('garment_style'), data.get('garment_details'))
     profile = measure_fabric_colours(data['fabric_image'], data.get('options', {}).get('fabric_crop_box'))
     detail_colour_lock = bool(reference_template and data['garment_type'] == 'shirt'
-                              and view in ('cuff', 'hem'))
+                              and view in ('collar', 'cuff', 'hem'))
     colour = (colour_reference_prompt(
         profile, target, preserve_palette=detail_colour_lock and
         not all(c["name"] == "deep orange-brown" for c in profile["colours"]))
@@ -62,30 +62,35 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
         material = material.split('TROUSER CONSTRUCTION:')[0]
     if reference_template:
         prompt = (
-            f'Edit image 0, the supplied {view} close-up reference photograph. '
-            'Keep its exact crop, camera angle, garment geometry, collar/cuff/hem shape, seams, button positions, '
-            'skin, arm or neck pose and actual non-cloth background. Replace ALL visible shirt fabric in image 0 with '
-            'the fabric in image 1, including the collar leaves, collar stand, placket, cuff and adjoining '
-            'shirt panels wherever present. Remove the original white or blue cloth colour and texture. '
-            'Image 1 supplies the new fabric colour, print and texture, not the crop or garment shape. '
-            'Retain realistic folds, stitching and shadows on the replaced cloth. Keep buttons and skin separate. '
-            'Do not zoom out, add a person, show a whole face/body, or add text, panels or collage. '
+            'Edit image 0 in place. Replace ALL visible shirt fabric with the fabric from image 1. '
+            'Keep the exact crop, camera angle, garment silhouette, seams and button positions of image 0. '
+            'Use image 1 only for the cloth colour, printed pattern and texture, not for composition. '
+            'Remove the original plain cloth colour. Follow the existing fabric volume and panel directions '
+            'with natural fold shading and visible stitching, rather than a flat pasted texture. '
+            'Keep all non-fabric areas as in image 0. Output one edited photograph. '
         )
-        if view == 'cuff':
-            prompt += ('REGION CHECK: the large shirt torso behind the arm, on the upper and right side '
-                       'of the photograph, is ALSO shirt fabric, not background. Replace that entire torso '
-                       'and its vertical button placket with the same swatch pattern as the cuff and sleeve. '
-                       'Replace the complete sleeve, cuff face, cuff edges, sleeve placket and all torso fabric. '
-                       'Carry the same pattern continuously across each cloth region with realistic fold shading. '
-                       'Do not leave white patches or transfer fabric onto the exposed wrist, hand or buttons. '
-                       'Preserve the entire visible cuff and arm from the reference without tightening the crop. '
-                       'Leave no original plain white shirt panels behind the arm. ')
-        if view == 'hem':
-            prompt += ('Use image 0 as the base photograph and perform a fabric-only edit in place. '
-                       'Identify the actual visible shirt fabric boundaries in image 0, including the hem '
-                       'and placket. Preserve the exact silhouette, folds, stitching and buttons. '
-                       'Preserve every region outside the shirt fabric, including trousers, skin and '
-                       'background, in its original position. Do not reconstruct the photograph. ')
+        if view == 'collar':
+            prompt += (
+                'Replace both collar leaves, the inner collar stand and every visible shirt panel. '
+                'Keep the existing chin, neck, collar opening, buttons and background. '
+                'Retain soft shadows beneath the collar points. '
+            )
+        elif view == 'cuff':
+            prompt += (
+                'Replace the entire sleeve, cuff, sleeve placket AND the shirt torso behind the arm, '
+                'including its vertical button placket. These are all the same fabric; leave no plain '
+                'white shirt panels. Keep the complete visible cuff and exposed wrist in the exact crop. '
+                'Skin, buttons and the actual background retain their original appearance. '
+                'Keep the print as distinct and saturated as image 1, not grey, blurred or washed out. '
+            )
+        elif view == 'hem':
+            prompt += (
+                'This is a tight waist-level macro of the bottom edge only: keep the large curved '
+                'hem, its stitching, the single existing button and the open placket exactly where '
+                'they are in image 0. The dark trousers below the hem remain unchanged. '
+                'The reference has no visible arms, hands, sleeves, collar or face; add none. '
+                'Do not pull the camera back or show any more of the person. '
+            )
     else:
         anchor_slot = 2 if view == 'three_quarter' else 0
         prompt = (
@@ -145,10 +150,10 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     if reference_template and view == 'hem':
         prompt += 'FINAL REGION LOCK: edit only the existing shirt fabric in image 0. Preserve all other regions. '
     config = {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
-            'prompt_version': ('catalog-template-v3' if reference_template else
+            'prompt_version': ('catalog-template-v4-direct-ai' if reference_template else
                                'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2')
                               + ('-swatch-v1' if detail_colour_lock else '')
                               + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),
             **({'output_size_multiple': 32} if reference_template else {}),
             'safety_retry_count': 0}
-    return apply_garment_lighting(config, data['garment_type'])
+    return apply_garment_lighting(config, data['garment_type'], reference_detail=bool(reference_template))

@@ -140,7 +140,7 @@ class GarmentLightingTests(SimpleTestCase):
                 self.assertIn('gentle contact shadows', result[key])
                 self.assertIn('original colour contrast', result[key])
             self.assertEqual(result['prompt_version'],
-                             'example-v1-lighting-v2-even' if garment == 'shirt' else 'example-v1-lighting-v1')
+                             'example-v1-lighting-v3-open-shade' if garment == 'shirt' else 'example-v1-lighting-v1')
         self.assertEqual(config['prompt'], 'Keep folds.')
         self.assertIs(apply_garment_lighting(config, 'saree'), config)
 
@@ -153,10 +153,11 @@ class GarmentLightingTests(SimpleTestCase):
         self.assertTrue(result['safety_fallback_prompt'].startswith(result['prompt']))
         self.assertEqual(result['safety_fallback_prompt'].count('FINAL GARMENT LIGHTING'), 1)
 
-    def test_shirt_uses_symmetric_light_without_key_fill_imbalance(self):
+    def test_shirt_uses_even_open_shade_without_direct_sunlight(self):
         from fabricapp.ai.scene.garment_lighting import apply_garment_lighting
         result = apply_garment_lighting({'prompt': 'Shirt.', 'safety_fallback_prompt': 'Retry.'}, 'shirt')
         for key in ('prompt', 'safety_fallback_prompt'):
-            self.assertIn('equal intensity', result[key])
+            self.assertIn('open shade', result[key])
+            self.assertIn('No direct sunlight', result[key])
             self.assertIn('both sleeves', result[key])
             self.assertNotIn('frontal key light', result[key])

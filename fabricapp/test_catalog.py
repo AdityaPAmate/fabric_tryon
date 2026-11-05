@@ -61,7 +61,7 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(upload.call_count, 7)
         self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-v2")
         self.assertFalse(front.call_args.kwargs['options']['draft_mode'])
-        for view, call in zip(['back'], edit.call_args_list):
+        for view, call in zip(['back', 'collar', 'cuff', 'hem'], edit.call_args_list):
             template = get_catalog_reference_path('shirt', view)
             expected = template.read_bytes() if template else picture()
             self.assertTrue(call.kwargs['person_image'].getvalue() == expected, view)
@@ -69,43 +69,22 @@ class CatalogTests(SimpleTestCase):
             self.assertIn('exact crop' if template else 'SAME person', call.kwargs['prompt_config']['prompt'])
             self.assertIn('velvet', call.kwargs['prompt_config']['prompt'])
         for call in edit.call_args_list[1:]:
-            with Image.open(io.BytesIO(call.kwargs['fabric_mask'])) as mask:
-                self.assertEqual(mask.mode, 'L')
-                self.assertEqual(mask.getextrema(), (0, 255))
-            self.assertIn('Image 2 is the fabric mask', call.kwargs['prompt_config']['prompt'])
+            self.assertNotIn('fabric_mask', call.kwargs)
+            self.assertNotIn('Image 2', call.kwargs['prompt_config']['prompt'])
+            self.assertIn('catalog-template-v4-direct-ai', call.kwargs['prompt_config']['prompt_version'])
         ready = {e['image']['view']: e['image'] for e in events if e['event'] == 'image_ready'}
         self.assertEqual(ready['collar']['reference_template'], 'shirt_collar.png')
         self.assertEqual(ready['cuff']['reference_template'], 'sleeve.png')
-        self.assertEqual(ready['hem']['generation']['method'], 'ai_masked_detail')
-        self.assertEqual(ready['collar']['generation']['method'], 'ai_masked_detail')
-        with Image.open(io.BytesIO(upload.call_args_list[3].args[0])) as collar:
-            with Image.open(get_catalog_reference_path('shirt', 'collar')) as source:
-                reference = source.convert('RGB')
-                for point in [(20, 20), (650, 330), (483, 570), (708, 888)]:
-                    self.assertEqual(collar.getpixel(point), reference.getpixel(point))
-                for point in [(220, 490), (1150, 490), (500, 900)]:
-                    self.assertNotEqual(collar.getpixel(point), reference.getpixel(point))
-        self.assertEqual(ready['cuff']['generation']['method'], 'ai_masked_detail')
-        with Image.open(io.BytesIO(upload.call_args_list[4].args[0])) as cuff:
-            with Image.open(get_catalog_reference_path('shirt', 'cuff')) as source:
-                reference = source.convert('RGB')
-                self.assertEqual(cuff.size, reference.size)
-                for point in [(1300, 800), (675, 735), (1060, 165), (1065, 520)]:
-                    self.assertEqual(cuff.getpixel(point), reference.getpixel(point))
-                for point in [(100, 150), (730, 520), (1300, 250)]:
-                    self.assertNotEqual(cuff.getpixel(point), reference.getpixel(point))
-        with Image.open(io.BytesIO(upload.call_args_list[5].args[0])) as hem:
-            with Image.open(get_catalog_reference_path('shirt', 'hem')) as reference:
-                self.assertEqual(hem.size, reference.size)
-                for point in [(20, 20), (800, 850), (1235, 175), (1210, 680)]:
-                    self.assertEqual(hem.getpixel(point), reference.convert('RGB').getpixel(point))
-                self.assertNotEqual(hem.getpixel((500, 300)), reference.convert('RGB').getpixel((500, 300)))
+        self.assertEqual(ready['hem']['reference_template'], 'hem.png')
+        # Upload the provider photograph unchanged, with no local mask/composite fallback.
+        for call in upload.call_args_list[:6]:
+            self.assertEqual(call.args[0], picture())
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/photo.png'})
     @patch('fabricapp.catalog.generate_edit')
     @patch('fabricapp.catalog.generate_tryon_image', return_value=GenerationResult(picture(), 42))
     def test_failed_detail_does_not_discard_other_images(self, front, edit, upload):
-        edit.side_effect = CloudflareGenerationError('rejected')
+        edit.side_effect = [CloudflareGenerationError('rejected')] + [GenerationResult(picture(), 42)] * 3
         events = list(generate_catalog(self.data(), threading.Event()))
         self.assertEqual(events[-1]['status'], 'partial')
         self.assertEqual(events[-1]['failed_views'], ['back'])
@@ -116,9 +95,11 @@ class CatalogTests(SimpleTestCase):
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/photo.png'})
     def test_quota_stops_further_provider_calls(self, upload, front, edit):
         events = list(generate_catalog(self.data(), threading.Event()))
-        self.assertEqual(events[-1]['status'], 'partial')
-        self.assertEqual(len(events[-1]['failed_views']), 3)
+        self.assertEqual(events[-1]['status'], 'failed')
+        self.assertEqual(len(events[-1]['failed_views']), 6)
+        front.assert_called_once()
         edit.assert_not_called()
+        upload.assert_not_called()
 
     @patch('fabricapp.catalog.generate_tryon_image')
     def test_cancel_before_start(self, front):
@@ -181,6 +162,8 @@ class CatalogTests(SimpleTestCase):
                                  reference_template=path, view=view)
             self.assertIn('Replace ALL visible shirt fabric', config['prompt'])
             self.assertIn('FINAL CROP: match image 0 exactly', config['prompt'])
+            self.assertNotIn('both shoulders', config['prompt'])
+            self.assertIn('only the visible cloth', config['prompt'])
             self.assertNotIn('SAME person', config['prompt'])
         self.assertIsNone(get_catalog_reference_path('saree', 'collar'))
 
@@ -197,6 +180,7 @@ class CatalogTests(SimpleTestCase):
         config = edit_config(self.data(), dict(catalog_plan('shirt'))['collar'], 42,
                              reference_template=template, view='collar')
         def provider(*args, **kwargs):
+            self.assertEqual(set(kwargs['files']), {'input_image_0', 'input_image_1'})
             self.assertEqual((kwargs['data']['width'], kwargs['data']['height']), (1536, 1248))
             result = io.BytesIO()
             Image.new('RGB', (1536, 1248)).save(result, 'PNG')
