@@ -14,6 +14,24 @@ from fabricapp.ai.garments.shirt.prompts import BODY_BUILD
 
 
 class ShirtPromptCombinationTests(SimpleTestCase):
+    def test_close_up_removes_full_length_outfit_from_primary_and_retry(self):
+        for scenario in ('face_photo', 'person_pose', 'generated_person'):
+            close = build_prompt(scenario=scenario, context={'camera_view': 'close_up', 'body_type': 'plus'})
+            front = build_prompt(scenario=scenario, context={'camera_view': 'front', 'body_type': 'plus'})
+            for key in ('prompt', 'safety_fallback_prompt'):
+                if key not in close:
+                    continue
+                self.assertIn('CAMERA PRIORITY:', close[key])
+                self.assertIn('natural head-to-torso proportions', close[key])
+                if scenario == 'person_pose':
+                    self.assertIn('Preserve this identity and body proportions', close[key])
+                else:
+                    self.assertIn(BODY_BUILD['plus'], close[key])
+                self.assertNotIn('trousers reaching', close[key])
+                self.assertNotIn('ordinary closed footwear', close[key])
+                self.assertNotIn('full-length trousers', close[key])
+                self.assertIn('ordinary closed footwear', front[key])
+
     def test_face_reference_materials_preserve_complete_shirt_and_requested_framing(self):
         for material in ('unspecified', 'cotton', 'silk', 'velvet'):
             config = build_prompt(scenario='face_photo', context={

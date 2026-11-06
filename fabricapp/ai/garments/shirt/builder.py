@@ -40,6 +40,8 @@ def build_prompt(
     # The selected shirt construction belongs next to the task, before
     # face, pose and scene instructions compete for model attention.
     parts = [prompts.TASK, get_shirt_detail_prompt(details)]
+    if camera == "close_up":
+        parts.append(prompts.CLOSE_UP_CAMERA)
     if scenario == "person_photo":
         parts.append(prompts.PERSON_EDIT_SUBJECT)
     elif scenario == "person_pose":
@@ -65,7 +67,7 @@ def build_prompt(
         if scenario == "face_photo":
             parts.append("The face reference determines facial identity only. ")
 
-    parts.append(prompts.OUTFIT)
+    parts.append(prompts.CLOSE_UP_OUTFIT if camera == "close_up" else prompts.OUTFIT)
     if "folded_sleeves" not in details:
         parts.append(prompts.PRESSED_SLEEVES)
     parts.append(prompts.FABRIC)
@@ -112,9 +114,14 @@ def build_prompt(
     prompt = "".join(parts)
     result = {"prompt": prompt}
     if scenario == "face_photo":
-        result["safety_fallback_prompt"] = prompt + prompts.RETRY_PRESENTATION
+        retry = ("Keep the shirt opaque and buttoned, retaining the selected hem and sleeve treatment "
+                 "within the requested head-to-hip crop. " if camera == "close_up"
+                 else prompts.RETRY_PRESENTATION)
+        result["safety_fallback_prompt"] = prompt + retry
     result.update(get_generation_settings(seed=seed, guidance=guidance))
     result = apply_fabric_conditioning(result, context, GARMENT_TYPE, garment_style)
+    if camera == "close_up":
+        result["prompt_version"] = result.get("prompt_version", "shirt") + "-close-up-v2"
     logging.getLogger("fabricapp").info(
         "Shirt final prompt version=%s scenario=%s body=%s "
         "pose=%s background=%s details=%s words=%s sha256=%s seed=%s guidance=%s",

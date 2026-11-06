@@ -50,6 +50,20 @@ OUTFIT = (
     "paired with newly generated plain dark solid-colour trousers reaching "
     "the ankles and ordinary closed footwear. "
 )
+CLOSE_UP_CAMERA = (
+    "CAMERA PRIORITY: a close-up portrait from the top of the hair to just below "
+    "the shirt hem at the hips. Keep the complete head, both shoulders and entire "
+    "shirt visible, with only a narrow strip of trousers below the hem. "
+    "The head and shirt fill the image height, with little empty space. "
+    "The lower frame ends at the hips: no knees, lower legs or shoes in the image. "
+    "Use normal portrait perspective and preserve natural head-to-torso proportions; "
+    "move the camera closer rather than shrinking or narrowing the body. "
+)
+CLOSE_UP_OUTFIT = (
+    "OUTFIT: a button-up shirt with a structured collar, visible front button "
+    "placket and closed opaque coverage from the upper chest. Only the top of "
+    "plain dark trousers is visible at the bottom of the head-to-hip crop. "
+)
 PRESSED_SLEEVES = (
     "The extended sleeves have a pressed finish with a few natural elbow bends. "
 )
@@ -84,10 +98,10 @@ RETRY_PRESENTATION = (
 
 
 def output_contract(scenario, camera, details):
-    if scenario == 'person_photo':
-        frame = 'Keep the source photograph framing. '
-    elif camera == 'close_up':
+    if camera == 'close_up':
         frame = 'Use the requested head-to-hip crop, keeping the complete shirt torso within that crop. '
+    elif scenario == 'person_photo':
+        frame = 'Keep the source photograph framing. '
     else:
         frame = ('Show the complete person from the top of the head to both shoes, '
                  'with the entire shirt, both sleeve ends and its waist/hem visible. '

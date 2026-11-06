@@ -80,6 +80,7 @@ def generate_catalog(data, stopped):
                      'generation_seed': generation.effective_seed,
                      'generation': generation.diagnostics,
                      'framing': ('template_close_up' if template else
+                                 'head_to_hip' if view == 'close_up' else
                                  'rear_close_up' if view == 'back' else
                                  'three_quarter_close_up' if view == 'three_quarter' else
                                  'full_body' if view == 'front' else 'detail_close_up'),

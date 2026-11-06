@@ -121,6 +121,11 @@ POSES_REQUIRING_FULL_BODY = {
 }
 
 POSE_CAMERA_VARIANTS = {
+    (None, "close_up"): (
+        "standing upright with relaxed shoulders and a natural torso, head upright "
+        "and only slightly turned, eyes looking just beside the camera rather than "
+        "directly at the viewer, arms resting naturally beside the shirt"
+    ),
     ("low_hand_clasp_front", "close_up"): (
         "standing facing the camera with the head upright and directed "
         "forward, both elbows slightly bent, with both hands clearly visible "
