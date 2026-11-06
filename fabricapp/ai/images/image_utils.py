@@ -10,13 +10,15 @@ import io
 from PIL import Image
 
 
-def resize_to_fit(image_file, max_dim, crop_box=None):
+def resize_to_fit(image_file, max_dim, crop_box=None, *, output_format="JPEG"):
     """
     Resize an uploaded image to fit inside max_dim x max_dim (keeping
-    aspect ratio), and return it as an in-memory JPEG buffer.
+    aspect ratio), and return it as an in-memory JPEG or lossless PNG buffer.
     Uses LANCZOS resampling for sharper results on fine repeating
     patterns like checks/stripes (same choice as the tested scripts).
     """
+    if output_format not in ("JPEG", "PNG"):
+        raise ValueError("Unsupported provider input format")
     image_file.seek(0)
     img = Image.open(image_file).convert("RGB")
     if crop_box is not None:
@@ -24,7 +26,10 @@ def resize_to_fit(image_file, max_dim, crop_box=None):
     img.thumbnail((max_dim, max_dim), resample=Image.LANCZOS)
 
     buffer = io.BytesIO()
-    img.save(buffer, format="JPEG", quality=95)
+    if output_format == "PNG":
+        img.save(buffer, format="PNG")
+    else:
+        img.save(buffer, format="JPEG", quality=95)
     buffer.seek(0)
     return buffer
 

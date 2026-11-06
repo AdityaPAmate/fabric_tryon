@@ -181,6 +181,9 @@ class CatalogTests(SimpleTestCase):
                              reference_template=template, view='collar')
         def provider(*args, **kwargs):
             self.assertEqual(set(kwargs['files']), {'input_image_0', 'input_image_1'})
+            name, source, mime = kwargs['files']['input_image_1']
+            self.assertEqual((name, mime), ('garment_source.png', 'image/png'))
+            self.assertTrue(source.getvalue().startswith(b'\x89PNG\r\n\x1a\n'))
             self.assertEqual((kwargs['data']['width'], kwargs['data']['height']), (1536, 1248))
             result = io.BytesIO()
             Image.new('RGB', (1536, 1248)).save(result, 'PNG')

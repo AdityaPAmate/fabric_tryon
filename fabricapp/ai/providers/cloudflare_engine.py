@@ -256,10 +256,17 @@ def generate_tryon_image(
         # Stage 1: prepare the garment source image (image_1)
         if use_garment_image:
             garment_source_buffer = resize_to_fit(garment_image, max_dim=MAX_INPUT_DIM)
+            source_name, source_mime = "garment_source.jpg", "image/jpeg"
         else:
+            # Keep the existing dimensions and resampling, but avoid JPEG
+            # chroma subsampling blurring adjacent shirt/print colours.
+            source_format = "PNG" if garment_type == "shirt" else "JPEG"
             garment_source_buffer = resize_to_fit(
-                fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box")
+                fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box"),
+                output_format=source_format,
             )
+            source_name, source_mime = (("garment_source.png", "image/png") if source_format == "PNG"
+                                        else ("garment_source.jpg", "image/jpeg"))
 
         # Debug file names include the pose so different poses do not overwrite each other.
         debug_tag = garment_type or "garment_image"
@@ -268,14 +275,15 @@ def generate_tryon_image(
         if camera_view:
             debug_tag = f"{debug_tag}_{camera_view}"
         save_debug_copy(subject_buffer, f"sent_subject_{debug_tag}.jpg")
-        save_debug_copy(garment_source_buffer, f"sent_garment_source_{debug_tag}.jpg")
+        source_extension = "png" if source_mime == "image/png" else "jpg"
+        save_debug_copy(garment_source_buffer, f"sent_garment_source_{debug_tag}.{source_extension}")
         if reference_buffer is not None:
             save_debug_copy(reference_buffer, f"sent_reference_{debug_tag}.jpg")
 
     # Stage 3: call Cloudflare, retrying on transient errors
     files = {
         "input_image_0": ("subject.jpg", subject_buffer, "image/jpeg"),
-        "input_image_1": ("garment_source.jpg", garment_source_buffer, "image/jpeg"),
+        "input_image_1": (source_name, garment_source_buffer, source_mime),
     }
     if reference_buffer is not None:
         files["input_image_2"] = ("reference.jpg", reference_buffer, "image/jpeg")

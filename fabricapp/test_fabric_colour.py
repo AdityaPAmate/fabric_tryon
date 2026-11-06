@@ -14,6 +14,18 @@ def image_buffer(rgb, size=(32, 32)):
 
 
 class FabricColourTests(TestCase):
+    def test_png_provider_input_keeps_adjacent_print_colours_and_crop(self):
+        from fabricapp.ai.images.image_utils import resize_to_fit
+        image = Image.new('RGB', (40, 20), '#FFFFFF')
+        for x in range(0, 40, 2):
+            image.paste('#8E2134', (x, 0, x + 1, 20))
+        source = io.BytesIO(); image.save(source, 'PNG'); source.seek(0)
+        encoded = resize_to_fit(source, 511, [4, 0, 36, 20], output_format='PNG')
+        with Image.open(encoded) as prepared:
+            self.assertEqual(prepared.format, 'PNG')
+            self.assertEqual(prepared.size, (32, 20))
+            self.assertEqual(prepared.convert('RGB').tobytes(), image.crop((4, 0, 36, 20)).tobytes())
+
     def test_rollout_groups_tonal_variants_but_not_distinct_colours(self):
         profile = {'colours': [{'name': 'light lavender-purple'}, {'name': 'light muted lavender-purple'}]}
         self.assertTrue(has_single_colour_family(profile))
