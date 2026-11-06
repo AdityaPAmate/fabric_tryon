@@ -3,9 +3,8 @@
 import hashlib
 import logging
 import re
-from PIL import Image
 
-from fabricapp.ai.scene.backgrounds import BACKGROUND_DESCRIPTIONS
+from fabricapp.ai.scene.backgrounds import get_background_description
 from fabricapp.ai.scene.camera_data import get_framing
 from fabricapp.ai.pipeline.router import PromptRoutingError
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
@@ -17,37 +16,6 @@ from fabricapp.ai.garments.shirt.settings import get_generation_settings
 
 GARMENT_TYPE = "shirt"
 SUPPORTED_SCENARIOS = {"person_photo", "person_pose", "face_photo", "generated_person"}
-
-
-def _fabric_colour_reference(context):
-    """Give the model measured swatch colours without recolouring any image."""
-    source = context.get("fabric_image")
-    if source is None:
-        return ""
-    position = source.tell()
-    try:
-        source.seek(0)
-        with Image.open(source) as image:
-            swatch = image.convert("RGB")
-        crop_box = (context.get("options") or {}).get("fabric_crop_box")
-        if crop_box is not None:
-            swatch = swatch.crop(crop_box)
-        swatch.thumbnail((128, 128), Image.Resampling.LANCZOS)
-        quantized = swatch.quantize(colors=4)
-        palette = quantized.getpalette()
-        colours = []
-        for count, index in sorted(quantized.getcolors(), reverse=True):
-            if count / (swatch.width * swatch.height) < 0.05:
-                continue
-            rgb = palette[index * 3:index * 3 + 3]
-            colours.append("#" + "".join(f"{channel:02X}" for channel in rgb))
-        return (
-            "SWATCH PALETTE: representative shirt fabric colours from image 1 "
-            "are " + ", ".join(colours) + ". Keep these colours in their "
-            "original pattern locations; image 1 defines their distribution. "
-        )
-    finally:
-        source.seek(position)
 
 
 def build_prompt(
@@ -101,8 +69,6 @@ def build_prompt(
     if "folded_sleeves" not in details:
         parts.append(prompts.PRESSED_SLEEVES)
     parts.append(prompts.FABRIC)
-    legacy_reference = _fabric_colour_reference(context)
-    parts.append(legacy_reference)
 
     if scenario != "person_photo":
         parts.append("FRAMING: " + framing["shown"] + framing["fill"] + ". ")
@@ -117,7 +83,7 @@ def build_prompt(
 
     background = context.get("background")
     if background:
-        parts.append("BACKGROUND: " + BACKGROUND_DESCRIPTIONS[background] + ". ")
+        parts.append("BACKGROUND: " + get_background_description(background, garment_type="shirt") + ". ")
     elif is_person:
         parts.append(f"BACKGROUND: preserve the original setting in image {reference}. ")
     else:
@@ -148,8 +114,7 @@ def build_prompt(
     if scenario == "face_photo":
         result["safety_fallback_prompt"] = prompt + prompts.RETRY_PRESENTATION
     result.update(get_generation_settings(seed=seed, guidance=guidance))
-    result = apply_fabric_conditioning(result, context, GARMENT_TYPE, garment_style,
-                                       legacy_colour_text=legacy_reference)
+    result = apply_fabric_conditioning(result, context, GARMENT_TYPE, garment_style)
     logging.getLogger("fabricapp").info(
         "Shirt final prompt version=%s scenario=%s body=%s "
         "pose=%s background=%s details=%s words=%s sha256=%s seed=%s guidance=%s",

@@ -1,9 +1,9 @@
 """Catalog shot selection and instructions, separate from HTTP orchestration."""
-from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours, has_single_colour_family, colour_reference_prompt
+from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours, has_single_colour_family, colour_reference_prompt, SHIRT_COLOUR_PRIORITY
 from fabricapp.ai.fabric.fabric_material import material_prompt, fabric_target
 from fabricapp.ai.garments.shirt.prompts import PRESSED_FINISH
 from fabricapp.ai.scene.garment_lighting import apply_garment_lighting
-from fabricapp.ai.scene.backgrounds import BACKGROUND_DESCRIPTIONS
+from fabricapp.ai.scene.backgrounds import get_background_description
 
 DETAILS = {
     'shirt': [('collar', 'collar and neckline'), ('cuff', 'sleeve cuff'), ('hem', 'lower shirt hem')],
@@ -49,12 +49,11 @@ def catalog_plan(garment):
 def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     target = fabric_target(data['garment_type'], data.get('garment_style'), data.get('garment_details'))
     profile = measure_fabric_colours(data['fabric_image'], data.get('options', {}).get('fabric_crop_box'))
-    detail_colour_lock = bool(reference_template and data['garment_type'] == 'shirt'
-                              and view in ('collar', 'cuff', 'hem'))
+    shirt_colour_lock = data['garment_type'] == 'shirt'
     colour = (colour_reference_prompt(
-        profile, target, preserve_palette=detail_colour_lock and
+        profile, target, preserve_palette=shirt_colour_lock and
         not all(c["name"] == "deep orange-brown" for c in profile["colours"]))
-              if detail_colour_lock or has_single_colour_family(profile) else '')
+              if shirt_colour_lock or has_single_colour_family(profile) else '')
     material = material_prompt(data.get('fabric_type', 'unspecified'), data['garment_type'],
                                data.get('garment_style'), data.get('garment_details'))
     # Full trouser construction applies to the outfit, not to a close-up crop.
@@ -111,7 +110,7 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
             'Preserve shirt hem placement symmetrically: if untucked, the complete hem remains outside the trousers '
             'on both sides, never half-tucked. If tucked, both sides remain fully tucked. '
         )
-        background = BACKGROUND_DESCRIPTIONS.get(data.get('background'))
+        background = get_background_description(data.get('background'), garment_type=data['garment_type'])
         prompt += ('BACKGROUND: retain this actual location around the person: ' + background +
                    '. Keep visible location details behind the person; do not replace it with a white/grey studio. '
                    if background else f'BACKGROUND: retain the same actual setting from image {anchor_slot}. ')
@@ -145,21 +144,14 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     prompt += ('FINAL CROP: match image 0 exactly. ' if reference_template else
                'FINAL CAMERA REQUIREMENT: an obvious oblique front-and-side view, not the original frontal pose; close-up from head to just below garment hem, no lower legs or shoes. '
                if view == 'three_quarter' else 'FINAL CAMERA REQUIREMENT: ' + shot + '. ')
-    if detail_colour_lock:
-        prompt += (
-            'FINAL FABRIC COLOUR: Image 1 is the authority for the exact fabric colours. '
-            'Match its base shade, lightness and saturation under neutral diffuse light. '
-            'Preserve each printed colour separately and retain its contrast with the base cloth. '
-            'Keep realistic local fold shadows, but do not apply a warm or cool cast, boost vibrance, '
-            'wash out the print, or inherit the brightness or tint of the original template cloth. '
-            'Apply these instructions only to shirt fabric; preserve skin, buttons, trousers and background. '
-        )
+    if shirt_colour_lock:
+        prompt += SHIRT_COLOUR_PRIORITY
     if reference_template and view == 'hem':
         prompt += 'FINAL REGION LOCK: edit only the existing shirt fabric in image 0. Preserve all other regions. '
     config = {'prompt': prompt, 'seed': anchor_seed, 'guidance': data.get('guidance', 7),
             'prompt_version': ('catalog-template-v5-direct-ai' if reference_template else
                                'catalog-angle-v2' if view == 'three_quarter' else 'catalog-edit-v2')
-                              + ('-swatch-v1' if detail_colour_lock else '')
+                              + ('-swatch-v2' if shirt_colour_lock else '')
                               + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),
             **({'output_size_multiple': 32} if reference_template else {}),
             'safety_retry_count': 0}

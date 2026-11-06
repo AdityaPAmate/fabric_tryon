@@ -38,6 +38,18 @@ BACKGROUND_DESCRIPTIONS = {
 }
 
 
+def get_background_description(background, *, garment_type=None):
+    """Keep shirt scene descriptions consistent with neutral fabric lighting."""
+    description = BACKGROUND_DESCRIPTIONS.get(background)
+    if description is None or garment_type != 'shirt':
+        return description
+    description = description.replace('a bright, sunlit white marble terrace',
+                                      'a white marble terrace')
+    description = description.replace('soft warm daylight', 'soft neutral daylight')
+    return (description + '. Background colours and decorative lights belong to the setting only; '
+            'keep the shirt under soft neutral illumination without reflected colour casts')
+
+
 def get_background_instruction(background):
     """Return the override prompt for a known background, else None."""
     if not background:

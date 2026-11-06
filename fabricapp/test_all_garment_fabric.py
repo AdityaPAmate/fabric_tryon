@@ -68,22 +68,27 @@ class AllGarmentFabricTests(SimpleTestCase):
             normal = config(garment, style, 'generated_person', context)
             chosen = config(garment, style, 'generated_person', dict(context, fabric_image=swatch(), fabric_type='silk'))
             target = fabric_target(garment, style)
-            colour = colour_reference_prompt(chosen['fabric_colour_reference'], target)
+            colour = colour_reference_prompt(chosen['fabric_colour_reference'], target, preserve_palette=garment == 'shirt')
             prefix = colour + material_prompt('silk', garment, style)
             for key in ('prompt', 'safety_fallback_prompt'):
                 if key in normal:
                     self.assertTrue(chosen[key].startswith(prefix))
-                    self.assertEqual(chosen[key][len(prefix):], normal[key])
+                    remainder = chosen[key][len(prefix):]
+                    if garment == 'shirt':
+                        from fabricapp.ai.fabric.fabric_colour import SHIRT_COLOUR_PRIORITY
+                        self.assertTrue(remainder.endswith(SHIRT_COLOUR_PRIORITY))
+                        remainder = remainder[:-len(SHIRT_COLOUR_PRIORITY)]
+                    self.assertEqual(remainder, normal[key])
 
-    def test_shirt_new_colour_reference_replaces_legacy_palette_only_for_single_family(self):
+    def test_shirt_uses_shared_colour_reference_for_solid_and_multicolour_fabrics(self):
         result = config('shirt', None, 'face_photo', {'gender': 'men', 'fabric_image': swatch()})
         self.assertIn('COLOUR REFERENCE:', result['prompt'])
         self.assertNotIn('SWATCH PALETTE:', result['prompt'])
         image = Image.new('RGB', (40, 20), 'blue'); image.paste(Image.new('RGB', (20, 20), 'red'), (20, 0))
         buffer = io.BytesIO(); image.save(buffer, format='PNG'); buffer.seek(0)
         result = config('shirt', None, 'face_photo', {'gender': 'men', 'fabric_image': buffer})
-        self.assertIn('SWATCH PALETTE:', result['prompt'])
-        self.assertNotIn('COLOUR REFERENCE:', result['prompt'])
+        self.assertNotIn('SWATCH PALETTE:', result['prompt'])
+        self.assertIn('COLOUR REFERENCE:', result['prompt'])
 
     def test_targets_keep_separate_garments_out_of_the_surface_override(self):
         for garment in ('kurta', 'kurti_pant'):

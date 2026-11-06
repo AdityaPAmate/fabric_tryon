@@ -110,3 +110,14 @@ def has_single_colour_family(profile):
             name = name.removeprefix(prefix)
         return name
     return bool(profile and profile['colours']) and len({family(c['name']) for c in profile['colours']}) == 1
+
+
+SHIRT_COLOUR_PRIORITY = (
+    'FINAL FABRIC COLOUR: Image 1 is the authority for the exact fabric colours. '
+    'Match its base shade, lightness and saturation under neutral diffuse light. '
+    'Preserve each printed colour separately and retain its contrast with the base cloth. '
+    'Keep realistic local fold shadows, but do not apply a warm or cool cast, boost vibrance, '
+    'wash out the print, or inherit the brightness or tint of the original reference cloth. '
+    'If a reference garment looks faded, use the original swatch colours instead. '
+    'Apply these instructions only to shirt fabric; preserve skin, buttons, trousers and background. '
+)

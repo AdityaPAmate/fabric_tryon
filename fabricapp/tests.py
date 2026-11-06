@@ -6,7 +6,7 @@ from django.test import SimpleTestCase
 from PIL import Image
 
 from fabricapp.ai.main import generate_tryon_image
-from fabricapp.ai.garments.shirt.builder import _fabric_colour_reference
+from fabricapp.ai.garments.shirt.builder import build_prompt as build_shirt_prompt
 
 
 class GarmentFallbackPromptTests(SimpleTestCase):
@@ -101,6 +101,33 @@ class GarmentFallbackPromptTests(SimpleTestCase):
 
 
 class ShirtFabricColourTests(SimpleTestCase):
+    def test_fine_print_colours_survive_all_shirt_views_and_retry(self):
+        # Thin red stripes on white became pale pink under the old 128px
+        # averaging step. Test the actual routing, not just the sampler.
+        image = Image.new('RGB', (1024, 1024), '#FFFFFF')
+        for x in range(0, 1024, 7):
+            image.paste('#8E2134', (x, 0, min(x + 2, 1024), 1024))
+        source = io.BytesIO(); image.save(source, 'PNG'); source.seek(0)
+        from fabricapp.catalog import edit_config, catalog_plan
+        from fabricapp.ai.references.catalog_reference import get_catalog_reference_path
+        context = {'fabric_image': source, 'garment_type': 'shirt', 'gender': 'men',
+                   'background': 'white_marble_terrace'}
+        for camera in ('front', 'close_up'):
+            config = build_shirt_prompt(scenario='face_photo', context={**context, 'camera_view': camera})
+            self.assertIn('#8E2134', config['prompt'])
+            self.assertIn('#FFFFFF', config['prompt'])
+            self.assertNotIn('SWATCH PALETTE:', config['prompt'])
+            self.assertTrue(config['safety_fallback_prompt'].startswith(config['prompt']))
+            self.assertNotIn('sunlit', config['prompt'])
+            self.assertNotIn('soft warm daylight', config['prompt'])
+        for view in ('back', 'collar', 'cuff', 'hem'):
+            config = edit_config(context, dict(catalog_plan('shirt'))[view], 42,
+                                 reference_template=get_catalog_reference_path('shirt', view), view=view)
+            self.assertIn('#8E2134', config['prompt'])
+            self.assertIn('#FFFFFF', config['prompt'])
+            self.assertIn('If a reference garment looks faded', config['prompt'])
+            self.assertNotIn('sunlit', config['prompt'])
+
     def swatch(self):
         image = Image.new("RGB", (80, 40), "#3e281b")
         image.paste("#1a6b44", (40, 0, 80, 40))
@@ -109,15 +136,15 @@ class ShirtFabricColourTests(SimpleTestCase):
         return SimpleUploadedFile("swatch.png", buffer.getvalue(), "image/png")
 
     def test_palette_retains_multiple_fabric_colours(self):
-        reference = _fabric_colour_reference({"fabric_image": self.swatch()})
+        reference = build_shirt_prompt(scenario="face_photo", context={"fabric_image": self.swatch()})["prompt"]
         self.assertIn("#3E281B", reference)
         self.assertIn("#1A6B44", reference)
 
     def test_palette_uses_same_crop_as_provider_input(self):
-        reference = _fabric_colour_reference({
+        reference = build_shirt_prompt(scenario="face_photo", context={
             "fabric_image": self.swatch(),
             "options": {"fabric_crop_box": [40, 0, 80, 40]},
-        })
+        })["prompt"]
         self.assertIn("#1A6B44", reference)
         self.assertNotIn("#3E281B", reference)
 
@@ -125,7 +152,7 @@ class ShirtFabricColourTests(SimpleTestCase):
         source = self.swatch()
         original = source.read()
         source.seek(13)
-        _fabric_colour_reference({"fabric_image": source})
+        build_shirt_prompt(scenario="face_photo", context={"fabric_image": source})
         self.assertEqual(source.tell(), 13)
         source.seek(0)
         self.assertEqual(source.read(), original)
