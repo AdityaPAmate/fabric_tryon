@@ -161,7 +161,8 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
                               + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),
             **({'output_size_multiple': 32} if reference_template else {}),
             'safety_retry_count': 0}
-    if view == 'back' and data['garment_type'] == 'shirt':
-        config['output_dimensions'] = (864, 1536)
-        config['prompt_version'] += '-rear-crop-v3'
+    if data['garment_type'] == 'shirt' and (reference_template or view == 'back'):
+        from fabricapp.ai.images.catalog_collage import SHIRT_OUTPUT_SIZES
+        config['output_dimensions'] = SHIRT_OUTPUT_SIZES[view]
+        config['prompt_version'] += '-catalog-panel-v2'
     return apply_garment_lighting(config, data['garment_type'], reference_detail=bool(reference_template))

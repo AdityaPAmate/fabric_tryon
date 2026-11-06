@@ -65,8 +65,8 @@ def generate_catalog(data, stopped):
                     data[key].seek(0)
             if camera_view:
                 shot_data = dict(data)
-                if data['garment_type'] == 'shirt' and view == 'front':
-                    shot_data['options'] = {**data.get('options', {}), '_catalog_front': True}
+                if data['garment_type'] == 'shirt':
+                    shot_data['options'] = {**data.get('options', {}), '_catalog_view': view}
                 generation = generate_tryon_image(**shot_data, camera_view=camera_view)
                 if view == 'front':
                     # Keep the reference even if delivery upload fails.

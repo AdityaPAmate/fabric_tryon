@@ -42,6 +42,9 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(engine.call_args.kwargs['prompt_config']['output_dimensions'], (576, 1920))
         generate_catalog_front(**data, camera_view='close_up')
         self.assertNotIn('output_dimensions', engine.call_args.kwargs['prompt_config'])
+        data['options'] = {'draft_mode': False, '_catalog_view': 'close_up'}
+        generate_catalog_front(**data, camera_view='close_up')
+        self.assertEqual(engine.call_args.kwargs['prompt_config']['output_dimensions'], (576, 992))
         data['options'] = {'draft_mode': False}
         generate_catalog_front(**data, camera_view='front')
         self.assertNotIn('output_dimensions', engine.call_args.kwargs['prompt_config'])
@@ -68,13 +71,13 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual([call.kwargs['camera_view'] for call in front.call_args_list], ['front', 'close_up'])
         front_args, close_args = [call.kwargs for call in front.call_args_list]
         self.assertEqual(close_args, {**front_args, 'camera_view': 'close_up',
-                                     'options': {key: value for key, value in front_args['options'].items() if key != '_catalog_front'}})
-        self.assertTrue(front_args['options']['_catalog_front'])
+                                     'options': {**front_args['options'], '_catalog_view': 'close_up'}})
+        self.assertEqual(front_args['options']['_catalog_view'], 'front')
         self.assertEqual(close_args['body_type'], 'trim')
         self.assertEqual(close_args['face_choice'], 'raghav')
         self.assertEqual(edit.call_count, 4)
         self.assertEqual(upload.call_count, 7)
-        self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-v3")
+        self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-v4")
         self.assertFalse(front.call_args.kwargs['options']['draft_mode'])
         for view, call in zip(['back', 'collar', 'cuff', 'hem'], edit.call_args_list):
             template = get_catalog_reference_path('shirt', view)
@@ -200,16 +203,16 @@ class CatalogTests(SimpleTestCase):
             name, source, mime = kwargs['files']['input_image_1']
             self.assertEqual((name, mime), ('garment_source.png', 'image/png'))
             self.assertTrue(source.getvalue().startswith(b'\x89PNG\r\n\x1a\n'))
-            self.assertEqual((kwargs['data']['width'], kwargs['data']['height']), (1536, 1248))
+            self.assertEqual((kwargs['data']['width'], kwargs['data']['height']), (1184, 960))
             result = io.BytesIO()
-            Image.new('RGB', (1536, 1248)).save(result, 'PNG')
+            Image.new('RGB', (1184, 960)).save(result, 'PNG')
             return Mock(status_code=200, headers={'Content-Type': 'image/png'}, content=result.getvalue())
         with patch('fabricapp.ai.providers.cloudflare_engine.requests.post', side_effect=provider):
             result = engine(person_image=io.BytesIO(template.read_bytes()), fabric_image=io.BytesIO(picture()),
                             garment_type='shirt', scenario='person_photo', options={'draft_mode': False},
                             prompt_config=config)
         self.assertEqual(result.effective_seed, 42)
-        self.assertEqual(result.diagnostics['height'], 1248)
+        self.assertEqual(result.diagnostics['height'], 960)
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/photo.png'})
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
@@ -223,6 +226,23 @@ class CatalogTests(SimpleTestCase):
 
 
 class CollageTests(SimpleTestCase):
+    def test_each_shirt_photograph_fills_its_panel_without_losing_edges(self):
+        from fabricapp.ai.images.catalog_collage import compose_catalog, SHIRT_PANELS, SHIRT_OUTPUT_SIZES
+        from PIL import ImageDraw
+        shots = {}
+        for view, size in SHIRT_OUTPUT_SIZES.items():
+            source = Image.new('RGB', size, 'blue')
+            ImageDraw.Draw(source).rectangle((0, 0, size[0] - 1, size[1] - 1), outline='red', width=12)
+            buffer = io.BytesIO(); source.save(buffer, 'PNG'); shots[view] = buffer.getvalue()
+        result = Image.open(io.BytesIO(compose_catalog(shots, picture(), list(SHIRT_PANELS))))
+        for view, (left, top, right, bottom) in SHIRT_PANELS.items():
+            width, height = SHIRT_OUTPUT_SIZES[view]
+            self.assertEqual(width * (bottom - top), height * (right - left))
+            for point in ((left + 1, (top + bottom) // 2), (right - 2, (top + bottom) // 2),
+                          ((left + right) // 2, top + 1), ((left + right) // 2, bottom - 2)):
+                self.assertGreater(result.getpixel(point)[0], 200, view)
+                self.assertLess(result.getpixel(point)[2], 50, view)
+
     def test_shirt_front_panel_retains_native_pixels_without_crop_or_enlargement(self):
         from fabricapp.ai.images.catalog_collage import compose_catalog, SHIRT_FRONT_SIZE, SHIRT_SIZE
         from PIL import ImageDraw
