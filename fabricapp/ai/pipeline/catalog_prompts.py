@@ -98,7 +98,7 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
                 'Do not pull the camera back or show any more of the person. '
             )
     else:
-        anchor_slot = 2 if view == 'three_quarter' else 0
+        anchor_slot = 2 if view == 'three_quarter' or (view == 'back' and data['garment_type'] == 'shirt') else 0
         prompt = (
             f'Create exactly ONE NEW photograph: {shot}. Image {anchor_slot} is the approved front photograph of this catalogue. '
             + ('Image 0 is a blank canvas, not the pose to preserve. Compose the requested new framing and pose '
@@ -116,6 +116,12 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
                    if background else f'BACKGROUND: retain the same actual setting from image {anchor_slot}. ')
         prompt += ('Preserve realistic lighting and fold shading. For details retain the existing construction. '
                    'No collage, panels, swatch inset, text or watermark. ')
+        if view == 'back' and data['garment_type'] == 'shirt':
+            prompt += ('REAR CROP PRIORITY: a new head-to-hip rear close-up, with the complete back '
+                       'of the head and the entire shirt from shoulders to hem filling the frame. '
+                       'The bottom edge stops just below the shirt hem, with only a narrow strip of trousers. '
+                       'No thighs, knees, lower legs or shoes. Image 2 supplies identity and body build, '
+                       'not its full-body framing. Keep the back facing the camera and the face hidden. ')
         if view == 'three_quarter':
             # A compact camera task avoids the long preservation instructions
             # overpowering the requested rotation of a frontal reference.
@@ -155,4 +161,7 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
                               + ('-brown-v2' if 'COLOUR PRIORITY:' in colour else ''),
             **({'output_size_multiple': 32} if reference_template else {}),
             'safety_retry_count': 0}
+    if view == 'back' and data['garment_type'] == 'shirt':
+        config['output_dimensions'] = (864, 1536)
+        config['prompt_version'] += '-rear-crop-v3'
     return apply_garment_lighting(config, data['garment_type'], reference_detail=bool(reference_template))

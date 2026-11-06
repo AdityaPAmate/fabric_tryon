@@ -12,7 +12,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from fabricapp.ai.images.catalog_collage import compose_catalog, LAYOUT
+from fabricapp.ai.images.catalog_collage import compose_catalog, catalog_layout
 from fabricapp.ai.main import generate_tryon_image
 from fabricapp.ai.pipeline.catalog_prompts import catalog_plan, edit_config
 from fabricapp.ai.references.catalog_reference import get_catalog_reference_path
@@ -64,7 +64,10 @@ def generate_catalog(data, stopped):
                 if data.get(key):
                     data[key].seek(0)
             if camera_view:
-                generation = generate_tryon_image(**data, camera_view=camera_view)
+                shot_data = dict(data)
+                if data['garment_type'] == 'shirt' and view == 'front':
+                    shot_data['options'] = {**data.get('options', {}), '_catalog_front': True}
+                generation = generate_tryon_image(**shot_data, camera_view=camera_view)
                 if view == 'front':
                     # Keep the reference even if delivery upload fails.
                     anchor, anchor_seed = generation.image_bytes, generation.effective_seed
@@ -72,7 +75,7 @@ def generate_catalog(data, stopped):
                 generation = generate_edit(
                     person_image=io.BytesIO(template.read_bytes() if template else anchor), fabric_image=data['fabric_image'],
                     garment_type=data['garment_type'], garment_style=data.get('garment_style'),
-                    scenario='person_pose' if view == 'three_quarter' else 'person_photo', options=data.get('options', {}),
+                    scenario='person_pose' if view == 'three_quarter' or (view == 'back' and data['garment_type'] == 'shirt') else 'person_photo', options=data.get('options', {}),
                     prompt_config=edit_config(data, shot, anchor_seed if anchor_seed is not None else data.get('seed', 42),
                                              reference_template=template, view=view),
                 )
@@ -104,7 +107,7 @@ def generate_catalog(data, stopped):
         yield {'event': 'composing'}
         try:
             payload = compose_catalog(shot_bytes, swatch_bytes, [key for key, _ in plan])
-            collage = {**upload_generated_image(payload), 'view': 'catalog', 'layout': LAYOUT,
+            collage = {**upload_generated_image(payload), 'view': 'catalog', 'layout': catalog_layout([key for key, _ in plan]),
                        'source_views': [key for key, _ in plan], 'includes_original_swatch': True}
             yield {'event': 'collage_ready', 'image': collage}
         except Exception:

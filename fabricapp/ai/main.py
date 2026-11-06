@@ -100,6 +100,22 @@ def generate_tryon_image(
         raise CloudflareGenerationError(str(exc)) from exc
 
     prompt_config = apply_garment_lighting(prompt_config, garment_type)
+    if garment_type == 'shirt' and camera_view == 'front' and options.get('_catalog_front'):
+        from fabricapp.ai.images.catalog_collage import SHIRT_FRONT_SIZE
+        prompt_config = dict(prompt_config)
+        prompt_config['output_dimensions'] = (256, 848) if options.get('draft_mode', True) else SHIRT_FRONT_SIZE
+        framing = (' CATALOG FRONT CAMERA: one narrow full-length portrait. Keep the complete person '
+                   'from the top of the hair to both shoes inside the frame, with small margins above '
+                   'and below. The person fills almost the entire image height. Keep the shoulders '
+                   'and arms fully inside the narrow frame, with only thin background margins on '
+                   'both sides. Preserve natural body proportions; do not shrink or stretch the person. ')
+        original = prompt_config['prompt']
+        fallback = prompt_config.get('safety_fallback_prompt')
+        prompt_config['prompt'] = original + framing
+        if fallback:
+            prompt_config['safety_fallback_prompt'] = (prompt_config['prompt'] + fallback[len(original):]
+                if fallback.startswith(original) else fallback + framing)
+        prompt_config['prompt_version'] += '-catalog-front-v1'
 
     # Target interface for the refactored engine:
     # it prepares images and calls the model, but does not build prompts.

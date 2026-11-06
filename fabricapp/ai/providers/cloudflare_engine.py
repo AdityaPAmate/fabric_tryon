@@ -246,6 +246,14 @@ def generate_tryon_image(
         subject_buffer, reference_buffer, out_w, out_h = _build_subject(
             scenario, person_image, face_choice, face_image, max_output_side, pose_reference_path
         )
+        if prompt_config.get('output_dimensions'):
+            out_w, out_h = prompt_config['output_dimensions']
+            if any(not isinstance(value, int) or value < 256 or value > 1920 or value % 8
+                   for value in (out_w, out_h)):
+                raise CloudflareGenerationError('Invalid requested output dimensions.')
+            if scenario in ('face_photo', 'generated_person', 'person_pose'):
+                scale = MAX_INPUT_DIM / max(out_w, out_h)
+                subject_buffer = make_blank_canvas(round(out_w * scale), round(out_h * scale))
         # Catalog templates can have arbitrary aspect ratios. Request a stable
         # model-aligned size rather than accepting a silently rounded response.
         # Ordinary requests retain their existing dimensions and strict validation.
