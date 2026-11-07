@@ -2,13 +2,13 @@
 
 `POST /api/generate-catalog/` remains one multipart POST with an NDJSON stream.
 The event names and success/failure semantics are retained. **Saree now defaults
-to seven-shot `editorial-v1`; shirt retains six-shot `classic-v1`.** Other garments
-retain six-shot classic editions. Counts and views must be read from `started`.
+to seven-panel `editorial-v1`; shirt retains six-panel `classic-v1`.** Other garments
+retain six-panel classic editions. Counts and views must be read from `started`.
 
 ## New optional multipart fields
 
 - `catalog_edition`: an allowlisted edition ID. Omit for the garment default.
-  Saree supports `editorial-v1` and the six-shot compatibility `classic-v1`.
+  Saree supports `editorial-v1` and the six-panel compatibility `classic-v1`.
 - `catalog_product`: a JSON object encoded as a multipart text field. The saree
   editorial edition accepts `title`, `collection`, `subtitle`, `badge`,
   `product_name`, `product_code`, `fabric_description`, `saree_length`,
@@ -32,21 +32,30 @@ The exported collage remains 2200 × 2900, so draft photographs look softer.
 ## Saree editorial shots and references
 
 1. `front`: `saree_royal_front_stand.png`; request person/face reference when supplied.
-2. `side_portrait`: `saree_side_view.png`; uses generated front as identity anchor.
+2. `side_portrait`: generated front supplies identity; the side reference is a fourth, below-face composition guide.
 3. `back_pallu`: separate catalog copy of `back_showing_pallu.jpg`; front identity anchor.
 4. `neckline`: `saree_neckline.png`; front identity/outfit anchor.
 5. `pallu`: `saree_pallu.png`; independent fabric-only template edit.
-6. `border`: `saree_border.png`; independent fabric-only template edit.
+6. `border`: deterministic close crop of generated `pallu`, rather than a new AI edit of the woven-border template. The original border reference remains a layout guide.
 7. `pleats`: `saree_pleats.png`; independent fabric-only template edit.
 
 Templates control pose/drape/crop, while the request swatch controls saree fabric.
-Person shots use provider image 0 = template, image 1 = swatch, image 2 = optional
-identity reference through the existing pose-reference engine. Fabric-only shots
-use images 0 and 1 only. This does not require adding a fourth input image.
+The side shot uses a blank image 0, original swatch image 1, cropped front identity
+image 2, and a below-face pose guide image 3. This avoids the template model's face
+competing with the requested identity. Neckline uses a cropped front identity and
+an explicit lip-to-bust frame. The border panel is a declared local `crop` operation
+with `generation.kind=derived_crop`, `source_view=pallu`, source hash and crop bounds.
+It does not create another AI image or fabricate a macro weave. Seven panels require
+six AI generations in the final implementation. PNG transport preserves the swatch
+without JPEG colour subsampling. Classified provider errors, input hashes and strict
+image-dimension validation are enabled for this edition; legacy single-image saree
+behavior remains unchanged.
+
 The front image is retained before uploading, so its upload failure does not lose
 its identity anchor. Front generation failure skips its three dependent shots;
-independent fabric details can still run. Quota/auth failures stop remaining work.
-No exact identity, border fidelity or colour consistency is guaranteed by prompts.
+pallu and pleats can still run, and border requires a successful pallu. Quota/auth
+failures stop remaining work. Exact physical colour, pattern scale and edge design
+remain generative limitations; the visual evidence below is from one actual input.
 
 The backend composes all seven successful shots into `saree-editorial-v1`, draws
 header/footer text, and uploads the PNG. This edition has no separate swatch inset;
@@ -77,12 +86,33 @@ Use `--shots-dir PATH` instead of `--references` to recompose generated files na
 `front.png`, `side_portrait.png`, etc.; `--product-json PATH` changes product text
 without generating photographs again.
 
-Validation: 95 Django tests, including real local HTTP multipart/storage stand-ins,
-plus tester stream/report checks. Provider responses in automated tests are synthetic;
-no paid Cloudflare generations were made for this change. Reference-only preview
-was visually checked. Live saree quality, identity and fabric fidelity remain unverified.
-Postman CLI could not start because its machine-managed Private Cloud manifest was
-unreadable; local Django/HTTP tests provide the recorded evidence instead.
+Validation: 98 Django tests, 4 tester stream tests and 5 local report tests.
+The suite covers identical prepared swatch bytes across every provider request,
+four-slot reference separation, incorrect output rejection, quota handling and
+border crop provenance with no provider call. Real local HTTP stand-ins separately
+exercise multipart requests and storage behavior.
+
+After explicit approval, 14 real Cloudflare generations and their Cloudinary
+uploads completed on 2026-11-07: a full seven-generation baseline plus seven focused
+rechecks. Every request used the same original blue floral swatch; all prepared
+`input_image_1` hashes match. The final collage uses six selected real photographs
+and a local crop of the generated pallu. It was composed and uploaded without new
+AI calls. See [saree_catalog_live_evidence.json](saree_catalog_live_evidence.json).
+
+Local final output: `output/saree_fabric_catalog.png`; original input:
+`output/saree_fabric_swatch.png`. Full prompts/traces and run results are in
+`debug/saree_fabric_*_20261107/` (gitignored). The first reference-only preview is
+layout evidence only and must not be presented as proof of fabric transfer.
+
+Visual review: all seven final panels show the supplied blue floral print;
+neckline crop and side identity improved. Side rotation remains weaker than the
+supplied guide, and thin edge trim/colour/pattern scale are not physically exact.
+This is not an exhaustive quality guarantee for arbitrary fabrics or faces.
+
+Cloudflare documents four input slots and the input-size limit used here:
+[Workers AI FLUX.2 klein reference](https://developers.cloudflare.com/changelog/post/2026-01-15-flux-2-klein-4b-workers-ai/).
+Postman CLI remained unavailable due to its machine-managed manifest; the evidence
+above comes from Django tests, local HTTP stand-ins and the actual provider runs.
 
 ---
 

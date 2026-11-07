@@ -16,6 +16,10 @@ class Shot:
     scenario: str = "person_photo"
     camera_view: str | None = None
     pipeline_options: dict = field(default_factory=dict)
+    identity_crop: tuple[float, float, float, float] | None = None
+    reference_role: str = "template"
+    composition_crop: tuple[float, float, float, float] | None = None
+    source_crop: tuple[float, float, float, float] | None = None
 
 
 @dataclass(frozen=True)

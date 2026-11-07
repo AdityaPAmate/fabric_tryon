@@ -217,6 +217,8 @@ def generate_tryon_image(
     options=None,
     scenario=None,
     pose_reference_path=None,
+    composition_reference_path=None,
+    composition_reference_crop=None,
     prompt_config=None,
 ):
     """
@@ -268,7 +270,7 @@ def generate_tryon_image(
         else:
             # Keep the existing dimensions and resampling, but avoid JPEG
             # chroma subsampling blurring adjacent shirt/print colours.
-            source_format = "PNG" if garment_type == "shirt" else "JPEG"
+            source_format = prompt_config.get("fabric_source_format") or ("PNG" if garment_type == "shirt" else "JPEG")
             garment_source_buffer = resize_to_fit(
                 fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box"),
                 output_format=source_format,
@@ -295,6 +297,14 @@ def generate_tryon_image(
     }
     if reference_buffer is not None:
         files["input_image_2"] = ("reference.jpg", reference_buffer, "image/jpeg")
+    if composition_reference_path is not None:
+        # A fourth reference supplies framing only, leaving image 2 dedicated to identity.
+        composition_bytes = composition_reference_path.read_bytes()
+        if composition_reference_crop:
+            from fabricapp.ai.images.image_utils import crop_identity_reference
+            composition_bytes = crop_identity_reference(composition_bytes, composition_reference_crop)
+        composition_buffer = resize_to_fit(io.BytesIO(composition_bytes), max_dim=MAX_INPUT_DIM)
+        files["input_image_3"] = ("composition.jpg", composition_buffer, "image/jpeg")
 
     logger.info(
         "Stage 3: calling Cloudflare model=%s size=%sx%s images=%s",
@@ -318,7 +328,8 @@ def generate_tryon_image(
     # Hashes contain neither image contents nor credentials. Saree retains its
     # existing response shape and request behaviour.
     diagnostics = None
-    classified_recovery = uses_classified_recovery(garment_type)
+    # Catalog editions can opt in without changing legacy single-image saree behavior.
+    classified_recovery = uses_classified_recovery(garment_type) or prompt_config.get("classified_recovery", False)
     if classified_recovery:
         diagnostics = {
             "version": f"{garment_type}-trace-v1",

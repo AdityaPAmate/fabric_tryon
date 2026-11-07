@@ -60,3 +60,10 @@ or product length is inferred. Reports retain the product fields, edition and la
 The normal single-image flow is unchanged. Existing deployed servers must be updated
 before using the new catalog fields. The UI source is in this repository; an independently
 installed Desktop tester must be updated separately using the existing installer.
+
+The seven-panel saree edition now uses six AI photographs and one derived fabric
+edge crop. `image.generation.kind=derived_crop` records its source image and bounds;
+reports retain this metadata. This avoids regenerating the supplied white woven
+border design as a product detail. Side identity/pose references are separated;
+neckline has a dedicated close crop. A real blue-floral catalog was live-tested;
+see `docs/saree_catalog_live_evidence.json` for the scope and remaining limitations.

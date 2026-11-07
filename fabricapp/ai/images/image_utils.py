@@ -10,6 +10,20 @@ import io
 from PIL import Image
 
 
+def crop_identity_reference(image_bytes, box):
+    """Declared normalized crop for a known catalog anchor, not face detection."""
+    from PIL import ImageOps
+    with Image.open(io.BytesIO(image_bytes)) as source:
+        source = ImageOps.exif_transpose(source).convert('RGB')
+        left, top, right, bottom = box
+        bounds = (round(left * source.width), round(top * source.height),
+                  round(right * source.width), round(bottom * source.height))
+        image = source.crop(bounds)
+        buffer = io.BytesIO()
+        image.save(buffer, 'PNG')
+        return buffer.getvalue()
+
+
 def resize_to_fit(image_file, max_dim, crop_box=None, *, output_format="JPEG"):
     """
     Resize an uploaded image to fit inside max_dim x max_dim (keeping

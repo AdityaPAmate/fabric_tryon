@@ -48,9 +48,12 @@ flowchart TD
 `pipeline` calls the existing public single-image coordinator with a declared
 camera view and server-only framing options. `anchor_edit` uses the first declared
 dependency as the source, with a declared scenario. `template_edit` uses the
-registered reference file. An optional identity source is either `request` or a
-declared dependency; the existing pose-reference provider route supports template,
-fabric and identity in its three image slots.
+registered reference file. `crop` derives a panel from an earlier generated image
+using normalized crop bounds, records source provenance and makes no AI call. An optional identity source is either `request` or a
+declared dependency; the existing pose-reference route supports template, fabric and identity. An
+optional fourth composition guide has its own declared crop; saree side guidance
+excludes the template face. Identity crops apply only to the known centered front
+anchor and are not automatic face detection.
 
 Dependencies are based on successful generation, not successful delivery upload.
 All edition shots are currently required for collage composition. Individual
@@ -88,4 +91,7 @@ Header/footer recomposition can run locally from saved photographs with
 `tools/preview_catalog.py --shots-dir PATH`; it performs no AI call or upload.
 Reference-only previews demonstrate placement and typography, not generated
 cross-view consistency. Synthetic-provider tests establish plumbing and failure
-behavior only. Live saree output still needs visual evaluation.
+behavior only. Live saree output was visually reviewed with one blue floral swatch and the Anaya
+face: 14 actual generations, with consistent fabric input hashes. Final composition
+uses six real photographs and a derived pallu edge crop. See
+`docs/saree_catalog_live_evidence.json` and the current catalog API notes for limits.

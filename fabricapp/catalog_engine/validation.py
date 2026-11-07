@@ -9,13 +9,34 @@ def validate_definition(definition, product=None):
     for shot in shots:
         if not shot.key or shot.key in seen:
             raise ValueError("Catalog shot keys must be nonempty and unique")
-        if shot.operation not in {"pipeline", "anchor_edit", "template_edit"}:
+        if shot.operation not in {"pipeline", "anchor_edit", "template_edit", "crop"}:
             raise ValueError(f"Unknown operation for {shot.key}")
+        if shot.reference_role not in {'template', 'composition', 'layout'}:
+            raise ValueError(f"Unknown reference role for {shot.key}")
+        if shot.reference_role == 'composition' and (
+            shot.operation != 'anchor_edit' or shot.scenario != 'person_pose' or
+            not shot.reference or not shot.reference.is_file()
+        ):
+            raise ValueError(f"Composition reference needs an anchor and pose generation: {shot.key}")
         if any(key not in seen for key in shot.dependencies):
             raise ValueError(f"Dependencies must precede {shot.key}")
         if shot.identity_from not in (None, "request"):
             if shot.identity_from not in shot.dependencies:
                 raise ValueError(f"Identity source must be a dependency: {shot.key}")
+        if shot.identity_crop:
+            left, top, right, bottom = shot.identity_crop
+            if not shot.identity_from or not (0 <= left < right <= 1 and 0 <= top < bottom <= 1):
+                raise ValueError(f"Invalid identity crop for {shot.key}")
+        if shot.composition_crop:
+            left, top, right, bottom = shot.composition_crop
+            if shot.reference_role != 'composition' or not (0 <= left < right <= 1 and 0 <= top < bottom <= 1):
+                raise ValueError(f"Invalid composition crop for {shot.key}")
+        if shot.operation == 'crop':
+            if not shot.dependencies or not shot.source_crop:
+                raise ValueError(f"Crop needs a source and bounds: {shot.key}")
+            left, top, right, bottom = shot.source_crop
+            if not (0 <= left < right <= 1 and 0 <= top < bottom <= 1):
+                raise ValueError(f"Invalid source crop for {shot.key}")
         if shot.operation == "anchor_edit" and not shot.dependencies:
             raise ValueError(f"Anchor edit needs a dependency: {shot.key}")
         if shot.operation == "template_edit" and (not shot.reference or not shot.reference.is_file()):

@@ -1,0 +1,209 @@
+{
+  "date": "2026-11-07",
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "live_generations": 14,
+  "all_fabric_inputs_identical": true,
+  "fabric_input_sha256": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+  "original_swatch_sha256": "dc294c85dce8801e6ae820e785c5b6608a5821f17c867b7edd3b5e88823b95ce",
+  "source": "Previously supplied blue floral swatch from project local test artifacts",
+  "runs": [
+    {
+      "run": "full_catalog",
+      "view": "front",
+      "seed": 42,
+      "size": [
+        1056,
+        1344
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "full_catalog",
+      "view": "side_portrait",
+      "seed": 42,
+      "size": [
+        512,
+        768
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "full_catalog",
+      "view": "back_pallu",
+      "seed": 42,
+      "size": [
+        512,
+        768
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "full_catalog",
+      "view": "neckline",
+      "seed": 42,
+      "size": [
+        1024,
+        544
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "full_catalog",
+      "view": "pallu",
+      "seed": 42,
+      "size": [
+        1056,
+        768
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "full_catalog",
+      "view": "border",
+      "seed": 42,
+      "size": [
+        1056,
+        384
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "full_catalog",
+      "view": "pleats",
+      "seed": 42,
+      "size": [
+        1024,
+        1184
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "saree_fabric_refinements_20261107",
+      "view": "side_portrait",
+      "seed": 42,
+      "size": [
+        512,
+        768
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "saree_fabric_refinements_20261107",
+      "view": "neckline",
+      "seed": 42,
+      "size": [
+        1024,
+        544
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "saree_fabric_refinements_20261107",
+      "view": "border",
+      "seed": 42,
+      "size": [
+        1056,
+        384
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "saree_fabric_composition_recheck_20261107",
+      "view": "side_portrait",
+      "seed": 42,
+      "size": [
+        512,
+        768
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "saree_fabric_composition_recheck_20261107",
+      "view": "border",
+      "seed": 42,
+      "size": [
+        1056,
+        384
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "saree_fabric_final_recheck_20261107",
+      "view": "side_portrait",
+      "seed": 42,
+      "size": [
+        512,
+        768
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "run": "saree_fabric_final_recheck_20261107",
+      "view": "border",
+      "seed": 42,
+      "size": [
+        1056,
+        384
+      ],
+      "fabric_input_hash": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "http_statuses": [
+        200
+      ]
+    }
+  ],
+  "final_catalog": {
+    "generated_photos": 6,
+    "derived_panels": 1,
+    "derived_panel": "border",
+    "derived_from": "pallu",
+    "layout": [
+      2200,
+      2900
+    ],
+    "note": "Final layout recomposed from baseline photos, focused side/neckline rechecks and a deterministic pallu crop; no new AI calls during composition."
+  },
+  "limitations": [
+    "Side pose is less oblique than the supplied side template.",
+    "Generative colour, motif scale and narrow edge trim are not physically exact across every panel.",
+    "One swatch and one selected face were live-tested; this is not exhaustive input coverage."
+  ]
+}
