@@ -1,10 +1,9 @@
 # Catalog API: current six-panel saree edition
 
-The saree catalog now matches the supplied **White Saree Double-Stripe Detail
-Collage** arrangement: one full-height photograph at left, two middle photographs,
-and three right-hand details. Output is exactly **1800 x 3200 (9:16)**, with 12px
+The saree catalog now matches the supplied **white_saree_catalog_final_corrected_3x4.png** arrangement: one full-height photograph at left, two middle photographs,
+and three right-hand details. Output is exactly **1800 x 2400 (3:4)**, with 12px
 white gutters and no header, footer, text, product labels or separate swatch inset.
-The layout ID is `saree-six-panel-9x16-v3`; the existing `editorial-v1` edition ID
+The layout ID is `saree-six-panel-3x4-v4`; the existing `editorial-v1` edition ID
 is retained so callers do not need to change their request.
 
 ## Request and response
@@ -14,7 +13,7 @@ from `/api/replace-fabric/`. Supply `fabric_image` and `garment_type`; garment-i
 mode is unsupported. Omit `pose` and `camera_view`: the catalog owns its shots.
 Existing style, material, model and garment-detail validation still applies.
 `options.draft_mode=false` is the default. Explicit draft reduces ordinary shot
-provider dimensions, while the final export canvas remains 1800 x 3200.
+provider dimensions, while the final export canvas remains 1800 x 2400.
 
 `catalog_edition` is optional. `catalog_product` is still accepted for older clients
 with the same allowed fields, but **all metadata is ignored by this image-only
@@ -26,8 +25,8 @@ image_failed, composing, collage_ready, complete. Read `started.total` and its v
 rather than assuming seven images. The saree total is now **6**.
 
 Ready images contain view, URL, size, seed, provider diagnostics, framing and
-reference metadata. The collage includes `width=1800`, `height=3200`,
-`aspect_ratio="9:16"`, `layout="saree-six-panel-9x16-v3"` and
+reference metadata. The collage includes `width=1800`, `height=2400`,
+`aspect_ratio="3:4"`, `layout="saree-six-panel-3x4-v4"` and
 `includes_original_swatch=false`. Individual image dimensions differ by panel.
 
 ## Six shots and the replacement references
@@ -41,8 +40,8 @@ reference metadata. The collage includes `width=1800`, `height=3200`,
 
 The old seven catalog reference images were removed from
 `ai/references/assets/catalog/saree/`. Only these six numbered images and their
-SHA-256 manifest remain. Downloads originals and normal single-image pose assets
-are preserved. The extra unnumbered downloaded photograph is not used.
+SHA-256 manifest remain. The six panels are now cropped from the supplied final 3:4 collage; the manifest records source hash and crop coordinates. Downloads originals and normal single-image pose assets
+are preserved.
 
 The former neckline and separate pallu-detail shots are no longer generated.
 All six panels fill their declared rectangles proportionally, with small crops
@@ -86,10 +85,10 @@ in-flight provider call are retained. There is no durable queue or resume API.
 Successful shots remain available if another shot fails; all six are required
 for the final collage. Quota/auth failures stop additional provider calls.
 
-Local checks: 109 Django tests, 4 stream tests and 5 report tests. They include
+Historical checks before the 3:4 revision: 109 Django tests, 4 stream tests and 5 report tests. They include
 actual local HTTP multipart/storage stand-ins, six-shot totals, reference hashes,
 independent failure behavior, identical swatch input hashes, no identity input for
-back-pallu, exact panel placement, text-free rendering and exact 9:16 dimensions.
+back-pallu, exact panel placement and text-free rendering. Those paid outputs used the previous 9:16 layout, not this 3:4 revision.
 
 A reference-only layout proof is saved separately from any generated-fabric result:
 
@@ -104,3 +103,26 @@ Historical live evidence for previous layouts remains in the earlier JSON report
 
 See [catalog_architecture.md](catalog_architecture.md) for shared execution and
 extension points. Pushing source does not itself verify a hosting deployment.
+
+## Main body and side-border source regions (3:4 revision)
+
+The upper-right body texture and middle-right border use separate prompt builders.
+`options.fabric_body_crop_box` and `options.fabric_border_crop_box` accept optional
+`[left, upper, right, lower]` integer coordinates in the ORIGINAL uploaded fabric
+image. These are catalog-only saree options. Invalid or out-of-bounds regions return
+400 before generation. Both browser forms expose these optional region inputs.
+
+Body uses its explicit crop, otherwise `fabric_crop_box`, otherwise full source.
+Border uses its explicit crop, otherwise the full original source, even when the
+global crop excludes the edge. Each selected region is physically cropped BEFORE
+resizing/PNG encoding for input_image_1, and colour conditioning uses the same
+region. Config records `fabric_region`, `fabric_region_selection`, and the crop.
+These values describe input selection, not verified visual extraction success.
+
+For accurate decorative border reproduction, upload a photograph showing the real
+long edge alongside body cloth and select it. A body-only swatch cannot reveal an
+unseen decorative border. In that case the prompt requests a plain finished edge
+and forbids inheriting template black stripes or inventing zari/embroidery.
+AI can still deviate; live visual validation of this revision is pending.
+The lower-right reference now shows waist-to-hem pleats with the hanging pallu.
+Back-pallu remains pose + fabric only, without identity inputs.

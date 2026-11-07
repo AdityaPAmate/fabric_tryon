@@ -1,15 +1,15 @@
-"""Six photographs, three columns, no typography; exact 9:16 export."""
+"""Six photographs, three columns, no typography; exact 3:4 export."""
 from fabricapp.catalog_engine.contracts import Layout, Panel
 
-SIZE = (1800, 3200)
+SIZE = (1800, 2400)
 GUTTER = 12
 PANELS = {
-    'front': (0, 0, 736, 3200),
-    'side_portrait': (748, 0, 1272, 1456),
-    'back_pallu': (748, 1468, 1272, 3200),
-    'fabric_texture': (1284, 0, 1800, 1024),
-    'border': (1284, 1036, 1800, 1920),
-    'pleats': (1284, 1932, 1800, 3200),
+    'front': (0, 0, 704, 2400),
+    'side_portrait': (716, 0, 1256, 1164),
+    'back_pallu': (716, 1176, 1256, 2400),
+    'fabric_texture': (1268, 0, 1800, 820),
+    'border': (1268, 832, 1800, 1536),
+    'pleats': (1268, 1548, 1800, 2400),
 }
 
 
@@ -25,6 +25,6 @@ OUTPUT_SIZES = {key: _generation_size(box) for key, box in PANELS.items()}
 
 def get_layout(product=None):
     # Legacy product metadata is accepted by the API but deliberately never drawn.
-    return Layout('saree-six-panel-9x16-v3', SIZE,
+    return Layout('saree-six-panel-3x4-v4', SIZE,
                   tuple(Panel(key, box, 'cover') for key, box in PANELS.items()),
                   background='white')

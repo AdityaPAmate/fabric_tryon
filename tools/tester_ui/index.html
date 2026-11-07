@@ -233,6 +233,16 @@
                 <input id="fabric-crop-box" placeholder="left, upper, right, lower — original image pixels">
                 <small>Leave blank to use the whole swatch. Example: 0, 0, 400, 600.</small>
               </label>
+              <label data-saree-detail-crop class="field field-wide hidden">
+                <span>Main body region (optional, saree catalog)</span>
+                <input id="fabric-body-crop-box" placeholder="left, upper, right, lower">
+                <small>Original fabric pixels. Select body cloth without border. Blank uses the fabric crop above.</small>
+              </label>
+              <label data-saree-detail-crop class="field field-wide hidden">
+                <span>Side border region (optional, saree catalog)</span>
+                <input id="fabric-border-crop-box" placeholder="left, upper, right, lower">
+                <small>Include the actual long edge and adjacent body. Blank uses the whole original fabric photo. An unseen border cannot be recovered.</small>
+              </label>
               <label class="field"
                 ><span>Output quality</span
                 ><select id="draft-mode" name="draft_mode">

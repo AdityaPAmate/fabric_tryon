@@ -1,4 +1,4 @@
-"""Reference routing, real side-border shots and exact 9:16 export contracts."""
+"""Reference routing, real side-border shots and exact 3:4 export contracts."""
 import io
 import threading
 from dataclasses import replace
@@ -119,7 +119,7 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         config = definition.build_config(data(), shot, 42)
         self.assertIn('LONG SIDE BORDER / SELVEDGE', config['prompt'])
         self.assertIn('not the main body print', config['prompt'])
-        self.assertIn('plain narrow stitched selvedge', config['prompt'])
+        self.assertIn('plain finished edge', config['prompt'])
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.test/a.png'})
     @patch('fabricapp.catalog.generate_edit')
@@ -130,11 +130,12 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         self.assertIn('border', [image['view'] for image in events[-1]['images']])
         self.assertEqual(edit.call_count, 6)
 
-    def test_all_default_catalog_exports_are_exactly_9_by_16(self):
+    def test_saree_is_3_by_4_and_other_defaults_stay_9_by_16(self):
         for garment in DEFAULTS:
             layout = get_definition(garment).layout({})
-            self.assertEqual(layout.size[0] * 16, layout.size[1] * 9, garment)
-        self.assertEqual(get_definition('saree').layout({}).size, (1800, 3200))
+            ratio = (3, 4) if garment == 'saree' else (9, 16)
+            self.assertEqual(layout.size[0] * ratio[1], layout.size[1] * ratio[0], garment)
+        self.assertEqual(get_definition('saree').layout({}).size, (1800, 2400))
 
     def test_layout_matches_reference_crops_and_has_no_header_footer_or_unused_space(self):
         definition = get_definition('saree')
@@ -146,7 +147,7 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         colors = ['red', 'green', 'blue', 'yellow', 'cyan', 'magenta']
         shots = {shot.key: picture(color) for shot, color in zip(definition.shots, colors)}
         output = Image.open(io.BytesIO(render_catalog(shots, b'', layout)))
-        self.assertEqual(output.size, (1800, 3200))
+        self.assertEqual(output.size, (1800, 2400))
         used_area = 0
         for panel, color in zip(layout.panels, colors):
             left, top, right, bottom = panel.box
@@ -158,4 +159,4 @@ class SareeCatalogReferenceTests(SimpleTestCase):
             with Image.open(reference) as image:
                 self.assertLess(abs((image.width/image.height)/((right-left)/(bottom-top))-1), .06)
         from collections import Counter
-        self.assertEqual(Counter(output.getdata())[(255, 255, 255)], 1800*3200-used_area)
+        self.assertEqual(Counter(output.getdata())[(255, 255, 255)], 1800*2400-used_area)

@@ -3,6 +3,7 @@ from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.scene.backgrounds import get_background_description
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.garments.saree.catalog.layout import OUTPUT_SIZES
+from fabricapp.ai.garments.saree.catalog.detail_prompts import build_detail_config
 
 
 def _reference_output_size(data, shot):
@@ -29,34 +30,6 @@ def _back_reference_config(data, shot, seed):
             'prompt_version': 'saree-catalog-normal-back-reference-v1',
             'safety_retry_count': 0, 'fabric_source_format': 'PNG', 'classified_recovery': True,
             'forbid_identity_references': True}
-
-
-def _side_border_config(data, shot, seed):
-    prompt = (
-        'Edit image 0 into a product close-up of the saree LONG SIDE BORDER / SELVEDGE. '
-        'Image 0 supplies the actual outer-edge position, curved fold, edge-strip width and crop. '
-        'Image 1 supplies the product fabric design. The border is the continuous narrow strip '
-        'running along the SIDE of the saree, not the main body print and not the broad pallu end. '
-        'Keep the outer cloth boundary clearly visible with background immediately outside it. '
-        'Replace the main cloth inside that edge with image 1, preserving its colours and motifs. '
-        'If image 1 shows an actual distinct border, reproduce that edge design only in the edge strip. '
-        'If image 1 is only body fabric, finish the side with a plain narrow stitched selvedge '
-        'coordinated with its base colour; do not invent zari, embroidery or a decorative woven band. '
-        'Do not fill the border strip with a zoomed crop of scattered body motifs. '
-        'Retain realistic cloth thickness, the turned edge and gentle fold shadows. '
-        'Show the side edge across the photograph, with a small adjoining area of body cloth. '
-        'No model, hands, floor-length pleats, swatch inset, text or collage. '
-    )
-    config = {'prompt': prompt, 'seed': seed, 'guidance': data.get('guidance', 7),
-              'prompt_version': 'saree-catalog-side-border-v1', 'safety_retry_count': 0,
-              'output_dimensions': _reference_output_size(data, shot),
-              'fabric_source_format': 'PNG', 'classified_recovery': True}
-    config = apply_fabric_conditioning(config, data, 'saree')
-    config['prompt_version'] = 'saree-catalog-side-border-v1'
-    config['prompt'] += (' FINAL EDGE CHECK: show the true long side edge, its finished narrow strip '
-                         'and adjacent body as separate regions. Preserve the complete curved edge '
-                         'from image 0; do not replace this shot with body-print detail or a pallu crop. ')
-    return config
 
 
 def _side_portrait_config(data, shot, seed):
@@ -94,8 +67,8 @@ def build_config(data, shot, seed):
         return _side_portrait_config(data, shot, seed)
     if shot.key == 'back_pallu':
         return _back_reference_config(data, shot, seed)
-    if shot.key == 'border':
-        return _side_border_config(data, shot, seed)
+    if shot.key in ('fabric_texture', 'border'):
+        return build_detail_config(data, shot, seed)
     identity = bool(shot.identity_from and (shot.identity_from != 'request' or
                     data.get('person_image') or data.get('face_image') or data.get('face_choice')))
     prompt = (

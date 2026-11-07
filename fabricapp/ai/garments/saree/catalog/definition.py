@@ -14,7 +14,7 @@ SHOTS = tuple(
         ('back_pallu', 'rear-facing full-length reference pose, both hands holding the broad diagonal pallu open, complete head and entire pallu edge visible', 'rear_full_body', None),
         ('fabric_texture', 'extreme close-up of the original fabric surface and weave over soft shallow folds; fill the frame with cloth only, without any border or hem', 'fabric_texture_detail', None),
         ('border', 'close-up of the saree long SIDE EDGE: a narrow continuous border or finished selvedge beside the main body cloth, with the outer edge and background clearly visible', 'side_border_detail', None),
-        ('pleats', 'fabric-only vertical pleats and lower saree hem, no head or upper torso', 'pleats_detail', None),
+        ('pleats', 'fabric-only waist-to-hem front pleats with the hanging pallu edge beside them, no head or hands', 'pleats_detail', None),
     )
 )
 def validate_request(data):

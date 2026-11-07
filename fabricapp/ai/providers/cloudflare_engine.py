@@ -281,7 +281,7 @@ def generate_tryon_image(
             # chroma subsampling blurring adjacent shirt/print colours.
             source_format = prompt_config.get("fabric_source_format") or ("PNG" if garment_type == "shirt" else "JPEG")
             garment_source_buffer = resize_to_fit(
-                fabric_image, max_dim=MAX_INPUT_DIM, crop_box=options.get("fabric_crop_box"),
+                fabric_image, max_dim=MAX_INPUT_DIM, crop_box=prompt_config.get("fabric_crop_box", options.get("fabric_crop_box")),
                 output_format=source_format,
             )
             source_name, source_mime = (("garment_source.png", "image/png") if source_format == "PNG"
@@ -361,6 +361,10 @@ def generate_tryon_image(
             },
             "attempts": [],
         }
+        if prompt_config.get('fabric_region'):
+            diagnostics['fabric_region'] = prompt_config['fabric_region']
+            diagnostics['fabric_region_selection'] = prompt_config['fabric_region_selection']
+            diagnostics['fabric_crop_box'] = prompt_config.get('fabric_crop_box')
 
     def generation_error(message, **kwargs):
         if diagnostics is not None:

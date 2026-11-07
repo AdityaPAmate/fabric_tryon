@@ -1,3 +1,15 @@
+# Current saree revision: 3:4
+
+Saree exports 1800 x 2400 using `saree-six-panel-3x4-v4`. Other garment layouts
+retain their existing ratios. The six catalog templates are panel crops from
+the user-provided `white_saree_catalog_final_corrected_3x4.png`.
+Separate body/border prompt builders and optional physical source-region crops
+are documented in [catalog.md](catalog.md). Back-pallu never uses identity inputs.
+The backend owns generated shots, layout composition and exported dimensions;
+the frontend supplies fabric/region selections and displays the returned export.
+
+The following notes describe earlier revisions and their historical evidence.
+
 # Current saree layout revision
 
 The default saree edition now declares six shots and an image-only 9:16 layout

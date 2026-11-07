@@ -1,50 +1,92 @@
 {
   "01_front_pallu.png": {
-    "sha256": "2ce760bcc5b26d7ba523a97aab18863a8db8b5dcf1b4e0b8bfc6f89799e2557a",
-    "source": "User numbered Downloads reference, copied without modification",
+    "sha256": "cac4a6bd36b3ddb5c05a867d24d6f2f5b91a309de7b4b382d8277ae9eedb476b",
+    "source": "white_saree_catalog_final_corrected_3x4.png",
+    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
+    "crop_box": [
+      0,
+      0,
+      424,
+      1448
+    ],
     "size": [
-      1516,
-      6684
+      424,
+      1448
     ]
   },
   "02_three_quarter.png": {
-    "sha256": "2d5001e95b58dba6d85ff55d7f96dea4441bd1d23e89fa69cd70dba6852306cc",
-    "source": "User numbered Downloads reference, copied without modification",
+    "sha256": "eccf43c6d508d84a29bb1e938549a22b3fff3f9223da2aa52110cd26e5462f42",
+    "source": "white_saree_catalog_final_corrected_3x4.png",
+    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
+    "crop_box": [
+      432,
+      0,
+      759,
+      702
+    ],
     "size": [
-      1080,
-      3004
+      327,
+      702
     ]
   },
   "03_back_view.png": {
-    "sha256": "bdd6b819440fe0253e5673c652a8761e086870a587fb14c022d131b3824c056d",
-    "source": "User numbered Downloads reference, copied without modification",
+    "sha256": "6193380b6c5901899066d3cd35cd00a35eb53f8f2a7f6cd3b2c6010ee916b784",
+    "source": "white_saree_catalog_final_corrected_3x4.png",
+    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
+    "crop_box": [
+      432,
+      709,
+      759,
+      1448
+    ],
     "size": [
-      1080,
-      3644
+      327,
+      739
     ]
   },
   "04_fabric_texture.png": {
-    "sha256": "4d2d7632828434de8eaafdd843bd014abbd42bc9463c18eee4fc18df80c5a0b2",
-    "source": "User numbered Downloads reference, copied without modification",
+    "sha256": "5c48c89c748fd96054c0d514bca23951ecfdeb6632dc861097d47fcf97dc345c",
+    "source": "white_saree_catalog_final_corrected_3x4.png",
+    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
+    "crop_box": [
+      766,
+      0,
+      1086,
+      495
+    ],
     "size": [
-      1104,
-      2092
+      320,
+      495
     ]
   },
   "05_border_closeup.png": {
-    "sha256": "115544df259415665099e79013441f83a831e3316ebf92b579b217ced546c99d",
-    "source": "User numbered Downloads reference, copied without modification",
+    "sha256": "3d54f955f0522d5ad12e582ba74e1dd0bfb4af85824b59dd72ac5709e0a56f2d",
+    "source": "white_saree_catalog_final_corrected_3x4.png",
+    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
+    "crop_box": [
+      766,
+      502,
+      1086,
+      927
+    ],
     "size": [
-      1104,
-      1836
+      320,
+      425
     ]
   },
   "06_pleats_hem.png": {
-    "sha256": "8b9c37921e16adad3e90eb7bca0e85e3512a43c407f000feaba7d03fb01891b1",
-    "source": "User numbered Downloads reference, copied without modification",
+    "sha256": "ae1491732dfb284de69f58daffb1f3ae094b8e24dc8a4979684d621d8c8c42df",
+    "source": "white_saree_catalog_final_corrected_3x4.png",
+    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
+    "crop_box": [
+      766,
+      934,
+      1086,
+      1448
+    ],
     "size": [
-      1104,
-      2700
+      320,
+      514
     ]
   }
 }

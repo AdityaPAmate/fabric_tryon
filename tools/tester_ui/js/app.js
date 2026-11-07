@@ -65,6 +65,11 @@ function setGenerationMode() {
   generationMode.querySelector('[value="catalog"]').disabled = !fabric;
   if (!fabric) generationMode.value = 'single';
   const catalog = generationMode.value === 'catalog';
+  document.querySelectorAll('[data-saree-detail-crop]').forEach(field => {
+    const enabled = fabric && catalog && garmentType.value === 'saree';
+    field.classList.toggle('hidden', !enabled);
+    field.querySelector('input').disabled = !enabled;
+  });
   document.querySelector('#fabric-type-field').classList.toggle('hidden', !fabric);
   document.querySelector('#fabric-crop-field').classList.toggle('hidden', !fabric);
   fabricType.disabled = !fabric;
@@ -73,7 +78,7 @@ function setGenerationMode() {
   document.querySelector('#camera-view').disabled = catalog;
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
   document.querySelector('#mode-help').textContent = catalog
-    ? 'One request generates the garment’s catalog shots and a finished collage. Saree uses six reference views in a 9:16 image-only collage; shirt uses six. Keep this page open. Pose and camera selections are ignored.'
+    ? 'One request generates the garment’s catalog shots and a finished collage. Saree uses six reference views in a 3:4 image-only collage; shirt uses six. Keep this page open. Pose and camera selections are ignored.'
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
 }
@@ -543,6 +548,23 @@ form.addEventListener("submit", async (event) => {
       return;
     }
     options.fabric_crop_box = box;
+  }
+  if (usesFabric && isCatalog && garmentType.value === 'saree') {
+    for (const region of ['body', 'border']) {
+      const raw = document.querySelector(`#fabric-${region}-crop-box`).value.trim();
+      if (!raw) continue;
+      const values = raw.split(',');
+      const box = values.map(value => Number(value.trim()));
+      if (values.some(value => !value.trim()) || box.length !== 4 || !box.every(Number.isInteger) ||
+          box[0] < 0 || box[1] < 0 || box[2] <= box[0] || box[3] <= box[1]) {
+        showError(`${region} crop must be left, upper, right, lower in original fabric pixels.`);
+        statusMessage.textContent = 'Request failed.';
+        generateButton.disabled = false;
+        setGenerationMode();
+        return;
+      }
+      options[`fabric_${region}_crop_box`] = box;
+    }
   }
   payload.append('options', JSON.stringify(options));
 

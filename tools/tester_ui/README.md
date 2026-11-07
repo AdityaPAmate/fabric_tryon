@@ -12,7 +12,7 @@ final collage. Actual totals, layout and aspect ratio come from stream events.
 
 ## Current saree catalog
 
-Six photographs in the supplied three-column arrangement, 1800 x 3200 (9:16):
+Six photographs in the supplied three-column arrangement, 1800 x 2400 (3:4):
 front at left; side and back in the middle; texture, border and pleats at right.
 There is no header, footer, product text or swatch inset, and the unused product
 text inputs have been removed. The old seven-image catalog references are replaced
@@ -40,3 +40,5 @@ available; the backend cannot resume a job after refresh or process restart.
 
 Backend contract and live evidence: `docs/catalog.md`. Reference-only previews
 prove layout only; paid live tests separately check actual fabric transfer.
+
+Saree now exports 3:4 (1800 x 2400). Advanced options provide separate optional main-body and long-side-border crops in original fabric pixels. Border defaults to the complete original photo; a body-only swatch cannot establish a decorative border.

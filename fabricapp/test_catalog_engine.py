@@ -111,9 +111,9 @@ class SareeCatalogTests(SimpleTestCase):
         response.close()
         self.assertEqual(events[0]['total'], 6)
         self.assertEqual(events[-1]['status'], 'completed')
-        self.assertEqual(events[-1]['collage']['layout'], 'saree-six-panel-9x16-v3')
-        self.assertEqual(events[-1]['collage']['aspect_ratio'], '9:16')
-        self.assertEqual((events[-1]['collage']['width'], events[-1]['collage']['height']), (1800, 3200))
+        self.assertEqual(events[-1]['collage']['layout'], 'saree-six-panel-3x4-v4')
+        self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
+        self.assertEqual((events[-1]['collage']['width'], events[-1]['collage']['height']), (1800, 2400))
         self.assertFalse(events[-1]['collage']['includes_original_swatch'])
         self.assertEqual(edit.call_count, 6)
         self.assertEqual(upload.call_count, 7)
@@ -139,7 +139,7 @@ class SareeCatalogTests(SimpleTestCase):
                 self.assertNotIn('face_image', call.kwargs)
             if shot.reference_role == 'composition':
                 self.assertEqual(call.kwargs['composition_reference_path'], shot.reference)
-        self.assertEqual(Image.open(io.BytesIO(upload.call_args.args[0])).size, (1800, 3200))
+        self.assertEqual(Image.open(io.BytesIO(upload.call_args.args[0])).size, (1800, 2400))
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/image.png'})
     @patch('fabricapp.catalog.generate_edit')
