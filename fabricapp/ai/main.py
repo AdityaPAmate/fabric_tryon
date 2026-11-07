@@ -100,28 +100,18 @@ def generate_tryon_image(
         raise CloudflareGenerationError(str(exc)) from exc
 
     prompt_config = apply_garment_lighting(prompt_config, garment_type)
-    catalog_view = options.get('_catalog_view') or ('front' if options.get('_catalog_front') else None)
-    if garment_type == 'shirt' and camera_view in ('front', 'close_up') and catalog_view == camera_view:
-        from fabricapp.ai.images.catalog_collage import SHIRT_OUTPUT_SIZES
+    catalog_config = options.get('_catalog_config')
+    if catalog_config:
         prompt_config = dict(prompt_config)
-        prompt_config['output_dimensions'] = SHIRT_OUTPUT_SIZES[camera_view]
-        framing = (' CATALOG FRONT CAMERA: one narrow full-length portrait. Keep the complete person '
-                   'from the top of the hair to both shoes inside the frame, with small margins above '
-                   'and below. The person fills almost the entire image height. Keep the shoulders '
-                   'and arms fully inside the narrow frame, with only thin background margins on '
-                   'both sides. Preserve natural body proportions; do not shrink or stretch the person. ')
-        if camera_view == 'close_up':
-            framing = (' CATALOG CLOSE-UP CAMERA: fill this portrait panel from the top of the hair '
-                       'to just below the shirt hem. Keep small top and bottom margins and little '
-                       'background beside the shoulders. Preserve the complete shirt, head and '
-                       'natural body proportions. The frame ends at the hips, not at the knees or shoes. ')
+        prompt_config['output_dimensions'] = catalog_config['output_dimensions']
         original = prompt_config['prompt']
         fallback = prompt_config.get('safety_fallback_prompt')
+        framing = catalog_config.get('framing', '')
         prompt_config['prompt'] = original + framing
         if fallback:
             prompt_config['safety_fallback_prompt'] = (prompt_config['prompt'] + fallback[len(original):]
                 if fallback.startswith(original) else fallback + framing)
-        prompt_config['prompt_version'] += '-catalog-panel-v2'
+        prompt_config['prompt_version'] = prompt_config.get('prompt_version', '') + catalog_config.get('version_suffix', '')
 
     # Target interface for the refactored engine:
     # it prepares images and calls the model, but does not build prompts.

@@ -69,11 +69,12 @@ function setGenerationMode() {
   document.querySelector('#fabric-crop-field').classList.toggle('hidden', !fabric);
   fabricType.disabled = !fabric;
   document.querySelector('#fabric-crop-box').disabled = !fabric;
+  document.querySelector('#catalog-product-fields').classList.toggle('hidden', !catalog || garmentType.value !== 'saree');
   poseSelect.disabled = catalog;
   document.querySelector('#camera-view').disabled = catalog;
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
   document.querySelector('#mode-help').textContent = catalog
-    ? 'One request: front, a second portrait view, rear close-up and three garment-specific details. Keep this page open. A fixed portrait collage appears when all views are ready. Pose and camera selections are ignored.'
+    ? 'One request generates the garment’s catalog shots and a finished collage. Saree uses seven reference views; shirt uses six. Keep this page open. Pose and camera selections are ignored.'
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
 }
@@ -359,7 +360,7 @@ async function saveOutputLocally(url, format) {
 }
 
 gender.addEventListener("change", setFaces);
-garmentType.addEventListener("change", setGarmentStyles);
+garmentType.addEventListener("change", () => { setGarmentStyles(); setGenerationMode(); });
 garmentStyle.addEventListener("change", setGarmentDetails);
 garmentSource.addEventListener("change", setGarmentSourceMode);
 personImage.addEventListener("change", setPersonMode);
@@ -544,9 +545,15 @@ form.addEventListener("submit", async (event) => {
   }
   payload.append('options', JSON.stringify(options));
 
+  const catalogProduct = isCatalog && garmentType.value === 'saree' ? Object.fromEntries(
+    [...document.querySelectorAll('[data-catalog-product]')].filter(input => input.value.trim())
+      .map(input => [input.dataset.catalogProduct, input.value.trim()])) : {};
+  if (Object.keys(catalogProduct).length) payload.append('catalog_product', JSON.stringify(catalogProduct));
+
   const reportRequest = {
     api_url: apiUrl,
     generation_mode: isCatalog ? 'catalog' : 'single',
+    ...(isCatalog ? {catalog_product: catalogProduct} : {}),
     fabric_type: usesFabric ? fabricType.value : 'unspecified',
     options,
     garment_source: usesFabric ? "fabric_image" : "garment_image",
@@ -588,7 +595,7 @@ form.addEventListener("submit", async (event) => {
   let saveChain = Promise.resolve();
   const catalogRecords = [];
   const catalogReport = isCatalog ? {
-    catalog_id: null, status: 'in_progress', total: 6, images: [], failed_views: []
+    catalog_id: null, status: 'in_progress', total: null, images: [], failed_views: []
   } : null;
   requestTimer.start();
   try {
@@ -611,6 +618,8 @@ form.addEventListener("submit", async (event) => {
         if (event.event === 'started') {
           catalogReport.catalog_id = event.catalog_id || null;
           catalogReport.total = event.total;
+          catalogReport.catalog_edition = event.catalog_edition || null;
+          catalogReport.layout = event.layout || null;
           catalogReport.requested_views = event.views;
         }
         if (event.event === 'generating') statusMessage.textContent =
@@ -643,7 +652,7 @@ form.addEventListener("submit", async (event) => {
           const savedLabel = document.createElement('p');
           savedLabel.textContent = 'Waiting for local saveâ€¦';
           card.append(heading, image, open, select, savedLabel); catalogGrid.append(card);
-          catalogSummary.textContent = `${catalogCount}/6 images ready. Preparing the portrait catalog.`;
+          catalogSummary.textContent = `${catalogCount}/${catalogReport.total} images ready. Preparing the portrait catalog.`;
           saveChain = saveChain.then(async () => {
             const saved = await saveOutputLocally(output.url, output.format || 'jpg');
             record.local_output_path = saved?.filename || null;

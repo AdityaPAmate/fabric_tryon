@@ -1,3 +1,93 @@
+# Catalog API — current behavior (2026-11-07)
+
+`POST /api/generate-catalog/` remains one multipart POST with an NDJSON stream.
+The event names and success/failure semantics are retained. **Saree now defaults
+to seven-shot `editorial-v1`; shirt retains six-shot `classic-v1`.** Other garments
+retain six-shot classic editions. Counts and views must be read from `started`.
+
+## New optional multipart fields
+
+- `catalog_edition`: an allowlisted edition ID. Omit for the garment default.
+  Saree supports `editorial-v1` and the six-shot compatibility `classic-v1`.
+- `catalog_product`: a JSON object encoded as a multipart text field. The saree
+  editorial edition accepts `title`, `collection`, `subtitle`, `badge`,
+  `product_name`, `product_code`, `fabric_description`, `saree_length`,
+  `blouse_length`. Values are single-line strings, at most 100 characters.
+  Unknown fields are rejected; other editions currently accept no product fields.
+  Empty product facts are omitted. Product composition/length is never inferred.
+
+Example product field (all values are illustrative, not defaults):
+
+```json
+{"product_name":"Classic Saree","product_code":"S-1001","fabric_description":"Cotton Blend","saree_length":"5.5 m","blouse_length":"0.8 m"}
+```
+
+The original fabric/person/material/detail validations apply. Catalog requests
+must omit `pose` and `camera_view` and cannot use `garment_image`. The saree
+editorial generated model supports women/girls; an uploaded person supplies its
+own identity. Final quality is the API default; explicit draft reduces new saree
+provider sizes to a maximum side of 512 (with provider-aligned dimensions).
+The exported collage remains 2200 × 2900, so draft photographs look softer.
+
+## Saree editorial shots and references
+
+1. `front`: `saree_royal_front_stand.png`; request person/face reference when supplied.
+2. `side_portrait`: `saree_side_view.png`; uses generated front as identity anchor.
+3. `back_pallu`: separate catalog copy of `back_showing_pallu.jpg`; front identity anchor.
+4. `neckline`: `saree_neckline.png`; front identity/outfit anchor.
+5. `pallu`: `saree_pallu.png`; independent fabric-only template edit.
+6. `border`: `saree_border.png`; independent fabric-only template edit.
+7. `pleats`: `saree_pleats.png`; independent fabric-only template edit.
+
+Templates control pose/drape/crop, while the request swatch controls saree fabric.
+Person shots use provider image 0 = template, image 1 = swatch, image 2 = optional
+identity reference through the existing pose-reference engine. Fabric-only shots
+use images 0 and 1 only. This does not require adding a fourth input image.
+The front image is retained before uploading, so its upload failure does not lose
+its identity anchor. Front generation failure skips its three dependent shots;
+independent fabric details can still run. Quota/auth failures stop remaining work.
+No exact identity, border fidelity or colour consistency is guaranteed by prompts.
+
+The backend composes all seven successful shots into `saree-editorial-v1`, draws
+header/footer text, and uploads the PNG. This edition has no separate swatch inset;
+`collage.includes_original_swatch` is false. Shirt retains its original swatch inset
+and `portrait-catalog-v4` layout. `started` includes `catalog_edition` and `layout`;
+`complete` includes `catalog_edition`. Existing event fields remain available.
+
+## Operation and validation
+
+Definitions/assets/fonts are validated before opening a stream. Invalid request
+fields return 400; unavailable catalog configuration returns 503; busy process
+returns 429. Shot failures after streaming begins remain NDJSON events.
+One catalog slot per process, sequential generation, 10-second heartbeats and
+cancellation behavior are retained. There is no durable job queue or resume API.
+
+See [catalog_architecture.md](catalog_architecture.md) for extension points.
+`/api/catalog/` and the repository tester include optional saree product fields.
+An independent installed tester needs updating separately. Backend push is not
+proof of deployment; verify the deployed version before using new request fields.
+
+Local reference-only layout proof, without AI calls or uploads:
+
+```powershell
+venv\Scripts\python.exe tools/preview_catalog.py --references --output output/saree_catalog_reference_preview.png
+```
+
+Use `--shots-dir PATH` instead of `--references` to recompose generated files named
+`front.png`, `side_portrait.png`, etc.; `--product-json PATH` changes product text
+without generating photographs again.
+
+Validation: 95 Django tests, including real local HTTP multipart/storage stand-ins,
+plus tester stream/report checks. Provider responses in automated tests are synthetic;
+no paid Cloudflare generations were made for this change. Reference-only preview
+was visually checked. Live saree quality, identity and fabric fidelity remain unverified.
+Postman CLI could not start because its machine-managed Private Cloud manifest was
+unreadable; local Django/HTTP tests provide the recorded evidence instead.
+
+---
+
+The notes below are historical; the current contract above takes precedence.
+
 ## Dark brown colour refinement (2026-11-04)
 
 The reported shirt catalog 2026-11-04_120928_001 used the same swatch bytes

@@ -11,7 +11,7 @@ and derives `/api/replace-fabric/` or `/api/generate-catalog/` accordingly.
 The catalog endpoint must be deployed on that host or run locally; the default
 Render URL does not imply that this feature branch has been deployed.
 
-Catalog mode ignores pose/camera and renders six independent images, with
+Catalog mode ignores pose/camera and renders the edition’s declared images (seven for saree, six for shirt), with
 individual Open/Save and Inspect/Report controls. Stop generation cancels the
 connection; the backend's active provider request may still finish. No collage
 or scale controls are added. Source crop is optional and uses original pixels.
@@ -50,3 +50,13 @@ the stream tests exercise fragmented protocol data. Neither requires paid AI
 requests. `python ../install_tester_ui.py` installs reviewed files into the
 original Desktop tester directory and backs up existing files under project
 `debug/`; outputs and reports are preserved.
+
+## Saree editorial edition
+
+Saree catalog requests now default to `editorial-v1`: seven reference-driven views
+and a 2200 × 2900 PNG with backend-rendered header/footer. Optional product fields
+appear in catalog mode for saree. Empty facts are omitted; no material composition
+or product length is inferred. Reports retain the product fields, edition and layout.
+The normal single-image flow is unchanged. Existing deployed servers must be updated
+before using the new catalog fields. The UI source is in this repository; an independently
+installed Desktop tester must be updated separately using the existing installer.

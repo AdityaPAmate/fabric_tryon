@@ -1,0 +1,30 @@
+{
+  "back_showing_pallu.jpg": {
+    "sha256": "94bd059373ef1bf134b8975d300ea18bd38a0ebb43b057fe89dc91627b7a5ff8",
+    "source": "Existing saree pose asset; copied without modification"
+  },
+  "saree_border.png": {
+    "sha256": "68bd5ded74804e44dcc43dca4c4cb1c2451920dedd893423b9c857e5142831cc",
+    "source": "User-provided Downloads image; copied without modification"
+  },
+  "saree_neckline.png": {
+    "sha256": "510fa7eb8c20ef2900cc55ba3f2919956553ec07ef5e4ca4a79f97de70ddfa2e",
+    "source": "User-provided Downloads image; copied without modification"
+  },
+  "saree_pallu.png": {
+    "sha256": "627a1456e83b89b264af779d8dc70b086a5e4def9fcce61b872485a713e08d1f",
+    "source": "User-provided Downloads image; copied without modification"
+  },
+  "saree_pleats.png": {
+    "sha256": "2f795143341869cd3e62d1f3161dbf0bcb9ee7f88132170b810388630b304d32",
+    "source": "User-provided Downloads image; copied without modification"
+  },
+  "saree_royal_front_stand.png": {
+    "sha256": "f7b66ca20b92c1416a6db2ebbc3481aff641e5d21f0737d3dd71ab9c90f3b86e",
+    "source": "User-provided Downloads image; copied without modification"
+  },
+  "saree_side_view.png": {
+    "sha256": "ffaa6806816cf3b4c00121f69b1bf2bbd8ca5693b4861de9ad9655e0fba0b2c6",
+    "source": "User-provided Downloads image; copied without modification"
+  }
+}

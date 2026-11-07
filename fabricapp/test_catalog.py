@@ -26,7 +26,7 @@ class CatalogTests(SimpleTestCase):
                 'fabric_image': io.BytesIO(picture()), 'options': {'draft_mode': True}}
 
     def test_plan_for_every_garment(self):
-        for garment in ('shirt', 'blazer', 'kurta', 'kurti_pant', 'pant', 'saree'):
+        for garment in ('shirt', 'blazer', 'kurta', 'kurti_pant', 'pant'):
             plan = catalog_plan(garment)
             self.assertEqual(len(plan), 6)
             self.assertEqual(len({key for key, _ in plan}), 6)
@@ -36,13 +36,15 @@ class CatalogTests(SimpleTestCase):
     @patch('fabricapp.ai.main._generate_with_engine', return_value=GenerationResult(picture(), 42))
     def test_native_front_size_does_not_leak_into_normal_or_close_up_requests(self, engine):
         data = self.data()
-        data['options'] = {'draft_mode': False, '_catalog_front': True}
+        from fabricapp.ai.garments.shirt.catalog.definition import _pipeline_options
+        data['options'] = {'draft_mode': False, **_pipeline_options('front')}
         from fabricapp.ai.main import generate_tryon_image as generate_catalog_front
         generate_catalog_front(**data, camera_view='front')
         self.assertEqual(engine.call_args.kwargs['prompt_config']['output_dimensions'], (576, 1920))
+        data['options'] = {'draft_mode': False}
         generate_catalog_front(**data, camera_view='close_up')
         self.assertNotIn('output_dimensions', engine.call_args.kwargs['prompt_config'])
-        data['options'] = {'draft_mode': False, '_catalog_view': 'close_up'}
+        data['options'] = {'draft_mode': False, **_pipeline_options('close_up')}
         generate_catalog_front(**data, camera_view='close_up')
         self.assertEqual(engine.call_args.kwargs['prompt_config']['output_dimensions'], (576, 992))
         data['options'] = {'draft_mode': False}
@@ -70,9 +72,10 @@ class CatalogTests(SimpleTestCase):
                             for event in events if event['event'] == 'image_ready'))
         self.assertEqual([call.kwargs['camera_view'] for call in front.call_args_list], ['front', 'close_up'])
         front_args, close_args = [call.kwargs for call in front.call_args_list]
+        from fabricapp.ai.garments.shirt.catalog.definition import _pipeline_options
         self.assertEqual(close_args, {**front_args, 'camera_view': 'close_up',
-                                     'options': {**front_args['options'], '_catalog_view': 'close_up'}})
-        self.assertEqual(front_args['options']['_catalog_view'], 'front')
+                                     'options': {'draft_mode': False, **_pipeline_options('close_up')}})
+        self.assertEqual(front_args['options']['_catalog_config']['output_dimensions'], (576, 1920))
         self.assertEqual(close_args['body_type'], 'trim')
         self.assertEqual(close_args['face_choice'], 'raghav')
         self.assertEqual(edit.call_count, 4)
@@ -158,7 +161,7 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(config['seed'], 43)
 
     def test_back_is_close_up_and_angle_is_front_dominant(self):
-        for garment in ('shirt', 'blazer', 'kurta', 'kurti_pant', 'pant', 'saree'):
+        for garment in ('shirt', 'blazer', 'kurta', 'kurti_pant', 'pant'):
             plan = dict(catalog_plan(garment))
             self.assertIn('REAR CLOSE-UP', plan['back'])
             self.assertNotIn('back full-body', plan['back'])
