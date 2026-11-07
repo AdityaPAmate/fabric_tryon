@@ -1,321 +1,106 @@
-# Catalog API — current behavior (2026-11-07)
+# Catalog API: current six-panel saree edition
 
-`POST /api/generate-catalog/` remains one multipart POST with an NDJSON stream.
-The event names and success/failure semantics are retained. **Saree now defaults
-to seven-panel `editorial-v1`; shirt retains six-panel `classic-v1`.** Other garments
-retain six-panel classic editions. Counts and views must be read from `started`.
+The saree catalog now matches the supplied **White Saree Double-Stripe Detail
+Collage** arrangement: one full-height photograph at left, two middle photographs,
+and three right-hand details. Output is exactly **1800 x 3200 (9:16)**, with 12px
+white gutters and no header, footer, text, product labels or separate swatch inset.
+The layout ID is `saree-six-panel-9x16-v3`; the existing `editorial-v1` edition ID
+is retained so callers do not need to change their request.
 
-## New optional multipart fields
+## Request and response
 
-- `catalog_edition`: an allowlisted edition ID. Omit for the garment default.
-  Saree supports `editorial-v1` and the six-panel compatibility `classic-v1`.
-- `catalog_product`: a JSON object encoded as a multipart text field. The saree
-  editorial edition accepts `title`, `collection`, `subtitle`, `badge`,
-  `product_name`, `product_code`, `fabric_description`, `saree_length`,
-  `blouse_length`. Values are single-line strings, at most 100 characters.
-  Unknown fields are rejected; other editions currently accept no product fields.
-  Empty product facts are omitted. Product composition/length is never inferred.
+`POST /api/generate-catalog/` accepts multipart fabric/person/model/material fields
+from `/api/replace-fabric/`. Supply `fabric_image` and `garment_type`; garment-image
+mode is unsupported. Omit `pose` and `camera_view`: the catalog owns its shots.
+Existing style, material, model and garment-detail validation still applies.
+`options.draft_mode=false` is the default. Explicit draft reduces ordinary shot
+provider dimensions, while the final export canvas remains 1800 x 3200.
 
-Example product field (all values are illustrative, not defaults):
+`catalog_edition` is optional. `catalog_product` is still accepted for older clients
+with the same allowed fields, but **all metadata is ignored by this image-only
+layout**. Changing product text cannot add any visible text. Product/header inputs
+have been removed from both browser forms. Other garment layouts are unchanged.
 
-```json
-{"product_name":"Classic Saree","product_code":"S-1001","fabric_description":"Cotton Blend","saree_length":"5.5 m","blouse_length":"0.8 m"}
-```
+The NDJSON protocol is unchanged: started, generating, heartbeat, image_ready,
+image_failed, composing, collage_ready, complete. Read `started.total` and its views
+rather than assuming seven images. The saree total is now **6**.
 
-The original fabric/person/material/detail validations apply. Catalog requests
-must omit `pose` and `camera_view` and cannot use `garment_image`. The saree
-editorial generated model supports women/girls; an uploaded person supplies its
-own identity. Final quality is the API default; explicit draft reduces new saree
-provider sizes to a maximum side of 512 (with provider-aligned dimensions).
-The exported collage remains 1800 × 3200 (9:16), so draft photographs look softer.
+Ready images contain view, URL, size, seed, provider diagnostics, framing and
+reference metadata. The collage includes `width=1800`, `height=3200`,
+`aspect_ratio="9:16"`, `layout="saree-six-panel-9x16-v3"` and
+`includes_original_swatch=false`. Individual image dimensions differ by panel.
 
-## Saree editorial shots and references
+## Six shots and the replacement references
 
-1. `front`: `saree_royal_front_stand.png`; request person/face reference when supplied.
-2. `side_portrait`: generated front supplies identity; the side reference is a fourth, below-face composition guide.
-3. `back_pallu`: separate copy of `back_showing_pallu.jpg`; pose + fabric only, with no identity reference.
-4. `neckline`: `saree_neckline.png`; front identity/outfit anchor.
-5. `pallu`: `saree_pallu.png`; independent fabric-only template edit.
-6. `border`: dedicated side-border / selvedge template edit; independent of the pallu shot. This is no longer a crop of the body print.
-7. `pleats`: `saree_pleats.png`; independent fabric-only template edit.
+1. `front`: `01_front_pallu.png`; full-height left column.
+2. `side_portrait`: `02_three_quarter.png`; upper middle.
+3. `back_pallu`: `03_back_view.png`; lower middle.
+4. `fabric_texture`: `04_fabric_texture.png`; upper right.
+5. `border`: `05_border_closeup.png`; middle right.
+6. `pleats`: `06_pleats_hem.png`; lower right.
 
-Templates control pose/drape/crop, while the request swatch controls saree fabric.
-The side shot uses a blank image 0, original swatch image 1, cropped front identity
-image 2, and a below-face pose guide image 3. The back-pallu shot now reuses the
-normal saree builder with `pose=back_showing_pallu`, the same pose-reference photo,
-and its shared pose/hand/fold/pallu geometry lock. The back-pallu request sends only the pose photo and fabric: no face upload, face
-choice, person photo or generated front identity. It preserves the reference
-photograph's aspect ratio. The normal API rejects identity inputs for this pose,
-and the coordinator/provider enforce the same rule for direct callers.
-The compositor contains the full back-pallu image rather than cutting its held edge.
+The old seven catalog reference images were removed from
+`ai/references/assets/catalog/saree/`. Only these six numbered images and their
+SHA-256 manifest remain. Downloads originals and normal single-image pose assets
+are preserved. The extra unnumbered downloaded photograph is not used.
 
-The border shot is a real side-edge close-up, not a body-print crop. It keeps the
-outer side boundary, narrow edge strip and adjoining body as separate regions.
-It uses an actual border visible in the fabric reference when available; a body-only
-swatch supplies no evidence of decorative zari/embroidery, so only a plain finished
-selvedge is requested. A particular decorative product border needs a source photo
-that actually shows it. Seven panels again require seven AI generations.
-PNG transport preserves the swatch
-without JPEG colour subsampling. Classified provider errors, input hashes and strict
-image-dimension validation are enabled for this edition; legacy single-image saree
-behavior remains unchanged.
+The former neckline and separate pallu-detail shots are no longer generated.
+All six panels fill their declared rectangles proportionally, with small crops
+matching the supplied cropped references. No photo is stretched, and there is no
+letterboxing or unused heading/footer space. Provider sizes preserve panel aspect
+and stay within the engine's 256..1920 bounds; the very tall front column therefore
+uses a smaller generated photograph scaled proportionally into the export.
 
-The front image is retained before uploading, so its upload failure does not lose
-its identity anchor. Front generation failure skips its two dependent shots;
-back-pallu, pallu, border and pleats can still run independently. Quota/auth
-failures stop remaining work. Exact physical colour, pattern scale and edge design
-remain generative limitations; the visual evidence below is from one actual input.
+## Reference and identity roles
 
-The backend composes all seven successful shots into `saree-editorial-9x16-v2`, draws
-header/footer text, and uploads the PNG. This edition has no separate swatch inset;
-`collage.includes_original_swatch` is false. Shirt retains its original swatch inset
-and `portrait-catalog-9x16-v5` layout. `started` includes `catalog_edition` and `layout`;
-`complete` includes `catalog_edition`. Existing event fields remain available.
+The front edits its numbered template, using an optional requested identity when
+provided. The side edits its numbered template directly to retain the reference angle;
+when a caller explicitly supplies a face/person identity it is used only as an
+identity reference. No generated front image or blank-canvas reposing is used.
 
-## Operation and validation
+**Back-pallu sends only the new pose reference and fabric.** It never receives a
+face upload, face choice, person photo or generated front identity. The shared
+normal saree builder still supplies back-pallu pose/hand/fold rules, but the catalog
+uses `03_back_view.png`, not the old normal pose photograph. The normal API,
+coordinator and provider retain the no-identity restriction for this pose.
+All six shots can run independently, including when front generation fails.
 
-Definitions/assets/fonts are validated before opening a stream. Invalid request
-fields return 400; unavailable catalog configuration returns 503; busy process
-returns 429. Shot failures after streaming begins remain NDJSON events.
-One catalog slot per process, sequential generation, 10-second heartbeats and
-cancellation behavior are retained. There is no durable job queue or resume API.
+Texture, border and pleats are independent template edits using original fabric
+pixels. Texture is a fabric-surface close-up, not a neckline or border image.
+The side-border shot distinguishes the long finished edge from body print and the
+pallu end. A body-only swatch does not establish a decorative product border;
+particular zari/embroidery needs a source photograph that actually shows it.
+Reference white cloth and black stripes are not automatically product facts.
 
-See [catalog_architecture.md](catalog_architecture.md) for extension points.
-`/api/catalog/` and the repository tester include optional saree product fields.
-An independent installed tester needs updating separately. Backend push is not
-proof of deployment; verify the deployed version before using new request fields.
+Inputs use PNG fabric transport. Classified provider failures, strict requested
+output-dimension checks and input hashes are retained. Corrupt/incorrectly sized
+images are rejected before upload. These checks establish transport integrity,
+not visual accuracy of fabric, pose or border design.
 
-Local reference-only layout proof, without AI calls or uploads:
+## Operation and evidence
+
+Definitions/assets are validated before streaming. Invalid requests return 400,
+configuration failures 503, and a busy process 429. One catalog slot per web
+process, sequential generation, ten-second heartbeats and cancellation after an
+in-flight provider call are retained. There is no durable queue or resume API.
+Successful shots remain available if another shot fails; all six are required
+for the final collage. Quota/auth failures stop additional provider calls.
+
+Local checks: 109 Django tests, 4 stream tests and 5 report tests. They include
+actual local HTTP multipart/storage stand-ins, six-shot totals, reference hashes,
+independent failure behavior, identical swatch input hashes, no identity input for
+back-pallu, exact panel placement, text-free rendering and exact 9:16 dimensions.
+
+A reference-only layout proof is saved separately from any generated-fabric result:
 
 ```powershell
-venv\Scripts\python.exe tools/preview_catalog.py --references --output output/saree_catalog_reference_preview.png
+venv\Scripts\python.exe tools/preview_catalog.py --references --output output/saree_six_panel_reference_layout.png
 ```
 
-Use `--shots-dir PATH` instead of `--references` to recompose generated files named
-`front.png`, `side_portrait.png`, etc.; `--product-json PATH` changes product text
-without generating photographs again.
+A real six-image fabric-transfer test is recorded under
+`debug/saree_six_panel_live_20261107/`. Live results and any focused corrections are
+documented separately; a reference-only collage is never fabric-transfer evidence.
+Historical live evidence for previous layouts remains in the earlier JSON reports.
 
-Validation: 107 Django tests, 4 tester stream tests and 5 local report tests.
-The suite covers identical prepared swatch bytes across every provider request,
-four-slot reference separation, incorrect output rejection, quota handling and
-normal-builder back-pallu parity, independent side-border generation and exact 9:16 exports. The generic crop operation remains available to other future editions. Real local HTTP stand-ins separately
-exercise multipart requests and storage behavior.
-
-Historical fabric-transfer validation (before the back-pallu/side-border/9:16 revision):
-
-After explicit approval, 14 real Cloudflare generations and their Cloudinary
-uploads completed on 2026-11-07: a full seven-generation baseline plus seven focused
-rechecks. Every request used the same original blue floral swatch; all prepared
-`input_image_1` hashes match. That earlier collage used six selected real photographs
-and a local crop of the generated pallu. It was composed and uploaded without new
-AI calls. See [saree_catalog_live_evidence.json](saree_catalog_live_evidence.json).
-
-Earlier output (not the revised layout): `output/saree_fabric_catalog.png`; original input:
-`output/saree_fabric_swatch.png`. Full prompts/traces and run results are in
-`debug/saree_fabric_*_20261107/` (gitignored). The first reference-only preview is
-layout evidence only and must not be presented as proof of fabric transfer.
-
-Visual review: all seven final panels show the supplied blue floral print;
-neckline crop and side identity improved. Side rotation remains weaker than the
-supplied guide, and thin edge trim/colour/pattern scale are not physically exact.
-This is not an exhaustive quality guarantee for arbitrary fabrics or faces.
-
-Cloudflare documents four input slots and the input-size limit used here:
-[Workers AI FLUX.2 klein reference](https://developers.cloudflare.com/changelog/post/2026-01-15-flux-2-klein-4b-workers-ai/).
-Postman CLI remained unavailable due to its machine-managed manifest; the evidence
-above comes from Django tests, local HTTP stand-ins and the actual provider runs.
-
-
-## Exact portrait export contract
-
-Every default catalog now exports an exact 9:16 PNG. Saree is 1800 × 3200 and
-shirt is 1296 × 2304. Shirt photo sizes are unchanged; the existing layout is
-centered with 56px side margins. Legacy layouts already export 1800 × 3200.
-Header and footer are included in those dimensions. `collage` includes `width`,
-`height`, and `aspect_ratio: "9:16"`; both browser UIs display that ratio.
-The ratio applies to the downloaded artifact, not just a CSS preview. Photos
-are fitted proportionally, never stretched. Back-pallu and border references
-are contained so their physical edges remain visible.
-
-Back/edge implementation is verified locally and with four additional approved
-live generations. The initial identity-conditioned back trial was rejected during
-visual review. The two subsequent pose+fabric-only back calls preserved the rear
-stance and spread pallu; their traces contain only input_image_0 and input_image_1.
-The dedicated side-border generation shows a continuous plain edge strip beside
-the printed body. An exact decorative product border still needs a source that
-shows it; a coordinated plain edge is not evidence of an unseen product border.
-
-The final `output/saree_catalog_9x16.png` is 1800×3200 and was composed from cached
-real photographs plus the corrected back/side-border outputs. Other shots were
-not regenerated for the taller layout; proportional containment may leave margins.
-See [saree_reference_9x16_evidence.json](saree_reference_9x16_evidence.json).
-
-Research: [saree border terminology](https://firstclasse.com.my/style/saree-glossary/)
-distinguishes the long edge border from body cloth; [Lucknow Bioscope sari collection](https://artsandculture.google.com/story/dAVhYRG8SE0hCQ)
-shows border and pallu as distinct textile regions.
-
----
-
-The notes below are historical; the current contract above takes precedence.
-
-## Dark brown colour refinement (2026-11-04)
-
-The reported shirt catalog 2026-11-04_120928_001 used the same swatch bytes
-for all six requests. Recomposition matched the saved collage exactly: the colour
-variation originated during generation, not composition.
-
-Single-family dark orange-brown RGB profiles now use the label dark chocolate
-brown and explicit original-swatch colour priority. This narrowly gated prompt
-reduces orange grading and dark-fabric brightening. White, blue and multicolour
-prompts retain their prior behavior. Diagnostics append brown-v2 when active.
-
-Live validation: three targeted shots, then a complete six-shot catalog with the
-reported swatch and Raghav face (test runner uses trim body), then a final hem
-region-lock check. Cuff and collar improved visually; front/back still differ in
-lightness from the swatch. This is a measured improvement, not exact colour fidelity.
-No blanket pixel recolouring is applied to skin, scenery or patterned fabrics.
-
-## Hem and framing update (2026-11-04)
-
-Shirt hem now uses the supplied packaged hem.png, like collar and cuff.
-Template prompts cover all shirt regions, keep trousers/skin/buttons separate,
-and forbid invented limbs in the hem reference. Three-quarter is now a close-up
-from head through garment hem, with no lower legs or shoes.
-The portrait-catalog-v2 sleeve/cuff panel contains the complete image with white
-side padding where needed, rather than cropping away cuff and wrist edges.
-Live checked fabric tests verified sleeve replacement and close-up angle. A second
-hem-only test corrected invented limbs and preserved the supplied hem geometry.
-70 tests passed; the final prompt was rechecked with 16 catalog tests.
-Other panel positions are unchanged. Tests cover all three templates, partial
-failure independence, and preservation of sleeve image edges.
-
-## Fixed portrait catalog (2026-11-04)
-
-Final output: one 1800 x 3200 PNG, composed locally without another AI call.
-Fixed placement: front left; three-quarter and rear close-up top right; three detail
-views below; original uploaded swatch across the bottom. Other garments retain
-their existing three detail views in the same slots. No layout or image selection.
-Images are resized proportionally with centered crops to fill fixed panels.
-Off-center subjects may need better source framing; images are never stretched.
-
-The stream retains image_ready diagnostics and adds composing and collage_ready.
-The complete event includes collage and collage_error. Missing views or failed
-composition/upload produce partial/failed status and no final collage.
-The tester selects the final collage as output, saves it locally, and archives
-catalog.collage in reports alongside source images. Hem uses existing generation
-until a separate hem reference is supplied.
-
-Validation: 69 Django tests, 5 report HTTP tests, 3 stream tests; previously generated
-live images composed locally and visually checked. No fresh Cloudflare generation
-was used for this deterministic composition change. Deployment remains separate.
-
-# Generate Catalog
-
-Branch: `codex/catalog-image-set`. No deployment is implied.
-
-Open `/api/catalog/` for the included browser form. Select a swatch, garment,
-optional person photo and material, then click **Generate Catalog** once.
-It renders separate images with individual Open / Save links. No collage is
-created. This repository is a backend; the page is an additional usable entry
-point and the same API can be connected to an existing separate frontend.
-
-## API contract
-
-`POST /api/generate-catalog/` accepts multipart fields from
-`/api/replace-fabric/`, with these differences:
-
-- `fabric_image` and `garment_type` are required; garment-image mode is unsupported.
-- Do not send `camera_view` or `pose`; the catalog chooses its own shots.
-- Existing garment-style/person-source/material/detail validation still applies.
-- Default quality is final (`options.draft_mode=false`); explicit draft is supported.
-
-One POST keeps a streaming response open (`application/x-ndjson`). Each line is
-an independent JSON object. Read it incrementally using `fetch` and
-`response.body.getReader()`, not `response.json()`.
-
-Example events:
-
-```json
-{"event":"started","total":6,"views":["front","three_quarter","back","collar","cuff","hem"]}
-{"event":"generating","view":"front","index":1,"total":6}
-{"event":"heartbeat"}
-{"event":"image_ready","image":{"view":"front","url":"https://..."},"completed":1,"total":6}
-{"event":"image_failed","view":"cuff","error":"image_generation_or_upload_failed"}
-{"event":"complete","status":"partial","images":[],"failed_views":["cuff"],"total":6}
-```
-
-The final `images` array contains every successfully uploaded image (the example
-above abbreviates it). Status is `completed`, `partial`, or `failed`.
-Validation errors are HTTP 400 before streaming; a busy process returns HTTP 429.
-Once HTTP 200 begins, shot errors are stream events, not HTTP status changes.
-A fatal stream error emits `event=error`; a dropped connection may have no final event.
-`started` and `complete` include a `catalog_id`. Ready images include
-`generation_seed` and provider `generation` diagnostics when available; failed
-events include provider code/diagnostics when available. The existing Desktop
-tester integration and its version-2 reports are maintained in `tools/tester_ui`.
-
-All garments get a front view, a front-dominant three-quarter view and a rear close-up (not a full-body rear view). Detail views vary:
-
-- Shirt: collar, cuff, hem.
-- Blazer: lapel, cuff, hem.
-- Kurta: neckline, sleeve end, hem.
-- Kurti-pant: kurti neckline, sleeve end, hem.
-- Trousers: waistband, pocket, ankle hem.
-- Saree: pallu, border, pleats.
-
-## Generation and operation
-
-The existing public coordinator generates the front image, retaining current
-colour/material rules. Most subsequent shots edit that same front reference,
-alongside the original fabric swatch, with a dedicated view/detail prompt. This
-reduces identity and outfit drift but does not guarantee exact consistency.
-Shirt collar/cuff shots edit the packaged user-provided templates; their original skin, geometry and background are retained while fabric is replaced. Other close-ups use the front reference. Close-ups are separate model generations, not crops or a collage. The original
-swatch is not regenerated. A nonexistent collar/cuff must not be invented.
-
-Every successful image is uploaded independently using the existing Cloudinary
-service. It remains available if a later image fails. Front-generation failure
-skips dependent shots, while independent shirt templates can still run; front-upload failure can still use its in-memory reference.
-Provider quota/auth errors stop further generation calls. Other failures allow
-remaining shots to continue. This version does not support retrying one shot.
-
-This is a streaming version, with no database queue, extra worker service or new
-dependencies. Keep the page open: closing it cancels remaining shots after the
-active provider call finishes. Server restart interrupts work. It cannot resume
-after refresh. Save successful image links before leaving. The stream sends a
-heartbeat every 10 seconds and disables reverse-proxy buffering where supported.
-Verify streaming on the deployed host: the local test does not prove the host's
-maximum response duration or buffering behavior. Do not put this route behind a
-proxy that buffers all content or imposes a short hard request deadline.
-
-One catalog is allowed per web process; ordinary generation endpoints retain
-their behavior. With the current two-process Gunicorn setup, up to two catalogs
-can run at once. Each catalog sends requests sequentially, limiting provider load.
-The existing deployment requires no migrations or Docker command change.
-
-## Verification
-
-`python manage.py test fabricapp` passes 67 tests, including the thirteen catalog
-tests. These verify multipart validation, sequential stream events, reference
-reuse, all garment plans, per-shot failures, quota stopping, cancellation and
-capacity control with provider/upload stubs; they do not prove visual quality.
-
-`tools/test_catalog_live.py` exercises one real multipart catalog request and
-Cloudflare/Cloudinary calls, saving separate images and event records locally.
-Use the project virtualenv and pass `--fabric PATH --output debug/NEW_DIRECTORY`.
-The default live example is a generated adult male wearing a shirt, with no
-personal photo upload. Outputs and event records are ignored by Git.
-
-Live check on 2026-11-01: the single multipart request completed all six
-Cloudflare generations and six actual Cloudinary uploads at 1152 x 1536.
-Artifacts: `debug/catalog_live_20261101`. Visual review found a valid rear
-view and sleeve/hem details, but the first collar view was too wide.
-Dedicated shirt close-up instructions were tightened; four focused real
-generation/upload rechecks are in `debug/catalog_detail_recheck_20261101`.
-The collar, cuff and hem are now close details in that sample. The angle shot
-still leans toward a side profile rather than exactly 45 degrees; a rear/side
-outfit can also acquire small differences in seams, accessories and pattern.
-These samples establish a functioning image-set flow, not exact garment or
-colour reproduction. Other garments have local plan/contract coverage, not
-exhaustive live catalog validation. Deployment proxy streaming remains unverified.
-
-Current organization, reference behavior and the completed 2026-11-02 quota-recovery live checks are recorded in `docs/ai_layout.md`. Historical visual evidence above describes previous prompt versions.
+See [catalog_architecture.md](catalog_architecture.md) for shared execution and
+extension points. Pushing source does not itself verify a hosting deployment.

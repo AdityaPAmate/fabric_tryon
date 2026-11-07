@@ -1,0 +1,171 @@
+{
+  "date": "2026-11-07",
+  "layout": "saree-six-panel-9x16-v3",
+  "size": [
+    1800,
+    3200
+  ],
+  "aspect_ratio": "9:16",
+  "panels": [
+    "front",
+    "side_portrait",
+    "back_pallu",
+    "fabric_texture",
+    "border",
+    "pleats"
+  ],
+  "header": false,
+  "footer": false,
+  "texts_drawn": 0,
+  "numbered_references": {
+    "front": "01_front_pallu.png",
+    "side_portrait": "02_three_quarter.png",
+    "back_pallu": "03_back_view.png",
+    "fabric_texture": "04_fabric_texture.png",
+    "border": "05_border_closeup.png",
+    "pleats": "06_pleats_hem.png"
+  },
+  "approved_live_generation_limit": 8,
+  "live_generations_used": 7,
+  "all_provider_fabric_inputs_identical": true,
+  "fabric_input_sha256": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+  "back_input_slots": [
+    "input_image_0",
+    "input_image_1"
+  ],
+  "final_composition": "All six actual generated photographs, using one focused side-angle correction; no reference-only photographs in the final product collage.",
+  "local_output": "output/saree_six_panel_catalog.png",
+  "validation": {
+    "django_tests": 109,
+    "stream_tests": 4,
+    "report_tests": 5
+  },
+  "runs": [
+    {
+      "view": "front",
+      "size": [
+        448,
+        1920
+      ],
+      "seed": 42,
+      "request_id": "759263fb40534321a65427e03b47d00e",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1"
+      ],
+      "prompt_version": "saree-catalog-six-panel-v1-front",
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "view": "side_portrait",
+      "size": [
+        512,
+        1472
+      ],
+      "seed": 42,
+      "request_id": "d8d50c4325ec40098bf676cc503b401d",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1",
+        "input_image_2",
+        "input_image_3"
+      ],
+      "prompt_version": "saree-catalog-six-panel-v1-side_portrait",
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "view": "back_pallu",
+      "size": [
+        448,
+        1536
+      ],
+      "seed": 42,
+      "request_id": "da15235a2c154c87af73d707ac195e3f",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1"
+      ],
+      "prompt_version": "saree-catalog-normal-back-reference-v1",
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "view": "fabric_texture",
+      "size": [
+        512,
+        1024
+      ],
+      "seed": 42,
+      "request_id": "bd85bac7904244c4961c55fd4b7aa685",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1"
+      ],
+      "prompt_version": "saree-catalog-six-panel-v1-fabric_texture",
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "view": "border",
+      "size": [
+        896,
+        1536
+      ],
+      "seed": 42,
+      "request_id": "1dcf87dedae644c5abce15206d7ffb08",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1"
+      ],
+      "prompt_version": "saree-catalog-side-border-v1",
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "view": "pleats",
+      "size": [
+        512,
+        1280
+      ],
+      "seed": 42,
+      "request_id": "3a95134e60644191b07b96c313b7fe58",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1"
+      ],
+      "prompt_version": "saree-catalog-six-panel-v1-pleats",
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "view": "side_portrait",
+      "size": [
+        512,
+        1472
+      ],
+      "seed": 42,
+      "request_id": "ce36ba7c820d40b98e12d9e82d8f0877",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1"
+      ],
+      "prompt_version": "saree-catalog-side-template-v1",
+      "statuses": [
+        200
+      ]
+    }
+  ],
+  "limitations": [
+    "Single blue-floral swatch test, not exhaustive coverage of arbitrary inputs.",
+    "Exact physical colour, motif scale, model identity and decorative edge design are not guaranteed.",
+    "The supplied body swatch does not establish an exact decorative product border."
+  ]
+}

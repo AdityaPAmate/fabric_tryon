@@ -59,7 +59,39 @@ def _side_border_config(data, shot, seed):
     return config
 
 
+def _side_portrait_config(data, shot, seed):
+    has_identity = bool(data.get('face_image') or data.get('face_choice') or data.get('person_image'))
+    prompt = (
+        'Edit image 0 in place. Keep its exact three-quarter/side-facing body and head angle, '
+        'camera crop, hand positions, blouse silhouette and hanging pallu shape. '
+        'Image 1 is the product fabric swatch. Replace all visible saree cloth with its exact '
+        'colours, print, motif scale and texture, following the existing folds. '
+        'Keep the same angle rather than turning the model to face the camera. '
+        'The blouse remains a separate opaque solid coordinating garment. '
+    )
+    prompt += ('Image 2 supplies only the requested face/hair identity; preserve the head orientation '
+               'and pose in image 0 and take no clothing or posture from image 2. '
+               if has_identity else 'Keep the person, face, hairstyle and skin tone already in image 0. ')
+    background = get_background_description(data.get('background'), garment_type='saree')
+    prompt += ('BACKGROUND: ' + background + '. ' if background else 'Keep image 0 studio backdrop. ')
+    prompt += 'One realistic photograph, no text, watermarks, collage or inset. '
+    dimensions = OUTPUT_SIZES[shot.key]
+    if data.get('options', {}).get('draft_mode', False):
+        scale = min(1, 512 / max(dimensions))
+        dimensions = tuple(max(256, round(value * scale / 32) * 32) for value in dimensions)
+    config = apply_fabric_conditioning({
+        'prompt': prompt, 'seed': seed, 'guidance': data.get('guidance', 7),
+        'output_dimensions': dimensions, 'safety_retry_count': 0,
+        'fabric_source_format': 'PNG', 'classified_recovery': True,
+    }, data, 'saree')
+    config['prompt_version'] = 'saree-catalog-side-template-v1'
+    config['prompt'] += ' FINAL POSE: preserve image 0 side angle and exact crop, not a frontal portrait. '
+    return config
+
+
 def build_config(data, shot, seed):
+    if shot.key == 'side_portrait':
+        return _side_portrait_config(data, shot, seed)
     if shot.key == 'back_pallu':
         return _back_reference_config(data, shot, seed)
     if shot.key == 'border':
@@ -75,12 +107,6 @@ def build_config(data, shot, seed):
         'design unless visible in the submitted swatch. Do not invent an ornamental border absent from image 1. '
         'Preserve one continuous saree and natural fold shading; do not paste a flat texture. '
     )
-    if identity and shot.key == 'neckline':
-        prompt = (
-            'Edit image 0: replace its model with the SAME person from image 2, including the exact '
-            'face, loose or tied hairstyle, hair length and skin tone. Image 0 supplies only the pose '
-            'and camera crop, never the original face or hairstyle. '
-        ) + prompt
     if shot.identity_from:
         if identity:
             prompt += ('Image 2 supplies the SAME person, face, hair, skin tone, age and body build '
@@ -94,21 +120,8 @@ def build_config(data, shot, seed):
                    'when image 2 is the approved front. ')
     else:
         prompt += 'Fabric-only detail: do not introduce a face, person, hands or extra garments. '
-    if shot.reference_role == 'composition':
-        if shot.identity_from:
-            prompt = (
-                'Generate a NEW side/three-quarter portrait of the SAME woman in image 2. '
-                'Image 0 is a blank canvas. Image 1 is the product fabric swatch. '
-                'Image 2 is the approved person identity: copy her exact face, skin tone and long or short, '
-                'loose or tied hairstyle, plus the same solid blouse. Image 3 is ONLY the camera angle '
-                'and shoulder-drape guide, cropped below the face. Generate the complete head '
-                'from image 2, with the same hairstyle and facial features. Frame head to hips '
-                'at the torso angle shown in image 3; do not copy the guide\'s cropped top edge. '
-                'Apply image 1\'s exact printed cloth over the entire saree and pallu, retaining its colours '
-                'and motifs with natural folds. Keep the blouse separate and opaque. '
-            )
     background = get_background_description(data.get('background'), garment_type='saree')
-    prompt += ('BACKGROUND: ' + (background or 'a neutral grey studio, consistent across all seven images')
+    prompt += ('BACKGROUND: ' + (background or 'the neutral studio backdrop in image 0')
                + '. Replace the template\'s palace or architectural background when present. '
                'Use neutral white light, preserving fabric colours. No text, watermarks, swatch inset or collage. ')
     if data.get('additional_style_note'):
@@ -119,15 +132,10 @@ def build_config(data, shot, seed):
         scale = min(1, 512 / max(dimensions))
         dimensions = tuple(max(256, round(value * scale / 32) * 32) for value in dimensions)
     config = {'prompt': prompt, 'seed': seed, 'guidance': data.get('guidance', 7),
-              'prompt_version': 'saree-catalog-editorial-v4-' + shot.key,
+              'prompt_version': 'saree-catalog-six-panel-v1-' + shot.key,
               'output_dimensions': dimensions, 'safety_retry_count': 0,
               'fabric_source_format': 'PNG', 'classified_recovery': True}
     config = apply_fabric_conditioning(config, data, 'saree')
     config['prompt'] += ' FINAL SHOT: ' + shot.description + '. '
-    config['prompt'] += ('Image 3 controls framing only; image 1 controls all cloth design. '
-                         if shot.reference_role == 'composition' else 'Preserve reference crop and all fabric edges. ')
-    if shot.key == 'neckline':
-        config['prompt'] += ('CROP PRIORITY: match image 0\'s tight shoulder-and-neckline crop. '
-                             'Image 2 is only the face/hair identity; do not copy its torso crop. '
-                             'Bottom lip at top edge, bust at bottom edge, no waist, hands or forearms. ')
+    config['prompt'] += 'Preserve reference crop and all fabric edges. '
     return config

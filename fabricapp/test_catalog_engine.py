@@ -45,7 +45,7 @@ class CatalogDefinitionTests(SimpleTestCase):
         for garment in DEFAULTS:
             definition = get_definition(garment)
             validate_definition(definition)
-            self.assertEqual(len(definition.shots), 7 if garment == 'saree' else 6)
+            self.assertEqual(len(definition.shots), 6)
         self.assertEqual(len(get_definition('saree', 'classic-v1').shots), 6)
 
     def test_invalid_and_cyclic_dependencies_and_missing_assets_fail_preflight(self):
@@ -75,12 +75,14 @@ class CatalogDefinitionTests(SimpleTestCase):
         output = render_catalog({shot.key: picture() for shot in shots}, b'', layout)
         self.assertEqual(Image.open(io.BytesIO(output)).size, (800, 100))
 
-    def test_back_reference_is_separate_byte_identical_copy(self):
+    def test_back_reference_is_new_catalog_asset_and_normal_pose_is_preserved(self):
         from pathlib import Path
         path = get_definition('saree').shots[2].reference
         original = Path(__file__).parent / 'ai/references/assets/poses/saree/back_showing_pallu.jpg'
         self.assertNotEqual(path, original)
-        self.assertEqual(path.read_bytes(), original.read_bytes())
+        self.assertEqual(path.name, '03_back_view.png')
+        self.assertTrue(original.is_file())
+        self.assertNotEqual(path.read_bytes(), original.read_bytes())
 
     def test_saree_prompts_do_not_leak_shirt_instructions_and_draft_is_small(self):
         definition = get_definition('saree')
@@ -102,19 +104,19 @@ class SareeCatalogTests(SimpleTestCase):
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/image.png'})
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 71))
     @patch('fabricapp.catalog.generate_tryon_image')
-    def test_seven_shots_stream_with_correct_identity_and_reference_roles(self, pipeline, edit, upload):
+    def test_six_shots_stream_with_correct_identity_and_reference_roles(self, pipeline, edit, upload):
         response = post(catalog_product=json.dumps({'product_name': 'Test Saree', 'product_code': 'S-7'}))
         self.assertEqual(response.status_code, 200)
         events = [json.loads(chunk) for chunk in response.streaming_content]
         response.close()
-        self.assertEqual(events[0]['total'], 7)
+        self.assertEqual(events[0]['total'], 6)
         self.assertEqual(events[-1]['status'], 'completed')
-        self.assertEqual(events[-1]['collage']['layout'], 'saree-editorial-9x16-v2')
+        self.assertEqual(events[-1]['collage']['layout'], 'saree-six-panel-9x16-v3')
         self.assertEqual(events[-1]['collage']['aspect_ratio'], '9:16')
         self.assertEqual((events[-1]['collage']['width'], events[-1]['collage']['height']), (1800, 3200))
         self.assertFalse(events[-1]['collage']['includes_original_swatch'])
-        self.assertEqual(edit.call_count, 7)
-        self.assertEqual(upload.call_count, 8)
+        self.assertEqual(edit.call_count, 6)
+        self.assertEqual(upload.call_count, 7)
         pipeline.assert_not_called()
         definition = get_definition('saree')
         self.assertEqual([event['image']['view'] for event in events if event['event'] == 'image_ready'],
@@ -141,28 +143,28 @@ class SareeCatalogTests(SimpleTestCase):
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/image.png'})
     @patch('fabricapp.catalog.generate_edit')
-    def test_front_failure_skips_identity_dependents_but_keeps_fabric_templates(self, edit, upload):
-        edit.side_effect = [CloudflareGenerationError('rejected')] + [GenerationResult(picture(), 42)] * 4
+    def test_front_failure_keeps_other_five_template_shots(self, edit, upload):
+        edit.side_effect = [CloudflareGenerationError('rejected')] + [GenerationResult(picture(), 42)] * 5
         events = list(generate_catalog(data(), threading.Event()))
-        self.assertEqual(events[-1]['failed_views'], ['front', 'side_portrait', 'neckline'])
-        self.assertEqual([image['view'] for image in events[-1]['images']], ['back_pallu', 'pallu', 'border', 'pleats'])
+        self.assertEqual(events[-1]['failed_views'], ['front'])
+        self.assertEqual([image['view'] for image in events[-1]['images']], ['side_portrait', 'back_pallu', 'fabric_texture', 'border', 'pleats'])
         self.assertEqual(events[-1]['status'], 'partial')
-        self.assertEqual(edit.call_count, 5)
+        self.assertEqual(edit.call_count, 6)
 
     @patch('fabricapp.catalog.upload_generated_image')
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
     def test_front_upload_failure_keeps_anchor_for_dependents(self, edit, upload):
         upload.side_effect = [RuntimeError('upload failed')] + [{'url': 'https://example.com/a.png'}] * 6
         events = list(generate_catalog(data(), threading.Event()))
-        self.assertEqual(edit.call_count, 7)
+        self.assertEqual(edit.call_count, 6)
         self.assertEqual(events[-1]['failed_views'], ['front'])
-        self.assertEqual(len(events[-1]['images']), 6)
+        self.assertEqual(len(events[-1]['images']), 5)
 
     @patch('fabricapp.catalog.generate_edit', side_effect=CloudflareGenerationError('quota', status_code=429))
     def test_quota_and_cancel_stop_remaining_calls(self, edit):
         events = list(generate_catalog(data(), threading.Event()))
         self.assertEqual(events[-1]['status'], 'failed')
-        self.assertEqual(len(events[-1]['failed_views']), 7)
+        self.assertEqual(len(events[-1]['failed_views']), 6)
         edit.assert_called_once()
         edit.reset_mock()
         stopped = threading.Event()
@@ -187,7 +189,7 @@ class SareeCatalogTests(SimpleTestCase):
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/image.png'})
     @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
-    def test_actual_engine_prepares_seven_requests_with_reference_roles(self, provider, upload):
+    def test_actual_engine_prepares_six_requests_with_reference_roles(self, provider, upload):
         seen = []
         fabric_hashes = []
         def answer(url, **kwargs):
@@ -208,7 +210,7 @@ class SareeCatalogTests(SimpleTestCase):
             events = [json.loads(chunk) for chunk in response.streaming_content]
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
-        self.assertEqual(len(seen), 7)
+        self.assertEqual(len(seen), 6)
         self.assertEqual(len(set(fabric_hashes)), 1)
         ready = [event['image'] for event in events if event['event'] == 'image_ready']
         self.assertTrue(all(image['generation']['input_hashes']['input_image_1'] == fabric_hashes[0]
@@ -231,7 +233,7 @@ class SareeCatalogTests(SimpleTestCase):
         self.assertEqual(events[-1]['status'], 'failed')
         failures = [event for event in events if event['event'] == 'image_failed']
         self.assertEqual(failures[0]['error'], 'invalid_provider_output')
-        self.assertEqual(provider.call_count, 5)  # front plus back-reference and three fabric detail shots
+        self.assertEqual(provider.call_count, 6)  # All six numbered templates can run independently
         upload.assert_not_called()
 
     @patch('fabricapp.catalog.upload_generated_image')
@@ -259,10 +261,10 @@ class SareeRendererTests(SimpleTestCase):
         original = buffer.getvalue()
         definition = get_definition('saree')
         shot = replace(next(shot for shot in definition.shots if shot.key == 'border'),
-                       operation='crop', dependencies=('pallu',), source_crop=(0.2, 0.5, 1, 0.9))
+                       operation='crop', dependencies=('fabric_texture',), source_crop=(0.2, 0.5, 1, 0.9))
         definition = replace(definition, build_config=lambda *args: {'output_dimensions': (800, 400)})
         provider = Mock(side_effect=AssertionError('Derived panel must not call AI'))
-        result = generate_shot(data(), shot, definition, {'pallu': original}, {'pallu': 71},
+        result = generate_shot(data(), shot, definition, {'fabric_texture': original}, {'fabric_texture': 71},
                                Services(provider, provider, provider))
         provider.assert_not_called()
         self.assertEqual(result.effective_seed, 71)
@@ -272,7 +274,7 @@ class SareeRendererTests(SimpleTestCase):
         self.assertEqual(output.getpixel((0, 0)), (0, 128, 0))
         self.assertEqual(output.getpixel((output.width - 1, output.height - 1)), (0, 128, 0))
 
-    def test_metadata_changes_do_not_generate_or_change_photo_pixels(self):
+    def test_metadata_is_ignored_by_the_image_only_saree_layout(self):
         definition = get_definition('saree')
         shots = {shot.key: picture() for shot in definition.shots}
         layout = definition.layout({})
@@ -280,7 +282,7 @@ class SareeRendererTests(SimpleTestCase):
         second = Image.open(io.BytesIO(render_catalog(shots, b'', definition.layout({'product_name': 'New Product'}))))
         for panel in layout.panels:
             self.assertEqual(first.crop(panel.box).tobytes(), second.crop(panel.box).tobytes())
-        self.assertNotEqual(first.tobytes(), second.tobytes())
+        self.assertEqual(first.tobytes(), second.tobytes())
         for text in layout.texts:
             self.assertNotIn('5.5', text.value)
             self.assertNotIn('Cotton Blend', text.value)
@@ -347,13 +349,12 @@ class CatalogHttpBoundaryTests(SimpleTestCase):
                 response.close()
             self.assertEqual(events[-1]['status'], 'completed')
             generated = [fields for path, fields in calls if path == '/generate']
-            self.assertEqual(len(generated), 7)
-            self.assertEqual(sum(path == '/upload' for path, fields in calls), 8)
-            self.assertTrue(all('input_image_2' in generated[index] for index in (0, 1, 3)))
+            self.assertEqual(len(generated), 6)
+            self.assertEqual(sum(path == '/upload' for path, fields in calls), 7)
+            self.assertTrue(all('input_image_2' in generated[index] for index in (0, 1)))
             self.assertEqual({key for key in generated[2] if key.startswith('input_image_')}, {'input_image_0', 'input_image_1'})
             self.assertNotIn('input_image_2', generated[4])
             self.assertNotIn('input_image_2', generated[5])
-            self.assertNotIn('input_image_2', generated[6])
         finally:
             session.close()
             server.shutdown()

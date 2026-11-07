@@ -14,22 +14,15 @@ body{font:16px system-ui;background:#f5f4f0;color:#172a28;margin:0}main{max-widt
 <label>Generated model<select name="gender"><option value="men">Man</option><option value="women">Woman</option></select></label>
 <label>Material<select name="fabric_type"><option value="unspecified">Use fabric reference</option><option value="cotton">Cotton</option><option value="silk">Silk</option><option value="velvet">Velvet</option></select></label>
 <label>Quality<select id="quality"><option value="final">Final</option><option value="draft">Draft (preview)</option></select></label>
-<fieldset id="productFields" hidden><legend>Catalog header and product details (optional)</legend>
-<label>Product name<input data-product="product_name" maxlength="100"></label>
-<label>Product code<input data-product="product_code" maxlength="100"></label>
-<label>Collection<input data-product="collection" maxlength="100"></label>
-<label>Fabric description<input data-product="fabric_description" maxlength="100"></label>
-<label>Saree length<input data-product="saree_length" maxlength="100" placeholder="e.g. 5.5 m"></label>
-<label>Blouse length<input data-product="blouse_length" maxlength="100" placeholder="e.g. 0.8 m"></label>
-</fieldset>
+
 <button id="generate">Generate Catalog</button></form>
 <p id="status" role="status">Images will appear here as they are ready. Keep this page open during generation.</p><div id="images"></div></main>
 <script>
 const form=document.querySelector('#form'), statusBox=document.querySelector('#status'), images=document.querySelector('#images'), button=document.querySelector('#generate');
 const styles={blazer:['business','wedding','casual'],kurta:['plain','sherwani','pathani','jodhpuri']};
-document.querySelector('#garment').onchange=e=>{const select=document.querySelector('#style'), choices=styles[e.target.value]||[];select.replaceChildren(...choices.map(value=>new Option(value,value)));select.disabled=!choices.length;document.querySelector('#styleLabel').hidden=!choices.length;document.querySelector('#productFields').hidden=e.target.value!=='saree';if(e.target.value==='saree')form.elements.gender.value='women';};
+document.querySelector('#garment').onchange=e=>{const select=document.querySelector('#style'), choices=styles[e.target.value]||[];select.replaceChildren(...choices.map(value=>new Option(value,value)));select.disabled=!choices.length;document.querySelector('#styleLabel').hidden=!choices.length;if(e.target.value==='saree')form.elements.gender.value='women';};
 function addImage(image){const article=document.createElement('article'), title=document.createElement('h3'), img=document.createElement('img'), link=document.createElement('a');title.textContent=image.view==='catalog'&&image.aspect_ratio?'Catalog ('+image.aspect_ratio+')':image.view.replaceAll('_',' ');img.src=image.url;img.alt=title.textContent;link.href=image.url;link.target='_blank';link.rel='noopener';link.textContent='Open / Save image';article.append(title,img,link);images.append(article);}
-form.onsubmit=async e=>{e.preventDefault();button.disabled=true;images.replaceChildren();statusBox.textContent='Starting catalog…';let completed=false;const failures=[];const data=new FormData(form);data.delete('csrfmiddlewaretoken');if(data.get('garment_type')==='saree'){const product=Object.fromEntries([...form.querySelectorAll('[data-product]')].filter(input=>input.value.trim()).map(input=>[input.dataset.product,input.value.trim()]));data.set('catalog_product',JSON.stringify(product));}if(!data.get('person_image')?.size)data.delete('person_image');else data.delete('gender');data.set('options',JSON.stringify({draft_mode:document.querySelector('#quality').value==='draft'}));
+form.onsubmit=async e=>{e.preventDefault();button.disabled=true;images.replaceChildren();statusBox.textContent='Starting catalog…';let completed=false;const failures=[];const data=new FormData(form);data.delete('csrfmiddlewaretoken');if(!data.get('person_image')?.size)data.delete('person_image');else data.delete('gender');data.set('options',JSON.stringify({draft_mode:document.querySelector('#quality').value==='draft'}));
 try{const response=await fetch('../generate-catalog/',{method:'POST',body:data,headers:{'X-CSRFToken':form.querySelector('[name=csrfmiddlewaretoken]').value}});if(!response.ok)throw Error(JSON.stringify(await response.json()));const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
 function receive(line){if(!line.trim())return;const event=JSON.parse(line);if(event.event==='generating')statusBox.textContent=`Generating ${event.view.replaceAll('_',' ')} (${event.index}/${event.total})…`;
 if(event.event==='image_ready')addImage(event.image);if(event.event==='collage_ready'){images.replaceChildren();addImage(event.image);}if(event.event==='composing')statusBox.textContent='Assembling portrait catalog…';if(event.event==='image_failed')failures.push(event.view);if(event.event==='error')throw Error(event.error);

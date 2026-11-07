@@ -73,7 +73,7 @@ def main():
         services = Services(generate_tryon_image, generate_edit, upload_generated_image)
         for view in args.views:
             shot = views[view]
-            if shot.operation == 'pipeline' or shot.identity_from == 'request':
+            if shot.operation == 'pipeline' or (shot.identity_from == 'request' and shot.key == definition.shots[0].key):
                 parser.error('Run a full catalog to test initial/pipeline shots')
             if any(key not in anchors for key in shot.dependencies):
                 parser.error('Reference does not provide the required dependency for ' + view)

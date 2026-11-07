@@ -69,12 +69,11 @@ function setGenerationMode() {
   document.querySelector('#fabric-crop-field').classList.toggle('hidden', !fabric);
   fabricType.disabled = !fabric;
   document.querySelector('#fabric-crop-box').disabled = !fabric;
-  document.querySelector('#catalog-product-fields').classList.toggle('hidden', !catalog || garmentType.value !== 'saree');
   poseSelect.disabled = catalog;
   document.querySelector('#camera-view').disabled = catalog;
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
   document.querySelector('#mode-help').textContent = catalog
-    ? 'One request generates the garment’s catalog shots and a finished collage. Saree uses seven reference views; shirt uses six. Keep this page open. Pose and camera selections are ignored.'
+    ? 'One request generates the garmentâ€™s catalog shots and a finished collage. Saree uses six reference views in a 9:16 image-only collage; shirt uses six. Keep this page open. Pose and camera selections are ignored.'
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
 }

@@ -1,80 +1,42 @@
 # Fabric Try-On Tester UI
 
-Updated copy of the user's existing tester, preserving its styling, timer,
-single-image workflow, local outputs and testing reports. Run `python server.py`
-from this folder (or the installed Desktop copy) and visit `http://localhost:5500`.
+Run `python server.py` from this folder and open `http://localhost:5500`.
 Use one tester server at a time. Python's standard library is sufficient.
+Set the API URL to the backend you want to test; the UI derives either
+`/api/replace-fabric/` or `/api/generate-catalog/` from the selected mode.
 
-Material options apply to all six fabric-based garment types. Ready garment
-mode omits material and crop. Single/Catalog mode uses the configured API host
-and derives `/api/replace-fabric/` or `/api/generate-catalog/` accordingly.
-The catalog endpoint must be deployed on that host or run locally; the default
-Render URL does not imply that this feature branch has been deployed.
+Single-image controls and output/report saving are preserved. Material applies
+to all six fabric-based garment types; ready-garment mode omits material/crop.
+Catalog mode omits pose/camera and displays shots incrementally, then selects the
+final collage. Actual totals, layout and aspect ratio come from stream events.
 
-Catalog mode ignores pose/camera and renders the edition’s declared images (seven for saree, six for shirt), with
-individual Open/Save and Inspect/Report controls. Stop generation cancels the
-connection; the backend's active provider request may still finish. No collage
-or scale controls are added. Source crop is optional and uses original pixels.
-The rear image is now a garment close-up, and the angle view requests a
-front-dominant three-quarter pose. Shirt collar and cuff views use the packaged
-reference templates. Reports preserve each image's `framing` and
-`reference_template` metadata when the current backend supplies it.
+## Current saree catalog
 
-Pose and detail choices in `js/api_options.js` reflect the current backend.
-Colour conditioning remains automatic; no colour-correction sliders are added.
-The report's generated-person fields reflect only what was actually submitted,
-so person-photo requests do not report disabled gender or stale face settings.
+Six photographs in the supplied three-column arrangement, 1800 x 3200 (9:16):
+front at left; side and back in the middle; texture, border and pleats at right.
+There is no header, footer, product text or swatch inset, and the unused product
+text inputs have been removed. The old seven-image catalog references are replaced
+by `01_front_pallu.png` through `06_pleats_hem.png`.
 
-## Reports
+Back-pallu always uses only pose reference + fabric, never a face/person/front
+identity input. A global catalog identity can still be used for front/side shots.
+In normal single-image mode this pose is disabled while face/person inputs are
+selected, and the backend rejects such combinations.
 
-Reports retain the existing paths: `reports/<garment>/<timestamp>/report.json`,
-`reports/<garment>/all_reports.json`, and `reports/index.jsonl`.
+Image/report metadata retains seed, provider trace, framing, reference and collage
+information. Local output saves are sequential. Report JSON retains full catalog
+context; failures preserve URLs and record missing-copy errors. Old reports are
+not rewritten. After cancellation or a broken stream, already-ready images remain
+available; the backend cannot resume a job after refresh or process restart.
 
-Version 2 adds material, generation mode, crop/options, selected catalog view,
-catalog ID, full set status, ready images, failed-view errors, provider codes,
-per-image generation seed/diagnostics (when supplied by the API), and duration.
-`catalog_images/` contains independent copies of all successful images in the
-set. The selected image remains in the existing `files.generated_output` field.
-Inspect/Report selects an individual ready or failed view; the saved report
-also includes the complete catalog context. Missing local/remote copies record
-`copy_error` and retain their delivery URLs. Old reports remain untouched.
+## Verification and installation
 
-Request elapsed time excludes local saves. Images save sequentially through
-the existing `/save-output` helper to avoid assigning duplicate local filenames
-within a catalog. After stopping or a broken stream, already-ready images
-remain available, and reports record cancelled/interrupted status.
+- `node test_catalog_client.cjs` checks stream fragmentation and six-shot metadata.
+- `python test_reports.py` exercises the real local HTTP report handler using
+  temporary directories. Neither command needs paid AI calls.
+- `python ../install_tester_ui.py` updates an independently installed Desktop tester,
+  backing up its files under project `debug/` and preserving outputs/reports.
+  Repository edits alone do not update an independently installed copy.
 
-Tests: `node --test test_catalog_client.cjs` and `python test_reports.py`.
-The report tests POST to the real local HTTP handler with temporary directories;
-the stream tests exercise fragmented protocol data. Neither requires paid AI
-requests. `python ../install_tester_ui.py` installs reviewed files into the
-original Desktop tester directory and backs up existing files under project
-`debug/`; outputs and reports are preserved.
-
-## Saree editorial edition
-
-Saree catalog requests now default to `editorial-v1`: seven reference-driven views
-and a 1800 × 3200 (9:16) PNG with backend-rendered header/footer. Optional product fields
-appear in catalog mode for saree. Empty facts are omitted; no material composition
-or product length is inferred. Reports retain the product fields, edition and layout.
-The normal single-image flow is unchanged. Existing deployed servers must be updated
-before using the new catalog fields. The UI source is in this repository; an independently
-installed Desktop tester must be updated separately using the existing installer.
-
-The seven-panel saree edition now uses six AI photographs and one derived fabric
-edge crop. `image.generation.kind=derived_crop` records its source image and bounds;
-reports retain this metadata. This avoids regenerating the supplied white woven
-border design as a product detail. Side identity/pose references are separated;
-neckline has a dedicated close crop. A real blue-floral catalog was live-tested;
-see `docs/saree_catalog_live_evidence.json` for the scope and remaining limitations.
-
-Current revision: seven independent saree images, including a real side-border
-shot instead of a derived body crop. Back pallu shares the normal saree
-pose-reference builder. All default catalog exports are 9:16; saree is 1800×3200,
-shirt is 1296×2304. The viewer displays the server's ratio metadata and preserves
-natural image dimensions. Older live-test notes above describe earlier revisions.
-
-Back-pallu (`back_showing_pallu`) accepts no face or person identity references.
-The normal-pose dropdown disables it while those inputs are selected. Catalog
-requests may still use a face for other shots; the back-pallu operation omits it
-and is independent of the generated front image.
+Backend contract and live evidence: `docs/catalog.md`. Reference-only previews
+prove layout only; paid live tests separately check actual fabric transfer.

@@ -1,30 +1,50 @@
 {
-  "back_showing_pallu.jpg": {
-    "sha256": "94bd059373ef1bf134b8975d300ea18bd38a0ebb43b057fe89dc91627b7a5ff8",
-    "source": "Existing saree pose asset; copied without modification"
+  "01_front_pallu.png": {
+    "sha256": "2ce760bcc5b26d7ba523a97aab18863a8db8b5dcf1b4e0b8bfc6f89799e2557a",
+    "source": "User numbered Downloads reference, copied without modification",
+    "size": [
+      1516,
+      6684
+    ]
   },
-  "saree_border.png": {
-    "sha256": "68bd5ded74804e44dcc43dca4c4cb1c2451920dedd893423b9c857e5142831cc",
-    "source": "User-provided Downloads image; copied without modification"
+  "02_three_quarter.png": {
+    "sha256": "2d5001e95b58dba6d85ff55d7f96dea4441bd1d23e89fa69cd70dba6852306cc",
+    "source": "User numbered Downloads reference, copied without modification",
+    "size": [
+      1080,
+      3004
+    ]
   },
-  "saree_neckline.png": {
-    "sha256": "510fa7eb8c20ef2900cc55ba3f2919956553ec07ef5e4ca4a79f97de70ddfa2e",
-    "source": "User-provided Downloads image; copied without modification"
+  "03_back_view.png": {
+    "sha256": "bdd6b819440fe0253e5673c652a8761e086870a587fb14c022d131b3824c056d",
+    "source": "User numbered Downloads reference, copied without modification",
+    "size": [
+      1080,
+      3644
+    ]
   },
-  "saree_pallu.png": {
-    "sha256": "627a1456e83b89b264af779d8dc70b086a5e4def9fcce61b872485a713e08d1f",
-    "source": "User-provided Downloads image; copied without modification"
+  "04_fabric_texture.png": {
+    "sha256": "4d2d7632828434de8eaafdd843bd014abbd42bc9463c18eee4fc18df80c5a0b2",
+    "source": "User numbered Downloads reference, copied without modification",
+    "size": [
+      1104,
+      2092
+    ]
   },
-  "saree_pleats.png": {
-    "sha256": "2f795143341869cd3e62d1f3161dbf0bcb9ee7f88132170b810388630b304d32",
-    "source": "User-provided Downloads image; copied without modification"
+  "05_border_closeup.png": {
+    "sha256": "115544df259415665099e79013441f83a831e3316ebf92b579b217ced546c99d",
+    "source": "User numbered Downloads reference, copied without modification",
+    "size": [
+      1104,
+      1836
+    ]
   },
-  "saree_royal_front_stand.png": {
-    "sha256": "f7b66ca20b92c1416a6db2ebbc3481aff641e5d21f0737d3dd71ab9c90f3b86e",
-    "source": "User-provided Downloads image; copied without modification"
-  },
-  "saree_side_view.png": {
-    "sha256": "ffaa6806816cf3b4c00121f69b1bf2bbd8ca5693b4861de9ad9655e0fba0b2c6",
-    "source": "User-provided Downloads image; copied without modification"
+  "06_pleats_hem.png": {
+    "sha256": "8b9c37921e16adad3e90eb7bca0e85e3512a43c407f000feaba7d03fb01891b1",
+    "source": "User numbered Downloads reference, copied without modification",
+    "size": [
+      1104,
+      2700
+    ]
   }
 }
