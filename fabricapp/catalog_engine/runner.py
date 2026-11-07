@@ -1,6 +1,7 @@
 """Sequential dependency-aware executor; garment behavior comes from definitions."""
 import io
 import logging
+from math import gcd
 from dataclasses import dataclass
 from typing import Callable
 from uuid import uuid4
@@ -137,6 +138,8 @@ def generate_catalog(data, stopped, services):
         try:
             payload = render_catalog(shot_bytes, swatch_bytes, layout)
             collage = {**services.upload(payload), 'view': 'catalog', 'layout': layout.version,
+                       'width': layout.size[0], 'height': layout.size[1],
+                       'aspect_ratio': f'{layout.size[0] // gcd(*layout.size)}:{layout.size[1] // gcd(*layout.size)}',
                        'source_views': views, 'includes_original_swatch': layout.swatch_box is not None}
             yield {'event': 'collage_ready', 'image': collage}
         except Exception:

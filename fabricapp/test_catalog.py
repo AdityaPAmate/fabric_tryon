@@ -80,7 +80,7 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(close_args['face_choice'], 'raghav')
         self.assertEqual(edit.call_count, 4)
         self.assertEqual(upload.call_count, 7)
-        self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-v4")
+        self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-9x16-v5")
         self.assertFalse(front.call_args.kwargs['options']['draft_mode'])
         for view, call in zip(['back', 'collar', 'cuff', 'hem'], edit.call_args_list):
             template = get_catalog_reference_path('shirt', view)
@@ -247,7 +247,7 @@ class CollageTests(SimpleTestCase):
                 self.assertLess(result.getpixel(point)[2], 50, view)
 
     def test_shirt_front_panel_retains_native_pixels_without_crop_or_enlargement(self):
-        from fabricapp.ai.images.catalog_collage import compose_catalog, SHIRT_FRONT_SIZE, SHIRT_SIZE
+        from fabricapp.ai.images.catalog_collage import compose_catalog, SHIRT_FRONT_SIZE, SHIRT_SIZE, SHIRT_PANELS
         from PIL import ImageDraw
         source = Image.new('RGB', SHIRT_FRONT_SIZE, 'blue')
         draw = ImageDraw.Draw(source)
@@ -258,7 +258,7 @@ class CollageTests(SimpleTestCase):
         shots = {view: picture() for view in views}; shots['front'] = buffer.getvalue()
         result = Image.open(io.BytesIO(compose_catalog(shots, picture(), views)))
         self.assertEqual(result.size, SHIRT_SIZE)
-        self.assertEqual(result.crop((0, 0, 576, 1920)).tobytes(), source.tobytes())
+        self.assertEqual(result.crop(SHIRT_PANELS['front']).tobytes(), source.tobytes())
 
     def test_fixed_portrait_order_and_original_swatch(self):
         from fabricapp.ai.images.catalog_collage import compose_catalog

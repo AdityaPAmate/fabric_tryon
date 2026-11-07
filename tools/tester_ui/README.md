@@ -54,7 +54,7 @@ original Desktop tester directory and backs up existing files under project
 ## Saree editorial edition
 
 Saree catalog requests now default to `editorial-v1`: seven reference-driven views
-and a 2200 × 2900 PNG with backend-rendered header/footer. Optional product fields
+and a 1800 × 3200 (9:16) PNG with backend-rendered header/footer. Optional product fields
 appear in catalog mode for saree. Empty facts are omitted; no material composition
 or product length is inferred. Reports retain the product fields, edition and layout.
 The normal single-image flow is unchanged. Existing deployed servers must be updated
@@ -67,3 +67,14 @@ reports retain this metadata. This avoids regenerating the supplied white woven
 border design as a product detail. Side identity/pose references are separated;
 neckline has a dedicated close crop. A real blue-floral catalog was live-tested;
 see `docs/saree_catalog_live_evidence.json` for the scope and remaining limitations.
+
+Current revision: seven independent saree images, including a real side-border
+shot instead of a derived body crop. Back pallu shares the normal saree
+pose-reference builder. All default catalog exports are 9:16; saree is 1800×3200,
+shirt is 1296×2304. The viewer displays the server's ratio metadata and preserves
+natural image dimensions. Older live-test notes above describe earlier revisions.
+
+Back-pallu (`back_showing_pallu`) accepts no face or person identity references.
+The normal-pose dropdown disables it while those inputs are selected. Catalog
+requests may still use a face for other shots; the back-pallu operation omits it
+and is independent of the generated front image.

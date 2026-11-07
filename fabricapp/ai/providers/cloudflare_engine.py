@@ -226,6 +226,15 @@ def generate_tryon_image(
     combination of inputs, so it is not re-checked here.
     """
     options = options or {}
+    from fabricapp.ai.references.pose_registry import get_pose_metadata
+    pose_metadata = get_pose_metadata(garment_type, pose) or {}
+    forbid_identity = (pose_metadata.get('allows_identity_reference') is False or
+                       (isinstance(prompt_config, dict) and bool(prompt_config.get('forbid_identity_references'))))
+    if forbid_identity and any(value is not None for value in (
+        person_image if scenario != SCENARIO_POSE_REFERENCE else None,
+        face_image, face_choice, composition_reference_path,
+    )):
+        raise CloudflareGenerationError('This pose does not accept face or person identity references.')
     draft_mode = options.get("draft_mode", True)
     max_output_side = 512 if draft_mode else FINAL_OUTPUT_SIDE
     use_garment_image = garment_image is not None

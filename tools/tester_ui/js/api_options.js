@@ -331,7 +331,8 @@ globalThis.TRYON_API_OPTIONS = {
       },
       "back_showing_pallu": {
         "hides_face": false,
-        "requires_full_body": false
+        "requires_full_body": false,
+        "allows_identity_reference": false
       },
       "seated_floor_spread": {
         "hides_face": false,

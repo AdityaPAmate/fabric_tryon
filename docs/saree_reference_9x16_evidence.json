@@ -1,0 +1,109 @@
+{
+  "date": "2026-11-07",
+  "additional_generations_approved": 4,
+  "additional_generations_used": 4,
+  "runs": [
+    {
+      "run": "saree_back_border_9x16_live_20261107",
+      "view": "back_pallu",
+      "request_id": "b37e89ae9e794dab9e388fcb4cccf404",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1",
+        "input_image_2"
+      ],
+      "fabric_input_sha256": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "output_size": [
+        1152,
+        1536
+      ],
+      "seed": 42,
+      "http_statuses": [
+        200
+      ],
+      "accepted_for_final_catalog": false
+    },
+    {
+      "run": "saree_back_border_9x16_live_20261107",
+      "view": "border",
+      "request_id": "fb1677c252044a7eaf3b34b6ee9bdd0d",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1"
+      ],
+      "fabric_input_sha256": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "output_size": [
+        1536,
+        768
+      ],
+      "seed": 42,
+      "http_statuses": [
+        200
+      ],
+      "accepted_for_final_catalog": true
+    },
+    {
+      "run": "saree_back_no_identity_20261107",
+      "view": "back_pallu",
+      "request_id": "c370d82efb71447a82176d8d209d7b93",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1"
+      ],
+      "fabric_input_sha256": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "output_size": [
+        1152,
+        1536
+      ],
+      "seed": 42,
+      "http_statuses": [
+        200
+      ],
+      "accepted_for_final_catalog": true
+    },
+    {
+      "run": "saree_back_no_identity_repeat_20261107",
+      "view": "back_pallu",
+      "request_id": "0d0633b5aa784256b6da6704d8cdca8b",
+      "input_slots": [
+        "input_image_0",
+        "input_image_1"
+      ],
+      "fabric_input_sha256": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc",
+      "output_size": [
+        1152,
+        1536
+      ],
+      "seed": 42,
+      "http_statuses": [
+        200
+      ],
+      "accepted_for_final_catalog": true
+    }
+  ],
+  "observations": {
+    "rejected_trial": "Initial back-pallu with front identity reference turned toward camera; it is not used in the final catalog.",
+    "accepted_back_pallu": "Two repeat live calls with only pose and fabric preserve rear stance and broad pallu spread. No identity image input was sent.",
+    "side_border": "Dedicated generated edge close-up shows a continuous plain side strip and adjacent printed body, rather than a body-print crop.",
+    "border_limit": "Plain coordinated edge is illustrative when a swatch does not show the actual product border; exact decorative border needs source evidence."
+  },
+  "final_export": {
+    "saree_size": [
+      1800,
+      3200
+    ],
+    "shirt_size": [
+      1296,
+      2304
+    ],
+    "aspect_ratio": "9:16",
+    "local_file": "output/saree_catalog_9x16.png",
+    "composition": "Recomposed cached real photographs with new back/side-border outputs. Other shots were not regenerated for the taller layout."
+  },
+  "no_identity_rule": "back_showing_pallu forbids face_choice, face_image, person_image and front-anchor identity. Enforced in API, coordinator, provider and catalog definition.",
+  "validation": {
+    "django_tests": 107,
+    "stream_tests": 4,
+    "report_tests": 5
+  }
+}

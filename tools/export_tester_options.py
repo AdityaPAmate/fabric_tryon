@@ -17,6 +17,7 @@ def main():
         config[garment] = {
             'poses': {pose: {key: bool(get_pose_metadata(garment, pose).get(key))
                              for key in ('hides_face', 'requires_full_body')}
+                             | ({'allows_identity_reference': False} if get_pose_metadata(garment, pose).get('allows_identity_reference') is False else {})
                       for pose in get_pose_options(garment)},
             'details': [{'slot': rule['slot'], 'styles': rule.get('styles'), 'options': list(rule['options'])}
                         for rule in _rules_for(garment)],

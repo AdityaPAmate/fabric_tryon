@@ -266,6 +266,14 @@ class FabricTryOnRequestSerializer(serializers.Serializer):
 
         metadata = get_pose_metadata(garment_type, pose) or {}
 
+        if metadata.get('allows_identity_reference') is False and any(
+            data.get(key) for key in ('face_choice', 'face_image', 'person_image')
+        ):
+            raise serializers.ValidationError({'pose': (
+                f"Pose '{pose}' uses only its pose-reference photo and fabric; "
+                "omit face_choice, face_image and person_image."
+            )})
+
         if metadata.get("hides_face") and (
             data.get("face_choice") or data.get("face_image")
         ):

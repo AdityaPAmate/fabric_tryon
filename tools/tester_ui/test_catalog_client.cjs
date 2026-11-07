@@ -29,12 +29,13 @@ test('seven-view saree edition retains dynamic totals and collage metadata', asy
   const views = ['front', 'side_portrait', 'back_pallu', 'neckline', 'pallu', 'border', 'pleats'];
   const events = [{event:'started', total:7, views, catalog_edition:'editorial-v1'},
     ...views.map(view => ({event:'image_ready', image:{view, url:`https://example.test/${view}.png`}})),
-    {event:'collage_ready', image:{view:'catalog', layout:'saree-editorial-v1', includes_original_swatch:false}},
+    {event:'collage_ready', image:{view:'catalog', layout:'saree-editorial-9x16-v2', width:1800, height:3200, aspect_ratio:'9:16', includes_original_swatch:false}},
     {event:'complete', status:'completed', total:7}];
   const received = [];
   await readEvents(new Response(events.map(event => JSON.stringify(event)).join('\n')), event => received.push(event));
   assert.equal(received[0].total, 7);
   assert.deepEqual(received.filter(event => event.event === 'image_ready').map(event => event.image.view), views);
   assert.equal(received.at(-2).image.includes_original_swatch, false);
+  assert.equal(received.at(-2).image.width * 16, received.at(-2).image.height * 9);
   assert.equal(received.at(-1).status, 'completed');
 });

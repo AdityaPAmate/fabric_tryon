@@ -7,7 +7,7 @@ from fabricapp.ai.garments.shirt.catalog.layout import (
 )
 from fabricapp.ai.garments.shirt.catalog.layout import get_layout as shirt_layout
 
-LAYOUT = 'portrait-catalog-v4'
+LAYOUT = 'portrait-catalog-9x16-v5'
 SIZE = (1800, 3200)
 SHIRT_FRONT_SIZE = (576, 1920)
 

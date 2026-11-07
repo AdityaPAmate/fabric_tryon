@@ -194,15 +194,19 @@ SAREE_POSES = {
     },
 
     "back_showing_pallu": {
+        "allows_identity_reference": False,
         "pose": (
-            "Describe the exact back-facing body orientation, "
-            "head direction, arm placement, hand position and stance "
-            "shown in the reference image."
+            "standing with the torso facing away from the camera and the head turned "
+            "toward the right of the image; the forearm on the left of the image extends "
+            "outward with its hand holding one pallu edge, while the hand on the right "
+            "holds the other edge lower beside the hip; both hands stay separate and "
+            "visible, feet planted in a natural full-length rear stance"
         ),
         "pallu": (
-            "Describe the exact pallu starting point, direction, "
-            "back coverage, folds and visible trailing edge shown "
-            "in the reference image."
+            "the pallu starts at the shoulder on the left of the image and spreads "
+            "as one broad diagonal sheet across the back, held open between both hands; "
+            "its wide lower edge falls close to the floor and stays completely visible, "
+            "not a narrow scarf or a hidden strip behind the body"
         ),
     },
 

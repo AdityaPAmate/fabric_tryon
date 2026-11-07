@@ -27,40 +27,49 @@ must omit `pose` and `camera_view` and cannot use `garment_image`. The saree
 editorial generated model supports women/girls; an uploaded person supplies its
 own identity. Final quality is the API default; explicit draft reduces new saree
 provider sizes to a maximum side of 512 (with provider-aligned dimensions).
-The exported collage remains 2200 × 2900, so draft photographs look softer.
+The exported collage remains 1800 × 3200 (9:16), so draft photographs look softer.
 
 ## Saree editorial shots and references
 
 1. `front`: `saree_royal_front_stand.png`; request person/face reference when supplied.
 2. `side_portrait`: generated front supplies identity; the side reference is a fourth, below-face composition guide.
-3. `back_pallu`: separate catalog copy of `back_showing_pallu.jpg`; front identity anchor.
+3. `back_pallu`: separate copy of `back_showing_pallu.jpg`; pose + fabric only, with no identity reference.
 4. `neckline`: `saree_neckline.png`; front identity/outfit anchor.
 5. `pallu`: `saree_pallu.png`; independent fabric-only template edit.
-6. `border`: deterministic close crop of generated `pallu`, rather than a new AI edit of the woven-border template. The original border reference remains a layout guide.
+6. `border`: dedicated side-border / selvedge template edit; independent of the pallu shot. This is no longer a crop of the body print.
 7. `pleats`: `saree_pleats.png`; independent fabric-only template edit.
 
 Templates control pose/drape/crop, while the request swatch controls saree fabric.
 The side shot uses a blank image 0, original swatch image 1, cropped front identity
-image 2, and a below-face pose guide image 3. This avoids the template model's face
-competing with the requested identity. Neckline uses a cropped front identity and
-an explicit lip-to-bust frame. The border panel is a declared local `crop` operation
-with `generation.kind=derived_crop`, `source_view=pallu`, source hash and crop bounds.
-It does not create another AI image or fabricate a macro weave. Seven panels require
-six AI generations in the final implementation. PNG transport preserves the swatch
+image 2, and a below-face pose guide image 3. The back-pallu shot now reuses the
+normal saree builder with `pose=back_showing_pallu`, the same pose-reference photo,
+and its shared pose/hand/fold/pallu geometry lock. The back-pallu request sends only the pose photo and fabric: no face upload, face
+choice, person photo or generated front identity. It preserves the reference
+photograph's aspect ratio. The normal API rejects identity inputs for this pose,
+and the coordinator/provider enforce the same rule for direct callers.
+The compositor contains the full back-pallu image rather than cutting its held edge.
+
+The border shot is a real side-edge close-up, not a body-print crop. It keeps the
+outer side boundary, narrow edge strip and adjoining body as separate regions.
+It uses an actual border visible in the fabric reference when available; a body-only
+swatch supplies no evidence of decorative zari/embroidery, so only a plain finished
+selvedge is requested. A particular decorative product border needs a source photo
+that actually shows it. Seven panels again require seven AI generations.
+PNG transport preserves the swatch
 without JPEG colour subsampling. Classified provider errors, input hashes and strict
 image-dimension validation are enabled for this edition; legacy single-image saree
 behavior remains unchanged.
 
 The front image is retained before uploading, so its upload failure does not lose
-its identity anchor. Front generation failure skips its three dependent shots;
-pallu and pleats can still run, and border requires a successful pallu. Quota/auth
+its identity anchor. Front generation failure skips its two dependent shots;
+back-pallu, pallu, border and pleats can still run independently. Quota/auth
 failures stop remaining work. Exact physical colour, pattern scale and edge design
 remain generative limitations; the visual evidence below is from one actual input.
 
-The backend composes all seven successful shots into `saree-editorial-v1`, draws
+The backend composes all seven successful shots into `saree-editorial-9x16-v2`, draws
 header/footer text, and uploads the PNG. This edition has no separate swatch inset;
 `collage.includes_original_swatch` is false. Shirt retains its original swatch inset
-and `portrait-catalog-v4` layout. `started` includes `catalog_edition` and `layout`;
+and `portrait-catalog-9x16-v5` layout. `started` includes `catalog_edition` and `layout`;
 `complete` includes `catalog_edition`. Existing event fields remain available.
 
 ## Operation and validation
@@ -86,20 +95,22 @@ Use `--shots-dir PATH` instead of `--references` to recompose generated files na
 `front.png`, `side_portrait.png`, etc.; `--product-json PATH` changes product text
 without generating photographs again.
 
-Validation: 98 Django tests, 4 tester stream tests and 5 local report tests.
+Validation: 107 Django tests, 4 tester stream tests and 5 local report tests.
 The suite covers identical prepared swatch bytes across every provider request,
 four-slot reference separation, incorrect output rejection, quota handling and
-border crop provenance with no provider call. Real local HTTP stand-ins separately
+normal-builder back-pallu parity, independent side-border generation and exact 9:16 exports. The generic crop operation remains available to other future editions. Real local HTTP stand-ins separately
 exercise multipart requests and storage behavior.
+
+Historical fabric-transfer validation (before the back-pallu/side-border/9:16 revision):
 
 After explicit approval, 14 real Cloudflare generations and their Cloudinary
 uploads completed on 2026-11-07: a full seven-generation baseline plus seven focused
 rechecks. Every request used the same original blue floral swatch; all prepared
-`input_image_1` hashes match. The final collage uses six selected real photographs
+`input_image_1` hashes match. That earlier collage used six selected real photographs
 and a local crop of the generated pallu. It was composed and uploaded without new
 AI calls. See [saree_catalog_live_evidence.json](saree_catalog_live_evidence.json).
 
-Local final output: `output/saree_fabric_catalog.png`; original input:
+Earlier output (not the revised layout): `output/saree_fabric_catalog.png`; original input:
 `output/saree_fabric_swatch.png`. Full prompts/traces and run results are in
 `debug/saree_fabric_*_20261107/` (gitignored). The first reference-only preview is
 layout evidence only and must not be presented as proof of fabric transfer.
@@ -113,6 +124,35 @@ Cloudflare documents four input slots and the input-size limit used here:
 [Workers AI FLUX.2 klein reference](https://developers.cloudflare.com/changelog/post/2026-01-15-flux-2-klein-4b-workers-ai/).
 Postman CLI remained unavailable due to its machine-managed manifest; the evidence
 above comes from Django tests, local HTTP stand-ins and the actual provider runs.
+
+
+## Exact portrait export contract
+
+Every default catalog now exports an exact 9:16 PNG. Saree is 1800 × 3200 and
+shirt is 1296 × 2304. Shirt photo sizes are unchanged; the existing layout is
+centered with 56px side margins. Legacy layouts already export 1800 × 3200.
+Header and footer are included in those dimensions. `collage` includes `width`,
+`height`, and `aspect_ratio: "9:16"`; both browser UIs display that ratio.
+The ratio applies to the downloaded artifact, not just a CSS preview. Photos
+are fitted proportionally, never stretched. Back-pallu and border references
+are contained so their physical edges remain visible.
+
+Back/edge implementation is verified locally and with four additional approved
+live generations. The initial identity-conditioned back trial was rejected during
+visual review. The two subsequent pose+fabric-only back calls preserved the rear
+stance and spread pallu; their traces contain only input_image_0 and input_image_1.
+The dedicated side-border generation shows a continuous plain edge strip beside
+the printed body. An exact decorative product border still needs a source that
+shows it; a coordinated plain edge is not evidence of an unseen product border.
+
+The final `output/saree_catalog_9x16.png` is 1800×3200 and was composed from cached
+real photographs plus the corrected back/side-border outputs. Other shots were
+not regenerated for the taller layout; proportional containment may leave margins.
+See [saree_reference_9x16_evidence.json](saree_reference_9x16_evidence.json).
+
+Research: [saree border terminology](https://firstclasse.com.my/style/saree-glossary/)
+distinguishes the long edge border from body cloth; [Lucknow Bioscope sari collection](https://artsandculture.google.com/story/dAVhYRG8SE0hCQ)
+shows border and pallu as distinct textile regions.
 
 ---
 

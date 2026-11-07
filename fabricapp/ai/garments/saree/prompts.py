@@ -376,6 +376,19 @@ REF_BLOUSE = (
     "the blouse or sleeves."
 )
 
+# Shared by the normal pose-reference route and its catalog adapter.
+REF_BACK_PALLU_GEOMETRY = (
+    "BACK-PALLU GEOMETRY LOCK: keep the rear-facing stance from image 0. "
+    "The head turns toward the right side of the image while the torso stays facing away. "
+    "The forearm on the left of the image extends outward and its hand holds one pallu edge; "
+    "the hand on the right of the image holds the other edge lower beside the hip. "
+    "Keep the entire broad pallu spread diagonally across the back and outward between those "
+    "two hands, with its wide lower edge fully visible near the floor. Preserve the exact "
+    "grip points, diagonal outline, folds and broad sheet area in image 0. "
+    "Do not collapse it into a narrow scarf, hide the held corner, turn the torso to the front "
+    "or turn this into a front-facing portrait. Only the textile design changes."
+)
+
 # Specific to the pallu_on_head photo: keeps the right side of the frame
 # free of loose cloth. Registered per pose in REF_EXTRAS_BY_POSE (builder.py).
 REF_RIGHT_SIDE = (

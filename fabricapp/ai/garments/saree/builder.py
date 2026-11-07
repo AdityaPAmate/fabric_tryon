@@ -51,6 +51,7 @@ REFERENCE_ORDER = (
 REF_EXTRAS_DEFAULT = (T.REF_BLOUSE,)
 REF_EXTRAS_BY_POSE = {
     "pallu_on_head": (T.REF_BLOUSE, T.REF_RIGHT_SIDE),
+    "back_showing_pallu": (T.REF_BLOUSE, T.REF_BACK_PALLU_GEOMETRY),
 }
 
 
@@ -234,6 +235,8 @@ def _build_pose_reference(
     pose, use_face_reference, background, camera_view, additional_style_note,
     gender, body_type,
 ):
+    if pose == 'back_showing_pallu':
+        use_face_reference = False
     if gender or body_type:
         logger.warning(
             "Saree reference route: gender/body_type are NOT applied, the "

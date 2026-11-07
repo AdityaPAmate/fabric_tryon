@@ -79,7 +79,15 @@ def get_pose_options(garment_type=None):
 
 def get_pose_metadata(garment_type, pose):
     """Return metadata for a garment pose, or None if the pose is unknown."""
-    if not garment_type or not pose:
+    if not pose:
+        return None
+    if not garment_type:
+        # Ready-garment requests omit the type; they must not bypass an explicit
+        # no-identity pose restriction by using the union of public pose names.
+        for garment in POSE_MODULES:
+            entry = _load_pose_data(garment).get(pose)
+            if isinstance(entry, dict) and entry.get('allows_identity_reference') is False:
+                return {'allows_identity_reference': False}
         return None
 
     entry = _load_pose_data(garment_type).get(pose)

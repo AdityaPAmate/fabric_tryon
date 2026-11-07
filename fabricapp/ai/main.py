@@ -40,6 +40,12 @@ def generate_tryon_image(
     Non-None request values override those defaults for this request only.
     """
     options = options or {}
+    from fabricapp.ai.references.pose_registry import get_pose_metadata
+    pose_metadata = get_pose_metadata(garment_type, pose) or {}
+    if pose_metadata.get('allows_identity_reference') is False and any(
+        value is not None for value in (person_image, face_image, face_choice)
+    ):
+        raise CloudflareGenerationError('This pose does not accept face or person identity references.')
     garment_details = garment_details or []
     use_garment_image = garment_image is not None
     material_error = validate_fabric_type(fabric_type, garment_type, use_garment_image)

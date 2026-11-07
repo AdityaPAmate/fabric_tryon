@@ -95,3 +95,24 @@ behavior only. Live saree output was visually reviewed with one blue floral swat
 face: 14 actual generations, with consistent fabric input hashes. Final composition
 uses six real photographs and a derived pallu edge crop. See
 `docs/saree_catalog_live_evidence.json` and the current catalog API notes for limits.
+
+
+## Reference and portrait correction
+
+Back-pallu now calls the normal saree pose-reference builder for
+`back_showing_pallu`; the catalog no longer has a competing generic back prompt.
+This shot sends only pose reference + fabric, never a face choice/upload, uploaded
+person or front anchor. Pose metadata, API validation, coordinator and provider
+checks enforce that rule. It is independent of front generation. The ordinary
+person-photo pose descriptions also contain concrete spatial instructions rather
+than placeholder text.
+
+Side-border now uses its own side-edge template generation, replacing the previous
+body-print crop. It distinguishes the narrow continuous side edge from the body
+and pallu/end panel. An unseen decorative product border cannot be inferred from
+a body-only swatch; the requested fallback is a plain finished selvedge.
+
+All default layouts export 9:16. Saree reflows to 1800×3200; shirt retains native
+photo dimensions, centered in 1296×2304. Output metadata records width, height and
+aspect_ratio and the UI displays the actual export ratio. Back-pallu and border
+are contained proportionally so the edge is not cut off in the final collage.

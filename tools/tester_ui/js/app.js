@@ -173,7 +173,9 @@ function setReferencePoseAvailability() {
   poseSelect.replaceChildren(new Option('Keep default pose', ''));
   for (const [key, metadata] of Object.entries(poses)) {
     const option = new Option(key.replaceAll('_', ' '), key);
-    option.disabled = Boolean((face && metadata.hides_face) || (close && metadata.requires_full_body));
+    option.disabled = Boolean((face && metadata.hides_face) || (close && metadata.requires_full_body) ||
+      (metadata.allows_identity_reference === false && (face || personImage.files?.length)));
+    if (metadata.allows_identity_reference === false) option.title = 'This pose uses its reference model. Clear face and person uploads to select it.';
     poseSelect.add(option);
   }
   const selected = Array.from(poseSelect.options).find(option => option.value === previous && !option.disabled);
@@ -673,7 +675,7 @@ form.addEventListener("submit", async (event) => {
           const card = document.createElement('article');
           card.className = 'comparison-card';
           card.style.gridColumn = '1 / -1';
-          const title = document.createElement('h4'); title.textContent = 'Final portrait catalog';
+          const title = document.createElement('h4'); title.textContent = `Final portrait catalog${output.aspect_ratio ? ' (' + output.aspect_ratio + ')' : ''}`;
           const image = document.createElement('img'); image.src = output.url; image.alt = title.textContent;
           const link = document.createElement('a'); link.href = output.url;
           link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'Open / Download Catalog';
