@@ -15,13 +15,23 @@ class KurtiPantCatalogTests(SimpleTestCase):
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.test/image.png'})
     @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
     def test_default_catalog_streams_six_reference_edits_and_a_3x4_export(self, provider, upload):
+        swatch = Image.new('RGB', (160, 300), 'green')
+        swatch.paste('red', (0, 210, 160, 300))
+        source = io.BytesIO()
+        swatch.save(source, 'PNG')
+        input_pixels = []
+
         def answer(url, **request):
             fields = request['data']
+            fabric_bytes = request['files']['input_image_1'][1].getvalue()
+            with Image.open(io.BytesIO(fabric_bytes)) as prepared:
+                input_pixels.append((prepared.size, prepared.getpixel((20, prepared.height - 5))))
             return Mock(status_code=200, headers={'Content-Type': 'image/png'},
                         content=picture(size=(fields['width'], fields['height'])))
 
         provider.side_effect = answer
         response = post(garment_type='kurti_pant',
+                        fabric_image=SimpleUploadedFile('panel.png', source.getvalue(), content_type='image/png'),
                         face_image=SimpleUploadedFile('face.png', picture('orange'), content_type='image/png'),
                         garment_details=['full_sleeves', 'with_dupatta'], options='{"draft_mode": true}')
         self.assertEqual(response.status_code, 200)
@@ -38,7 +48,14 @@ class KurtiPantCatalogTests(SimpleTestCase):
         ready = [event['image'] for event in events if event['event'] == 'image_ready']
         self.assertEqual({image['view']: image['reference_template'] for image in ready}, expected)
         self.assertEqual(len({image['generation']['input_hashes']['input_image_0'] for image in ready}), 6)
-        self.assertEqual(len({image['generation']['input_hashes']['input_image_1'] for image in ready}), 1)
+        for image, (size, pixel) in zip(ready, input_pixels):
+            if image['view'] == 'sleeve':
+                self.assertEqual(image['generation']['fabric_crop_box'], [0, 90, 160, 180])
+                self.assertEqual(size, (160, 90))
+                self.assertEqual(pixel, (0, 128, 0))
+            else:
+                self.assertEqual(size, (160, 300))
+                self.assertEqual(pixel, (255, 0, 0))
         for image in ready:
             self.assertEqual('input_image_2' in image['generation']['input_hashes'], image['view'] in ('front', 'side'))
         self.assertIn('full-length sleeves', provider.call_args_list[0].kwargs['data']['prompt'])
@@ -60,6 +77,15 @@ class KurtiPantCatalogTests(SimpleTestCase):
         self.assertEqual(upload.call_count, 7)
         with Image.open(io.BytesIO(upload.call_args.args[0])) as collage:
             self.assertEqual(collage.size, (1800, 2400))
+
+    def test_sleeve_uses_a_selected_crop_even_for_tall_fabric(self):
+        definition = get_definition('kurti_pant')
+        shot = next(shot for shot in definition.shots if shot.key == 'sleeve')
+        source = io.BytesIO(picture(size=(160, 300)))
+        crop = [10, 50, 110, 130]
+        config = definition.build_config({'fabric_image': source, 'options': {'fabric_crop_box': crop}}, shot, 42)
+        self.assertEqual(config['fabric_crop_box'], crop)
+        self.assertEqual(config['fabric_region_selection'], 'explicit_crop')
 
     def test_classic_edition_still_resolves_to_the_legacy_catalog(self):
         classic = get_definition('kurti_pant', 'classic-v1')

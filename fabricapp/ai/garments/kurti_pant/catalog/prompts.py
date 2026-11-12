@@ -23,12 +23,35 @@ DETAIL_PROMPTS = {
     ),
     'sleeve': (
         'Edit image 0 in place as a macro photograph of ONE kurti cuff resting on matching kurti '
-        'cloth. Keep the exact diagonal angle, single cuff opening, fold and visible floral '
-        'embroidery along the cuff. The visible inside of the opening is the reverse of the same '
-        'fabric, with a natural shadow. The cloth beneath the cuff also uses image 1. Show no '
-        'second sleeve, contrasting lining, extra fabric layer, dark piping or trousers. '
+        'cloth. Keep the exact diagonal angle, single cuff opening and fold. Preserve the '
+        'placement of the floral cuff stitchwork, using thread colours from the small motifs '
+        'in image 1. Follow the small body motif shape and spacing in image 1 across the cuff '
+        'and all surrounding cloth. The visible inside of the opening is the reverse of the same '
+        'fabric, with a natural shadow. Show no hem artwork, white template cloth, second sleeve, '
+        'contrasting lining, extra fabric layer, dark piping or trousers. '
     ),
 }
+
+
+def _sleeve_fabric_region(data):
+    selected = data.get('options', {}).get('fabric_crop_box')
+    if selected is not None:
+        return selected, 'explicit_crop'
+
+    source = data.get('fabric_image')
+    if source is not None:
+        position = source.tell()
+        try:
+            source.seek(0)
+            with Image.open(source) as fabric:
+                width, height = fabric.size
+        finally:
+            source.seek(position)
+        # Long garment panels often carry trim at the top and a wide hem at the bottom.
+        # Sample the body above the hem, keeping the width for the motif repeat.
+        if height >= 1.5 * width and height >= 256:
+            return [0, round(height * 0.30), width, round(height * 0.60)], 'body_band'
+    return None, 'full_source'
 
 
 def _output_dimensions(shot, draft):
@@ -88,7 +111,11 @@ def build_config(data, shot, seed):
     }
     if shot.key != 'pant':
         context = data if portrait else {**data, 'garment_details': ()}
+        if shot.key == 'sleeve':
+            crop, selection = _sleeve_fabric_region(data)
+            config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
+            context['options'] = {**data.get('options', {}), 'fabric_crop_box': crop}
         config = apply_fabric_conditioning(config, context, 'kurti_pant')
-    version = 'v1' if shot.key == 'pant' else 'v2'
+    version = {'pant': 'v1', 'sleeve': 'v3'}.get(shot.key, 'v2')
     config['prompt_version'] = f'kurti-pant-catalog-{version}-{shot.key}'
     return config
