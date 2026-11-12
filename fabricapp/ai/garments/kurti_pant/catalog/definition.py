@@ -6,12 +6,12 @@ from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel,
 
 REFERENCE_DIR = CATALOG_REFERENCE_DIR / 'kurti_pant'
 PANELS = (
-    Panel('front', (0, 0, 644, 1796), 'cover'),
-    Panel('side', (656, 0, 1222, 1796), 'cover'),
-    Panel('back', (1234, 0, 1800, 1796), 'cover'),
-    Panel('neckline', (0, 1808, 592, 2400), 'cover'),
-    Panel('sleeve', (604, 1808, 1196, 2400), 'cover'),
-    Panel('pant', (1208, 1808, 1800, 2400), 'cover'),
+    Panel('front', (0, 0, 894, 2400), 'cover'),
+    Panel('side', (906, 0, 1320, 1194), 'cover'),
+    Panel('back', (906, 1206, 1320, 2400), 'cover'),
+    Panel('neckline', (1332, 0, 1800, 756), 'cover'),
+    Panel('sleeve', (1332, 768, 1800, 1572), 'cover'),
+    Panel('pant', (1332, 1584, 1800, 2400), 'cover'),
 )
 SHOTS = tuple(
     Shot(key, description, 'template_edit', framing, reference=REFERENCE_DIR / filename,
@@ -35,7 +35,7 @@ SHOTS = tuple(
 
 
 def get_layout(product=None):
-    return Layout('kurti-pant-six-panel-3x4-v1', (1800, 2400), PANELS)
+    return Layout('kurti-pant-six-panel-3x4-v2', (1800, 2400), PANELS)
 
 
 def validate_request(data):
