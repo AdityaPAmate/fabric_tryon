@@ -2,7 +2,7 @@
 from PIL import Image
 
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
-from fabricapp.ai.garments.kurti_pant.catalog.fabric_region import select_sleeve_fabric_region
+from fabricapp.ai.garments.kurti_pant.catalog.fabric_region import select_body_fabric_region
 from fabricapp.ai.garments.kurti_pant.details import (
     DUPATTA_ADD, KURTI_SLEEVES_FULL_EDIT, KURTI_SLEEVES_HALF_EDIT,
 )
@@ -14,14 +14,30 @@ SLEEVE_OPTIONS = {
     'half_sleeves': KURTI_SLEEVES_HALF_EDIT,
 }
 
+CATALOG_SCENERY = {
+    'white_marble_terrace': 'a carved white marble terrace overlooking a lake and distant hills',
+    'festive_street': 'a heritage street with marigold garlands, decorative lanterns and carved balconies',
+    'royal_courtyard': 'a palace courtyard with carved archways, columns, a pavilion and a fountain',
+    'riverside_ghat': 'a riverside ghat with stone steps, floating lamps and distant temple spires',
+}
+
+FABRIC_LIGHTING = (
+    ' FINAL FABRIC LIGHTING: light the visible outfit with a broad, diffused neutral-white studio '
+    'softbox and gentle fill, with neutral camera white balance. Keep the selected scenery behind '
+    'the subject. No direct sunlight, warm sunset light, coloured reflections or strong shadows '
+    'on the garment. Match image 1 in diffuse fabric midtones and retain soft local fold shadows. '
+    'Keep the original motif colours, fabric weave and surface finish.'
+)
+
 DETAIL_PROMPTS = {
     'neckline': (
         'Reproduce the exact crop of image 0: a neckline macro with only the mouth and chin at '
         'the top edge and fabric continuing past the bottom edge. The eyes, nose, full head, '
         'waist and hands are outside the frame. Keep the round neckline, '
         'binding and shoulder positions. Preserve the single narrow floral vine below the binding '
-        'and its small central flower with thread drops. The rest of the upper chest shows the '
-        'uploaded fabric. The kurti continues past the '
+        'and its small central flower with thread drops. Use a continuous field of the same body '
+        'cloth around the stitchwork. Keep large hem artwork, edge bands and contrasting panels '
+        'outside this crop. The kurti continues past the '
         'bottom edge of the photograph. Show no lower hem, waistband or trousers. '
     ),
     'sleeve': (
@@ -95,30 +111,28 @@ def build_config(data, shot, seed):
         prompt += 'Keep the requested close-up framing and isolate the garment detail. '
 
     if portrait:
-        background = get_background_description(data.get('background'), garment_type='kurti_pant')
-        prompt += f'Use {background} as the background where visible. ' if background else 'Retain the reference setting. '
+        background = CATALOG_SCENERY.get(data.get('background'))
+        prompt += f'Use {background} as the scenery behind the subject. ' if background else 'Retain the reference setting. '
     else:
         prompt += 'Keep the close-up studio composition in image 0. Do not widen the frame to show a scene. '
     if data.get('additional_style_note'):
         prompt += f"Style direction: {data['additional_style_note']}. Preserve the supplied kurti textile and reference framing. "
     prompt += 'Use natural cloth shading. Produce one opaque clothing photograph without text, a watermark or a collage.'
-    if shot.key == 'back':
-        prompt += (' FINAL BACK VIEW LIGHTING: keep the setting and pose in image 0. Light the back '
-                   'of the kurti with soft, neutral daylight from the camera side. The broad cloth '
-                   'areas between folds should match the lightness, hue and saturation of image 1. '
-                   'Reserve darker shading for individual folds and seams. Keep the ambient '
-                   'background warmth out of the kurti fabric.')
+    prompt += FABRIC_LIGHTING
     config = {
         'prompt': prompt, 'seed': seed, 'guidance': data.get('guidance', 7),
         'output_dimensions': _output_dimensions(shot, data.get('options', {}).get('draft_mode', False)),
         'fabric_source_format': 'PNG', 'classified_recovery': True, 'safety_retry_count': 0,
     }
-    context = data if portrait else {**data, 'garment_details': ()}
-    if shot.key == 'sleeve':
-        crop, selection = select_sleeve_fabric_region(data)
+    crop, selection = select_body_fabric_region(data)
+    context = {**data, 'options': {**data.get('options', {}), 'fabric_crop_box': crop}}
+    if portrait:
+        if selection == 'detected_body_crop':
+            config['prompt'] += (' The measured palette describes the main cloth. Use image 1 '
+                                 'for the distinct colours and motifs of the original hem trim.')
+    else:
         config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
-        context['options'] = {**data.get('options', {}), 'fabric_crop_box': crop}
+        context['garment_details'] = ()
     config = apply_fabric_conditioning(config, context, 'kurti_pant', match_pattern_colours=True)
-    version = {'neckline': 'v5', 'sleeve': 'v7', 'back': 'v5'}.get(shot.key, 'v3')
-    config['prompt_version'] = f'kurti-pant-catalog-{version}-{shot.key}'
+    config['prompt_version'] = f'kurti-pant-catalog-v8-{shot.key}'
     return config

@@ -1,4 +1,4 @@
-"""Select the sleeve's body print when an uploaded panel has distinct edge trim."""
+"""Select the garment's body print when an uploaded panel has distinct edge trim."""
 from math import dist
 from statistics import median
 
@@ -42,6 +42,11 @@ def _body_span(sample):
                 or colour_gap >= 55 and max(detail, body_detail) >= 4)
 
     first, last = 0, BAND_COUNT
+    # A photo of laid-out fabric may show a strip of floor before the trim.
+    if start >= 3 and not looks_like_edge(bands[0]) and all(map(looks_like_edge, bands[1:3])):
+        first = 1
+    if start + 3 <= BAND_COUNT - 3 and not looks_like_edge(bands[-1]) and all(map(looks_like_edge, bands[-3:-1])):
+        last -= 1
     while first < start and looks_like_edge(bands[first]):
         first += 1
     while last > start + 3 and looks_like_edge(bands[last - 1]):
@@ -54,7 +59,7 @@ def _body_span(sample):
     return rows[first] + (inset if first else 0), rows[last] - (inset if last < BAND_COUNT else 0)
 
 
-def select_sleeve_fabric_region(data):
+def select_body_fabric_region(data):
     selected = (data.get('options') or {}).get('fabric_crop_box')
     if selected is not None:
         return selected, 'explicit_crop'
@@ -82,6 +87,11 @@ def select_sleeve_fabric_region(data):
         left, right = _body_span(band)
     if (left, top, right, bottom) == (0, 0, sw, sh):
         return None, 'full_source'
+    if left > 0 and right < sw and (top > 0 or bottom < sh):
+        # Side borders on photographed panels can slant inwards outside the sampled band.
+        margin = round((right - left) / 7)
+        left += margin
+        right -= margin
     crop = [round(left * width / sw), round(top * height / sh),
             round(right * width / sw), round(bottom * height / sh)]
     return crop, 'detected_body_crop'

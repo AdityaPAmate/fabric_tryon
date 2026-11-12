@@ -54,7 +54,7 @@ class KurtiPantCatalogTests(SimpleTestCase):
         generated = ready[:-1]
         self.assertEqual(len({image['generation']['input_hashes']['input_image_0'] for image in generated}), 5)
         for image, (size, pixel) in zip(generated, input_pixels):
-            if image['view'] == 'sleeve':
+            if image['view'] in ('neckline', 'sleeve'):
                 self.assertEqual(image['generation']['fabric_region_selection'], 'detected_body_crop')
                 self.assertLessEqual(image['generation']['fabric_crop_box'][3], 210)
                 self.assertLess(size[1], 210)
@@ -70,7 +70,8 @@ class KurtiPantCatalogTests(SimpleTestCase):
             prompt = call.kwargs['data']['prompt']
             self.assertIn('dominant cloth midtone', prompt)
             self.assertIn('#008000', prompt)
-            self.assertIn('#FF0000', prompt)
+            self.assertNotIn('#FF0000', prompt)
+            self.assertIn('neutral-white studio', prompt)
         neckline = provider.call_args_list[3].kwargs['data']['prompt']
         sleeve = provider.call_args_list[4].kwargs['data']['prompt']
         self.assertIn('continues past the bottom edge', neckline)
@@ -82,7 +83,9 @@ class KurtiPantCatalogTests(SimpleTestCase):
         for prompt in (neckline, sleeve):
             self.assertNotIn('solid white', prompt)
             self.assertNotIn('full-length sleeves', prompt)
-        self.assertNotIn('#FF0000', sleeve)
+        for prompt in (neckline, sleeve):
+            self.assertNotIn('#FF0000', prompt)
+            self.assertIn('neutral-white studio', prompt)
         self.assertEqual(ready[-1]['generation']['kind'], 'original_reference')
         pant = get_definition('kurti_pant').shots[-1]
         self.assertEqual(upload.call_args_list[-2].args[0], pant.reference.read_bytes())
@@ -171,7 +174,11 @@ class KurtiPantCatalogTests(SimpleTestCase):
         data = {'garment_type': 'kurti_pant', 'background': 'white_marble_terrace'}
         for key in ('neckline', 'sleeve'):
             self.assertNotIn('marble terrace', definition.build_config(data, shots[key], 42)['prompt'])
-        self.assertIn('marble terrace', definition.build_config(data, shots['front'], 42)['prompt'])
+        for key in ('front', 'side', 'back'):
+            prompt = definition.build_config(data, shots[key], 42)['prompt']
+            self.assertIn('marble terrace', prompt)
+            self.assertIn('neutral-white studio', prompt)
+            self.assertNotIn('sunlit white marble terrace', prompt)
 
         def answer(url, **request):
             fields = request['data']
