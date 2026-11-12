@@ -78,7 +78,7 @@ function setGenerationMode() {
   document.querySelector('#camera-view').disabled = catalog;
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
   document.querySelector('#mode-help').textContent = catalog
-    ? 'One request generates the garment’s catalog shots and a finished collage. Saree uses six reference views in a 3:4 image-only collage; shirt uses six. Keep this page open. Pose and camera selections are ignored.'
+    ? 'One request generates the garment’s catalog shots and a finished collage. Saree and Kurti + Pant use six views in a 3:4 collage. Keep this page open.'
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
 }

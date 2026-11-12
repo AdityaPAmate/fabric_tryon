@@ -30,7 +30,8 @@ class CatalogTests(SimpleTestCase):
             plan = catalog_plan(garment)
             self.assertEqual(len(plan), 6)
             self.assertEqual(len({key for key, _ in plan}), 6)
-            self.assertEqual([key for key, _ in plan[:3]], ['front', 'close_up' if garment == 'shirt' else 'three_quarter', 'back'])
+            middle = {'shirt': 'close_up', 'kurti_pant': 'side'}.get(garment, 'three_quarter')
+            self.assertEqual([key for key, _ in plan[:3]], ['front', middle, 'back'])
         self.assertEqual([key for key, _ in catalog_plan('pant')[3:]], ['waistband', 'pocket', 'hem'])
 
     @patch('fabricapp.ai.main._generate_with_engine', return_value=GenerationResult(picture(), 42))
@@ -162,7 +163,7 @@ class CatalogTests(SimpleTestCase):
 
     def test_back_is_close_up_and_angle_is_front_dominant(self):
         for garment in ('shirt', 'blazer', 'kurta', 'kurti_pant', 'pant'):
-            plan = dict(catalog_plan(garment))
+            plan = dict(catalog_plan(garment, 'classic-v1'))
             self.assertIn('REAR CLOSE-UP', plan['back'])
             self.assertNotIn('back full-body', plan['back'])
             if garment == 'shirt':

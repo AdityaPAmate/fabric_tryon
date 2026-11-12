@@ -5,10 +5,11 @@ from fabricapp.catalog_engine.legacy import make_definition
 CUSTOM = {
     ('shirt', 'classic-v1'): 'fabricapp.ai.garments.shirt.catalog.definition',
     ('saree', 'editorial-v1'): 'fabricapp.ai.garments.saree.catalog.definition',
+    ('kurti_pant', 'editorial-v1'): 'fabricapp.ai.garments.kurti_pant.catalog.definition',
 }
 DEFAULTS = {'shirt': 'classic-v1', 'saree': 'editorial-v1',
             'blazer': 'classic-v1', 'kurta': 'classic-v1',
-            'kurti_pant': 'classic-v1', 'pant': 'classic-v1'}
+            'kurti_pant': 'editorial-v1', 'pant': 'classic-v1'}
 
 
 def get_definition(garment, edition=None):

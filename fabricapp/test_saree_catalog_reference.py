@@ -130,10 +130,10 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         self.assertIn('border', [image['view'] for image in events[-1]['images']])
         self.assertEqual(edit.call_count, 6)
 
-    def test_saree_is_3_by_4_and_other_defaults_stay_9_by_16(self):
+    def test_editorial_catalogs_are_3_by_4_and_other_defaults_are_9_by_16(self):
         for garment in DEFAULTS:
             layout = get_definition(garment).layout({})
-            ratio = (3, 4) if garment == 'saree' else (9, 16)
+            ratio = (3, 4) if garment in ('saree', 'kurti_pant') else (9, 16)
             self.assertEqual(layout.size[0] * ratio[1], layout.size[1] * ratio[0], garment)
         self.assertEqual(get_definition('saree').layout({}).size, (1800, 2400))
 
