@@ -13,6 +13,23 @@ SLEEVE_OPTIONS = {
     'half_sleeves': KURTI_SLEEVES_HALF_EDIT,
 }
 
+DETAIL_PROMPTS = {
+    'neckline': (
+        'Edit image 0 in place as a tight neckline photograph. Keep the exact camera distance, '
+        'round neck opening, binding, shoulder positions and upper-chest framing. Preserve the '
+        'reference embroidery: the curved floral stitch rows and central flower with its hanging '
+        'thread drops. These are sewn details on top of the cloth. The kurti continues past the '
+        'bottom edge of the photograph. Show no lower hem, waistband or trousers. '
+    ),
+    'sleeve': (
+        'Edit image 0 in place as a macro photograph of ONE kurti cuff resting on matching kurti '
+        'cloth. Keep the exact diagonal angle, single cuff opening, fold and visible floral '
+        'embroidery along the cuff. The visible inside of the opening is the reverse of the same '
+        'fabric, with a natural shadow. The cloth beneath the cuff also uses image 1. Show no '
+        'second sleeve, contrasting lining, extra fabric layer, dark piping or trousers. '
+    ),
+}
+
 
 def _output_dimensions(shot, draft):
     with Image.open(shot.reference) as reference:
@@ -24,25 +41,31 @@ def _output_dimensions(shot, draft):
 def build_config(data, shot, seed):
     details = data.get('garment_details') or ()
     portrait = shot.key in ('front', 'side', 'back')
-    prompt = (f'Edit image 0 into one product photograph: {shot.description}. '
-              'Use image 0 for the garment cut, camera angle, pose and fold geometry. ')
-    if shot.key == 'pant':
+    if shot.key in DETAIL_PROMPTS:
+        prompt = DETAIL_PROMPTS[shot.key]
+        prompt += ('Use image 1 for the base cloth only. Replace the plain template cloth with '
+                   'its actual colour, weave and motif spacing while preserving the raised '
+                   'embroidery from image 0. Continue the cloth naturally through the folds '
+                   'and around the stitchwork. Keep the original close-up boundaries. ')
+    elif shot.key == 'pant':
+        prompt = f'Edit image 0 into one product photograph: {shot.description}. '
         prompt += ('Show only the plain opaque white straight-cut pants. Preserve their waistband, '
                    'seams and natural folds. Image 1 is for the kurti only. Keep the pants solid '
                    'white, with no fabric print, decorative border or embroidery. ')
     else:
-        prompt += ('Image 1 is the sole source for the kurti textile. Apply its real base colour, '
+        prompt = (f'Edit image 0 into one product photograph: {shot.description}. '
+                   'Use image 0 for the garment cut, camera angle, pose and fold geometry. '
+                   'Image 1 is the sole source for the kurti base cloth. Apply its real base colour, '
                    'weave, motifs and repeat scale across all visible kurti fabric, including the '
                    'neckline, sleeves, cuffs, side seams and hem wherever visible. '
                    'Replace the template textile completely, including pale patches in folds. '
-                   'Keep the neckline and cuff shapes while removing template embroidery unless '
-                   'the supplied textile shows it. Place any real trim from image 1 at the '
-                   'finished garment edges. Keep any visible pants plain opaque solid white, '
+                   'Preserve the sewn floral embroidery shown at the neckline and cuffs of '
+                   'image 0 as garment construction, using image 1 for the cloth underneath. '
+                   'Keep any visible pants plain opaque solid white, '
                    'separate from the printed kurti. ')
-    if portrait or shot.key == 'sleeve':
+    if portrait:
         sleeves = next((SLEEVE_OPTIONS[key] for key in details if key in SLEEVE_OPTIONS), None)
         prompt += f'Use {sleeves}. ' if sleeves else 'Keep the sleeve length shown in image 0. '
-    if portrait:
         if shot.identity_from and any(data.get(key) for key in ('person_image', 'face_image', 'face_choice')):
             prompt += ('Image 2 provides the requested model identity. Match the face, hair and '
                        'skin tone while retaining the pose and complete framing of image 0. ')
@@ -56,7 +79,7 @@ def build_config(data, shot, seed):
     background = get_background_description(data.get('background'), garment_type='kurti_pant')
     prompt += f'Use {background} as the background where visible. ' if background else 'Retain the reference setting. '
     if data.get('additional_style_note') and shot.key != 'pant':
-        prompt += f"Style direction: {data['additional_style_note']}. Preserve the supplied kurti textile and white pants. "
+        prompt += f"Style direction: {data['additional_style_note']}. Preserve the supplied kurti textile and reference framing. "
     prompt += 'Use natural cloth shading. Produce one opaque clothing photograph without text, a watermark or a collage.'
     config = {
         'prompt': prompt, 'seed': seed, 'guidance': data.get('guidance', 7),
@@ -66,5 +89,6 @@ def build_config(data, shot, seed):
     if shot.key != 'pant':
         context = data if portrait else {**data, 'garment_details': ()}
         config = apply_fabric_conditioning(config, context, 'kurti_pant')
-    config['prompt_version'] = f'kurti-pant-catalog-v1-{shot.key}'
+    version = 'v1' if shot.key == 'pant' else 'v2'
+    config['prompt_version'] = f'kurti-pant-catalog-{version}-{shot.key}'
     return config
