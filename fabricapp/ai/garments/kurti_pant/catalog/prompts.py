@@ -104,6 +104,12 @@ def build_config(data, shot, seed):
     if data.get('additional_style_note') and shot.key != 'pant':
         prompt += f"Style direction: {data['additional_style_note']}. Preserve the supplied kurti textile and reference framing. "
     prompt += 'Use natural cloth shading. Produce one opaque clothing photograph without text, a watermark or a collage.'
+    if shot.key == 'back':
+        prompt += (' FINAL BACK VIEW LIGHTING: keep the setting and pose in image 0. Light the back '
+                   'of the kurti with soft, neutral daylight from the camera side. The broad cloth '
+                   'areas between folds should match the lightness, hue and saturation of image 1. '
+                   'Reserve darker shading for individual folds and seams. Keep the ambient '
+                   'background warmth out of the kurti fabric.')
     config = {
         'prompt': prompt, 'seed': seed, 'guidance': data.get('guidance', 7),
         'output_dimensions': _output_dimensions(shot, data.get('options', {}).get('draft_mode', False)),
@@ -116,6 +122,6 @@ def build_config(data, shot, seed):
             config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
             context['options'] = {**data.get('options', {}), 'fabric_crop_box': crop}
         config = apply_fabric_conditioning(config, context, 'kurti_pant', match_pattern_colours=True)
-    version = {'pant': 'v1', 'sleeve': 'v4'}.get(shot.key, 'v3')
+    version = {'pant': 'v1', 'sleeve': 'v4', 'back': 'v4'}.get(shot.key, 'v3')
     config['prompt_version'] = f'kurti-pant-catalog-{version}-{shot.key}'
     return config
