@@ -15,15 +15,18 @@ SLEEVE_OPTIONS = {
 
 DETAIL_PROMPTS = {
     'neckline': (
-        'Edit image 0 in place as a tight neckline photograph. Keep the exact camera distance, '
-        'round neck opening, binding, shoulder positions and upper-chest framing. Preserve the '
+        'Reproduce the exact crop of image 0: a neckline macro with only the mouth and chin at '
+        'the top edge and fabric continuing past the bottom edge. The eyes, nose, full head, '
+        'waist and arms below the shoulders are outside the frame. Keep the round neckline, '
+        'binding and shoulder positions. Preserve the '
         'reference embroidery: the curved floral stitch rows and central flower with its hanging '
         'thread drops. These are sewn details on top of the cloth. The kurti continues past the '
         'bottom edge of the photograph. Show no lower hem, waistband or trousers. '
     ),
     'sleeve': (
-        'Edit image 0 in place as a macro photograph of ONE kurti cuff resting on matching kurti '
-        'cloth. Keep the exact diagonal angle, single cuff opening and fold. Preserve the '
+        'Reproduce image 0 as a tabletop macro of ONE kurti cuff lying flat on folded matching '
+        'kurti cloth. The whole frame is filled with the textile, including underneath the cuff. '
+        'Keep the exact diagonal angle, single cuff opening and fold. Preserve the '
         'placement of the floral cuff stitchwork, using thread colours from the small motifs '
         'in image 1. Follow the small body motif shape and spacing in image 1 across the cuff '
         'and all surrounding cloth. The visible inside of the opening is the reverse of the same '
@@ -64,17 +67,23 @@ def _output_dimensions(shot, draft):
 def build_config(data, shot, seed):
     details = data.get('garment_details') or ()
     portrait = shot.key in ('front', 'side', 'back')
+    if shot.key == 'pant':
+        scene = get_background_description(data.get('background'))
+        return {
+            'prompt': f'Photograph this empty setting: {scene}. Render an unobstructed, softly out-of-focus '
+                      'background for a close-up product photograph. The entire frame contains scenery only. '
+                      'No people, garments, objects in the foreground, lettering or watermarks.',
+            'seed': seed, 'guidance': data.get('guidance', 7),
+            'output_dimensions': _output_dimensions(shot, data.get('options', {}).get('draft_mode', False)),
+            'classified_recovery': True, 'safety_retry_count': 0,
+            'prompt_version': 'kurti-pant-catalog-background-v1',
+        }
     if shot.key in DETAIL_PROMPTS:
         prompt = DETAIL_PROMPTS[shot.key]
         prompt += ('Use image 1 for the base cloth only. Replace the plain template cloth with '
                    'its actual colour, weave and motif spacing while preserving the raised '
                    'embroidery from image 0. Continue the cloth naturally through the folds '
                    'and around the stitchwork. Keep the original close-up boundaries. ')
-    elif shot.key == 'pant':
-        prompt = f'Edit image 0 into one product photograph: {shot.description}. '
-        prompt += ('Show only the plain opaque white straight-cut pants. Preserve their waistband, '
-                   'seams and natural folds. Image 1 is for the kurti only. Keep the pants solid '
-                   'white, with no fabric print, decorative border or embroidery. ')
     else:
         prompt = (f'Edit image 0 into one product photograph: {shot.description}. '
                    'Use image 0 for the garment cut, camera angle, pose and fold geometry. '
@@ -99,9 +108,12 @@ def build_config(data, shot, seed):
     else:
         prompt += 'Keep the requested close-up framing and isolate the garment detail. '
 
-    background = get_background_description(data.get('background'), garment_type='kurti_pant')
-    prompt += f'Use {background} as the background where visible. ' if background else 'Retain the reference setting. '
-    if data.get('additional_style_note') and shot.key != 'pant':
+    if portrait:
+        background = get_background_description(data.get('background'), garment_type='kurti_pant')
+        prompt += f'Use {background} as the background where visible. ' if background else 'Retain the reference setting. '
+    else:
+        prompt += 'Keep the close-up studio composition in image 0. Do not widen the frame to show a scene. '
+    if data.get('additional_style_note'):
         prompt += f"Style direction: {data['additional_style_note']}. Preserve the supplied kurti textile and reference framing. "
     prompt += 'Use natural cloth shading. Produce one opaque clothing photograph without text, a watermark or a collage.'
     if shot.key == 'back':
@@ -115,13 +127,12 @@ def build_config(data, shot, seed):
         'output_dimensions': _output_dimensions(shot, data.get('options', {}).get('draft_mode', False)),
         'fabric_source_format': 'PNG', 'classified_recovery': True, 'safety_retry_count': 0,
     }
-    if shot.key != 'pant':
-        context = data if portrait else {**data, 'garment_details': ()}
-        if shot.key == 'sleeve':
-            crop, selection = _sleeve_fabric_region(data)
-            config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
-            context['options'] = {**data.get('options', {}), 'fabric_crop_box': crop}
-        config = apply_fabric_conditioning(config, context, 'kurti_pant', match_pattern_colours=True)
-    version = {'pant': 'v1', 'sleeve': 'v4', 'back': 'v4'}.get(shot.key, 'v3')
+    context = data if portrait else {**data, 'garment_details': ()}
+    if shot.key == 'sleeve':
+        crop, selection = _sleeve_fabric_region(data)
+        config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
+        context['options'] = {**data.get('options', {}), 'fabric_crop_box': crop}
+    config = apply_fabric_conditioning(config, context, 'kurti_pant', match_pattern_colours=True)
+    version = {'neckline': 'v4', 'sleeve': 'v5', 'back': 'v4'}.get(shot.key, 'v3')
     config['prompt_version'] = f'kurti-pant-catalog-{version}-{shot.key}'
     return config

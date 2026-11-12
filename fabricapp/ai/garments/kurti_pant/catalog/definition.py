@@ -14,7 +14,9 @@ PANELS = (
     Panel('pant', (1332, 1584, 1800, 2400), 'cover'),
 )
 SHOTS = tuple(
-    Shot(key, description, 'template_edit', framing, reference=REFERENCE_DIR / filename,
+    Shot(key, description, 'reference' if key == 'pant' else 'template_edit', framing,
+         reference=REFERENCE_DIR / filename,
+         reference_mask=REFERENCE_DIR / 'kurti_pant_6_mask.png' if key == 'pant' else None,
          identity_from='request' if key in ('front', 'side') else None,
          scenario='pose_reference' if key in ('front', 'side') else 'person_photo')
     for key, filename, framing, description in (

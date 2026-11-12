@@ -9,7 +9,7 @@ def validate_definition(definition, product=None):
     for shot in shots:
         if not shot.key or shot.key in seen:
             raise ValueError("Catalog shot keys must be nonempty and unique")
-        if shot.operation not in {"pipeline", "anchor_edit", "template_edit", "crop"}:
+        if shot.operation not in {"pipeline", "anchor_edit", "template_edit", "crop", "reference"}:
             raise ValueError(f"Unknown operation for {shot.key}")
         if shot.reference_role not in {'template', 'composition', 'layout'}:
             raise ValueError(f"Unknown reference role for {shot.key}")
@@ -39,8 +39,10 @@ def validate_definition(definition, product=None):
                 raise ValueError(f"Invalid source crop for {shot.key}")
         if shot.operation == "anchor_edit" and not shot.dependencies:
             raise ValueError(f"Anchor edit needs a dependency: {shot.key}")
-        if shot.operation == "template_edit" and (not shot.reference or not shot.reference.is_file()):
+        if shot.operation in {"template_edit", "reference"} and (not shot.reference or not shot.reference.is_file()):
             raise ValueError(f"Missing reference asset for {shot.key}")
+        if shot.reference_mask and (shot.operation != 'reference' or not shot.reference_mask.is_file()):
+            raise ValueError(f"Invalid reference mask for {shot.key}")
         if shot.operation == "pipeline" and not shot.camera_view:
             raise ValueError(f"Pipeline shot needs a camera view: {shot.key}")
         seen.add(shot.key)

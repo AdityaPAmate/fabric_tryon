@@ -8,7 +8,7 @@ from typing import Callable
 class Shot:
     key: str
     description: str
-    operation: str  # pipeline, anchor_edit, template_edit, crop
+    operation: str  # pipeline, anchor_edit, template_edit, crop, reference
     framing: str
     dependencies: tuple[str, ...] = ()
     reference: Path | None = None
@@ -20,6 +20,7 @@ class Shot:
     reference_role: str = "template"
     composition_crop: tuple[float, float, float, float] | None = None
     source_crop: tuple[float, float, float, float] | None = None
+    reference_mask: Path | None = None
 
 
 @dataclass(frozen=True)

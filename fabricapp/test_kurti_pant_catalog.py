@@ -7,6 +7,8 @@ from django.test import SimpleTestCase, override_settings
 from PIL import Image
 
 from fabricapp.catalog_engine.registry import get_definition
+from fabricapp.catalog_engine.runner import Services, generate_shot
+from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image
 from fabricapp.test_catalog_engine import picture, post
 
 
@@ -47,8 +49,9 @@ class KurtiPantCatalogTests(SimpleTestCase):
         self.assertEqual(events[0]['views'], list(expected))
         ready = [event['image'] for event in events if event['event'] == 'image_ready']
         self.assertEqual({image['view']: image['reference_template'] for image in ready}, expected)
-        self.assertEqual(len({image['generation']['input_hashes']['input_image_0'] for image in ready}), 6)
-        for image, (size, pixel) in zip(ready, input_pixels):
+        generated = ready[:-1]
+        self.assertEqual(len({image['generation']['input_hashes']['input_image_0'] for image in generated}), 5)
+        for image, (size, pixel) in zip(generated, input_pixels):
             if image['view'] == 'sleeve':
                 self.assertEqual(image['generation']['fabric_crop_box'], [0, 90, 160, 180])
                 self.assertEqual(size, (160, 90))
@@ -56,7 +59,7 @@ class KurtiPantCatalogTests(SimpleTestCase):
             else:
                 self.assertEqual(size, (160, 300))
                 self.assertEqual(pixel, (255, 0, 0))
-        for image in ready:
+        for image in generated:
             self.assertEqual('input_image_2' in image['generation']['input_hashes'], image['view'] in ('front', 'side'))
         self.assertIn('full-length sleeves', provider.call_args_list[0].kwargs['data']['prompt'])
         self.assertIn('Add a dupatta', provider.call_args_list[2].kwargs['data']['prompt'])
@@ -75,11 +78,13 @@ class KurtiPantCatalogTests(SimpleTestCase):
             self.assertNotIn('solid white', prompt)
             self.assertNotIn('full-length sleeves', prompt)
         self.assertNotIn('#FF0000', sleeve)
-        self.assertIn('Keep the pants solid white', provider.call_args_list[-1].kwargs['data']['prompt'])
+        self.assertEqual(ready[-1]['generation']['kind'], 'original_reference')
+        pant = get_definition('kurti_pant').shots[-1]
+        self.assertEqual(upload.call_args_list[-2].args[0], pant.reference.read_bytes())
         self.assertEqual(events[-1]['status'], 'completed')
         self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
         self.assertFalse(events[-1]['collage']['includes_original_swatch'])
-        self.assertEqual(provider.call_count, 6)
+        self.assertEqual(provider.call_count, 5)
         self.assertEqual(upload.call_count, 7)
         with Image.open(io.BytesIO(upload.call_args.args[0])) as collage:
             self.assertEqual(collage.size, (1800, 2400))
@@ -118,3 +123,31 @@ class KurtiPantCatalogTests(SimpleTestCase):
         classic = get_definition('kurti_pant', 'classic-v1')
         self.assertEqual(classic.layout({}).size, (1800, 3200))
         self.assertEqual(classic.shots[0].operation, 'pipeline')
+
+    @override_settings(SAVE_DEBUG_FILES=False)
+    @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
+    def test_selected_scene_changes_only_pant_background_and_stays_out_of_detail_prompts(self, provider):
+        definition = get_definition('kurti_pant')
+        shots = {shot.key: shot for shot in definition.shots}
+        data = {'garment_type': 'kurti_pant', 'background': 'white_marble_terrace'}
+        for key in ('neckline', 'sleeve'):
+            self.assertNotIn('marble terrace', definition.build_config(data, shots[key], 42)['prompt'])
+        self.assertIn('marble terrace', definition.build_config(data, shots['front'], 42)['prompt'])
+
+        def answer(url, **request):
+            fields = request['data']
+            return Mock(status_code=200, headers={'Content-Type': 'image/png'},
+                        content=picture('blue', (fields['width'], fields['height'])))
+
+        provider.side_effect = answer
+        pant = shots['pant']
+        result = generate_shot(data, pant, definition, {}, {}, Services(None, generate_tryon_image, None))
+        provider.assert_called_once()
+        self.assertIn('marble terrace', provider.call_args.kwargs['data']['prompt'])
+        self.assertEqual(set(provider.call_args.kwargs['files']), {'input_image_0', 'input_image_1'})
+        with Image.open(pant.reference) as reference, Image.open(pant.reference_mask) as mask, \
+                Image.open(io.BytesIO(result.image_bytes)) as output:
+            self.assertEqual(output.size, reference.size)
+            foreground = mask.point(lambda value: 255 if value == 255 else 0)
+            self.assertEqual(Image.composite(output, reference, foreground).tobytes(), reference.tobytes())
+            self.assertEqual(output.getpixel((0, 0)), (0, 0, 255))
