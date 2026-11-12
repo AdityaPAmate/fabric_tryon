@@ -71,9 +71,11 @@ class KurtiPantCatalogTests(SimpleTestCase):
         neckline = provider.call_args_list[3].kwargs['data']['prompt']
         sleeve = provider.call_args_list[4].kwargs['data']['prompt']
         self.assertIn('continues past the bottom edge', neckline)
-        self.assertIn('curved floral stitch rows', neckline)
+        self.assertIn('single narrow floral vine', neckline)
         self.assertIn('single cuff opening', sleeve)
         self.assertIn('reverse of the same fabric', sleeve)
+        self.assertIn('outer sleeve, cuff, button placket, inner fold', sleeve)
+        self.assertIn('uninterrupted upper back', provider.call_args_list[2].kwargs['data']['prompt'])
         for prompt in (neckline, sleeve):
             self.assertNotIn('solid white', prompt)
             self.assertNotIn('full-length sleeves', prompt)
@@ -97,6 +99,20 @@ class KurtiPantCatalogTests(SimpleTestCase):
         config = definition.build_config({'fabric_image': source, 'options': {'fabric_crop_box': crop}}, shot, 42)
         self.assertEqual(config['fabric_crop_box'], crop)
         self.assertEqual(config['fabric_region_selection'], 'explicit_crop')
+
+    def test_sleeve_uses_body_above_a_dense_hem_in_a_near_square_swatch(self):
+        definition = get_definition('kurti_pant')
+        sleeve = next(shot for shot in definition.shots if shot.key == 'sleeve')
+        swatch = Image.new('RGB', (320, 380), '#114488')
+        for x in range(0, swatch.width, 8):
+            swatch.paste('#FEC044', (x, 195, x + 4, swatch.height))
+        source = io.BytesIO()
+        swatch.save(source, 'PNG')
+        config = definition.build_config({'fabric_image': source}, sleeve, 42)
+        self.assertEqual(config['fabric_region_selection'], 'upper_body_crop')
+        self.assertLess(config['fabric_crop_box'][3], 195)
+        self.assertIn('#114488', config['prompt'])
+        self.assertNotIn('#FEC044', config['prompt'])
 
     def test_colour_guidance_handles_tonal_variation_and_balanced_patterns(self):
         definition = get_definition('kurti_pant')

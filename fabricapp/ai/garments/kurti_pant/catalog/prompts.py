@@ -1,5 +1,5 @@
 """Keep reference composition and use the uploaded fabric for the kurti."""
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
 
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.garments.kurti_pant.details import (
@@ -17,23 +17,43 @@ DETAIL_PROMPTS = {
     'neckline': (
         'Reproduce the exact crop of image 0: a neckline macro with only the mouth and chin at '
         'the top edge and fabric continuing past the bottom edge. The eyes, nose, full head, '
-        'waist and arms below the shoulders are outside the frame. Keep the round neckline, '
-        'binding and shoulder positions. Preserve the '
-        'reference embroidery: the curved floral stitch rows and central flower with its hanging '
-        'thread drops. These are sewn details on top of the cloth. The kurti continues past the '
+        'waist and hands are outside the frame. Keep the round neckline, '
+        'binding and shoulder positions. Preserve the single narrow floral vine below the binding '
+        'and its small central flower with thread drops. The rest of the upper chest shows the '
+        'uploaded fabric. The kurti continues past the '
         'bottom edge of the photograph. Show no lower hem, waistband or trousers. '
     ),
     'sleeve': (
         'Reproduce image 0 as a tabletop macro of ONE kurti cuff lying flat on folded matching '
         'kurti cloth. The whole frame is filled with the textile, including underneath the cuff. '
-        'Keep the exact diagonal angle, single cuff opening and fold. Preserve the '
-        'placement of the floral cuff stitchwork, using thread colours from the small motifs '
-        'in image 1. Follow the small body motif shape and spacing in image 1 across the cuff '
-        'and all surrounding cloth. The visible inside of the opening is the reverse of the same '
-        'fabric, with a natural shadow. Show no hem artwork, white template cloth, second sleeve, '
+        'Keep the exact diagonal angle, single cuff opening, scalloped edge and pearl buttons. '
+        'Apply image 1 across the entire outer sleeve, cuff, button placket, inner fold and '
+        'surrounding cloth. Keep the floral stitching in place and use thread colours sampled '
+        'from image 1. The buttons keep their pearl finish. Match the uploaded body motif shape '
+        'and spacing. The inside of the opening is the reverse of the same fabric in shadow. '
+        'Show no hem artwork, unedited template cloth, second sleeve, '
         'contrasting lining, extra fabric layer, dark piping or trousers. '
     ),
 }
+
+
+def _has_dense_lower_border(fabric):
+    sample = fabric.convert('RGB')
+    sample.thumbnail((192, 192))
+    width, height = sample.size
+    if min(width, height) < 16:
+        return False
+
+    def edge_strength(top):
+        band = sample.crop((round(width * .27), round(height * top),
+                            round(width * .80), round(height * (top + .28))))
+        left = band.crop((0, 0, band.width - 1, band.height))
+        right = band.crop((1, 0, band.width, band.height))
+        return sum(ImageStat.Stat(ImageChops.difference(left, right)).mean) / 3
+
+    # Require a substantial increase in detail below the body before treating it as trim.
+    body, lower = edge_strength(.12), edge_strength(.62)
+    return lower >= body * 1.45 and lower - body >= 5
 
 
 def _sleeve_fabric_region(data):
@@ -48,6 +68,9 @@ def _sleeve_fabric_region(data):
             source.seek(0)
             with Image.open(source) as fabric:
                 width, height = fabric.size
+                if min(width, height) >= 256 and _has_dense_lower_border(fabric):
+                    return [round(width * .35), round(height * .12),
+                            round(width * .78), round(height * .40)], 'upper_body_crop'
         finally:
             source.seek(position)
         # Long garment panels often carry trim at the top and a wide hem at the bottom.
@@ -80,9 +103,8 @@ def build_config(data, shot, seed):
         }
     if shot.key in DETAIL_PROMPTS:
         prompt = DETAIL_PROMPTS[shot.key]
-        prompt += ('Use image 1 for the base cloth only. Replace the plain template cloth with '
-                   'its actual colour, weave and motif spacing while preserving the raised '
-                   'embroidery from image 0. Continue the cloth naturally through the folds '
+        prompt += ('Replace the template cloth with the actual colour, weave and motif spacing '
+                   'from image 1. Continue the cloth naturally through the folds '
                    'and around the stitchwork. Keep the original close-up boundaries. ')
     else:
         prompt = (f'Edit image 0 into one product photograph: {shot.description}. '
@@ -91,10 +113,16 @@ def build_config(data, shot, seed):
                    'weave, motifs and repeat scale across all visible kurti fabric, including the '
                    'neckline, sleeves, cuffs, side seams and hem wherever visible. '
                    'Replace the template textile completely, including pale patches in folds. '
-                   'Preserve the sewn floral embroidery shown at the neckline and cuffs of '
-                   'image 0 as garment construction, using image 1 for the cloth underneath. '
                    'Keep any visible pants plain opaque solid white, '
                    'separate from the printed kurti. ')
+        if shot.key == 'back':
+            prompt += ('Keep the plain, shallow rounded back neck seam and uninterrupted upper back '
+                       'from image 0. Continue the repeating body print up to that seam. Keep any '
+                       'wide decorative fabric border at the lower hem. The upper back has no '
+                       'front neckline embroidery, yoke, vertical placket or ornamental patch. ')
+        else:
+            prompt += ('Preserve the sewn floral embroidery shown at the neckline and cuffs of '
+                       'image 0, using image 1 for the cloth underneath. ')
     if portrait:
         sleeves = next((SLEEVE_OPTIONS[key] for key in details if key in SLEEVE_OPTIONS), None)
         prompt += f'Use {sleeves}. ' if sleeves else 'Keep the sleeve length shown in image 0. '
@@ -133,6 +161,6 @@ def build_config(data, shot, seed):
         config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
         context['options'] = {**data.get('options', {}), 'fabric_crop_box': crop}
     config = apply_fabric_conditioning(config, context, 'kurti_pant', match_pattern_colours=True)
-    version = {'neckline': 'v4', 'sleeve': 'v5', 'back': 'v4'}.get(shot.key, 'v3')
+    version = {'neckline': 'v5', 'sleeve': 'v6', 'back': 'v5'}.get(shot.key, 'v3')
     config['prompt_version'] = f'kurti-pant-catalog-{version}-{shot.key}'
     return config
