@@ -19,6 +19,8 @@ class KurtiPantCatalogTests(SimpleTestCase):
     def test_default_catalog_streams_six_reference_edits_and_a_3x4_export(self, provider, upload):
         swatch = Image.new('RGB', (160, 300), 'green')
         swatch.paste('red', (0, 210, 160, 300))
+        for x in range(0, swatch.width, 8):
+            swatch.paste('yellow', (x, 210, x + 4, swatch.height))
         source = io.BytesIO()
         swatch.save(source, 'PNG')
         input_pixels = []
@@ -53,8 +55,9 @@ class KurtiPantCatalogTests(SimpleTestCase):
         self.assertEqual(len({image['generation']['input_hashes']['input_image_0'] for image in generated}), 5)
         for image, (size, pixel) in zip(generated, input_pixels):
             if image['view'] == 'sleeve':
-                self.assertEqual(image['generation']['fabric_crop_box'], [0, 90, 160, 180])
-                self.assertEqual(size, (160, 90))
+                self.assertEqual(image['generation']['fabric_region_selection'], 'detected_body_crop')
+                self.assertLessEqual(image['generation']['fabric_crop_box'][3], 210)
+                self.assertLess(size[1], 210)
                 self.assertEqual(pixel, (0, 128, 0))
             else:
                 self.assertEqual(size, (160, 300))
@@ -106,13 +109,33 @@ class KurtiPantCatalogTests(SimpleTestCase):
         swatch = Image.new('RGB', (320, 380), '#114488')
         for x in range(0, swatch.width, 8):
             swatch.paste('#FEC044', (x, 195, x + 4, swatch.height))
-        source = io.BytesIO()
-        swatch.save(source, 'PNG')
-        config = definition.build_config({'fabric_image': source}, sleeve, 42)
-        self.assertEqual(config['fabric_region_selection'], 'upper_body_crop')
-        self.assertLess(config['fabric_crop_box'][3], 195)
-        self.assertIn('#114488', config['prompt'])
-        self.assertNotIn('#FEC044', config['prompt'])
+        cases = [(swatch, 3, 195, self.assertLess),
+                 (swatch.transpose(Image.Transpose.FLIP_TOP_BOTTOM), 1, 185, self.assertGreater),
+                 (swatch.transpose(Image.Transpose.TRANSPOSE), 2, 195, self.assertLess)]
+        for image, edge, limit, compare in cases:
+            with self.subTest(edge=edge):
+                source = io.BytesIO()
+                image.save(source, 'PNG')
+                config = definition.build_config({'fabric_image': source}, sleeve, 42)
+                self.assertEqual(config['fabric_region_selection'], 'detected_body_crop')
+                compare(config['fabric_crop_box'][edge], limit)
+                self.assertIn('#114488', config['prompt'])
+                self.assertNotIn('#FEC044', config['prompt'])
+
+    def test_sleeve_preserves_plain_tall_swatches_and_regular_checks(self):
+        definition = get_definition('kurti_pant')
+        sleeve = next(shot for shot in definition.shots if shot.key == 'sleeve')
+        swatch = Image.new('RGB', (320, 640), '#114488')
+        for checked in (False, True):
+            if checked:
+                for x in range(0, 320, 20):
+                    for y in range(0, 640, 20):
+                        if (x // 20 + y // 20) % 2:
+                            swatch.paste('#FEC044', (x, y, x + 20, y + 20))
+            source = io.BytesIO()
+            swatch.save(source, 'PNG')
+            config = definition.build_config({'fabric_image': source}, sleeve, 42)
+            self.assertIsNone(config['fabric_crop_box'])
 
     def test_colour_guidance_handles_tonal_variation_and_balanced_patterns(self):
         definition = get_definition('kurti_pant')

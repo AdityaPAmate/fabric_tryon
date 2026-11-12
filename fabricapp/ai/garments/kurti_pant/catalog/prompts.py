@@ -1,7 +1,8 @@
 """Keep reference composition and use the uploaded fabric for the kurti."""
-from PIL import Image, ImageChops, ImageStat
+from PIL import Image
 
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
+from fabricapp.ai.garments.kurti_pant.catalog.fabric_region import select_sleeve_fabric_region
 from fabricapp.ai.garments.kurti_pant.details import (
     DUPATTA_ADD, KURTI_SLEEVES_FULL_EDIT, KURTI_SLEEVES_HALF_EDIT,
 )
@@ -35,49 +36,6 @@ DETAIL_PROMPTS = {
         'contrasting lining, extra fabric layer, dark piping or trousers. '
     ),
 }
-
-
-def _has_dense_lower_border(fabric):
-    sample = fabric.convert('RGB')
-    sample.thumbnail((192, 192))
-    width, height = sample.size
-    if min(width, height) < 16:
-        return False
-
-    def edge_strength(top):
-        band = sample.crop((round(width * .27), round(height * top),
-                            round(width * .80), round(height * (top + .28))))
-        left = band.crop((0, 0, band.width - 1, band.height))
-        right = band.crop((1, 0, band.width, band.height))
-        return sum(ImageStat.Stat(ImageChops.difference(left, right)).mean) / 3
-
-    # Require a substantial increase in detail below the body before treating it as trim.
-    body, lower = edge_strength(.12), edge_strength(.62)
-    return lower >= body * 1.45 and lower - body >= 5
-
-
-def _sleeve_fabric_region(data):
-    selected = data.get('options', {}).get('fabric_crop_box')
-    if selected is not None:
-        return selected, 'explicit_crop'
-
-    source = data.get('fabric_image')
-    if source is not None:
-        position = source.tell()
-        try:
-            source.seek(0)
-            with Image.open(source) as fabric:
-                width, height = fabric.size
-                if min(width, height) >= 256 and _has_dense_lower_border(fabric):
-                    return [round(width * .35), round(height * .12),
-                            round(width * .78), round(height * .40)], 'upper_body_crop'
-        finally:
-            source.seek(position)
-        # Long garment panels often carry trim at the top and a wide hem at the bottom.
-        # Sample the body above the hem, keeping the width for the motif repeat.
-        if height >= 1.5 * width and height >= 256:
-            return [0, round(height * 0.30), width, round(height * 0.60)], 'body_band'
-    return None, 'full_source'
 
 
 def _output_dimensions(shot, draft):
@@ -157,10 +115,10 @@ def build_config(data, shot, seed):
     }
     context = data if portrait else {**data, 'garment_details': ()}
     if shot.key == 'sleeve':
-        crop, selection = _sleeve_fabric_region(data)
+        crop, selection = select_sleeve_fabric_region(data)
         config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
         context['options'] = {**data.get('options', {}), 'fabric_crop_box': crop}
     config = apply_fabric_conditioning(config, context, 'kurti_pant', match_pattern_colours=True)
-    version = {'neckline': 'v5', 'sleeve': 'v6', 'back': 'v5'}.get(shot.key, 'v3')
+    version = {'neckline': 'v5', 'sleeve': 'v7', 'back': 'v5'}.get(shot.key, 'v3')
     config['prompt_version'] = f'kurti-pant-catalog-{version}-{shot.key}'
     return config
