@@ -62,8 +62,6 @@ let requestController = null;
 
 function setGenerationMode() {
   const fabric = garmentSource.value === 'fabric';
-  generationMode.querySelector('[value="catalog"]').disabled = !fabric;
-  if (!fabric) generationMode.value = 'single';
   const catalog = generationMode.value === 'catalog';
   document.querySelectorAll('[data-saree-detail-crop]').forEach(field => {
     const enabled = fabric && catalog && garmentType.value === 'saree';
@@ -78,7 +76,9 @@ function setGenerationMode() {
   document.querySelector('#camera-view').disabled = catalog;
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
   document.querySelector('#mode-help').textContent = catalog
-    ? 'One request generates the garment’s catalog shots and a finished collage. Saree and Kurti + Pant use six views in a 3:4 collage. Keep this page open.'
+    ? (fabric
+      ? 'One request generates the garment’s catalog shots and a finished collage. Saree and Kurti + Pant use six views in a 3:4 collage. Keep this page open.'
+      : 'Upload a finished garment photo to generate six views and a 3:4 collage. Keep this page open.')
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
 }
@@ -568,7 +568,7 @@ form.addEventListener("submit", async (event) => {
   }
   payload.append('options', JSON.stringify(options));
 
-  const catalogProduct = isCatalog && garmentType.value === 'saree' ? Object.fromEntries(
+  const catalogProduct = usesFabric && isCatalog && garmentType.value === 'saree' ? Object.fromEntries(
     [...document.querySelectorAll('[data-catalog-product]')].filter(input => input.value.trim())
       .map(input => [input.dataset.catalogProduct, input.value.trim()])) : {};
   if (Object.keys(catalogProduct).length) payload.append('catalog_product', JSON.stringify(catalogProduct));

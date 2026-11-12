@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Callable
 from uuid import uuid4
 
-from fabricapp.catalog_engine.registry import get_definition
+from fabricapp.catalog_engine.registry import get_request_definition
 from fabricapp.catalog_engine.validation import validate_definition
 from fabricapp.catalog_engine.renderer import render_catalog
 from fabricapp.ai.providers.cloudflare_engine import CloudflareGenerationError, GenerationResult
@@ -45,7 +45,7 @@ def generate_shot(data, shot, definition, shot_bytes, seeds, services):
             'source_crop': list(shot.source_crop), 'output_dimensions': list(config['output_dimensions']),
             'no_new_ai_generation': True,
         })
-    for key in ('person_image', 'fabric_image', 'face_image'):
+    for key in ('person_image', 'fabric_image', 'garment_image', 'face_image'):
         if data.get(key):
             data[key].seek(0)
     if shot.operation == 'pipeline':
@@ -76,17 +76,18 @@ def generate_shot(data, shot, definition, shot_bytes, seeds, services):
         if shot.reference_role == 'composition':
             reference_args['composition_reference_path'] = shot.reference
             reference_args['composition_reference_crop'] = shot.composition_crop
+        source_key = 'garment_image' if data.get('garment_image') is not None else 'fabric_image'
         generation = services.edit(
-            person_image=io.BytesIO(source), fabric_image=data['fabric_image'],
-            garment_type=data['garment_type'], garment_style=data.get('garment_style'),
+            person_image=io.BytesIO(source), garment_type=data.get('garment_type'),
+            garment_style=data.get('garment_style'),
             scenario=shot.scenario, options=data.get('options', {}), prompt_config=config,
-            **reference_args,
+            **{source_key: data[source_key]}, **reference_args,
         )
     return generation
 
 
 def generate_catalog(data, stopped, services):
-    definition = get_definition(data['garment_type'], data.get('catalog_edition'))
+    definition = get_request_definition(data)
     layout = validate_definition(definition, data.get('catalog_product'))
     plan = definition.shots
     catalog_id = uuid4().hex
@@ -95,9 +96,12 @@ def generate_catalog(data, stopped, services):
            'catalog_edition': definition.edition, 'layout': layout.version}
     shot_bytes, seeds = {}, {}
     images, failed = [], []
-    data['fabric_image'].seek(0)
-    swatch_bytes = data['fabric_image'].read()
-    data['fabric_image'].seek(0)
+    swatch_bytes = b''
+    if layout.swatch_box:
+        swatch = data['fabric_image']
+        swatch.seek(0)
+        swatch_bytes = swatch.read()
+        swatch.seek(0)
     blocked = False
     for index, shot in enumerate(plan):
         if stopped.is_set():

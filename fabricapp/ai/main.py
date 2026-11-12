@@ -109,7 +109,8 @@ def generate_tryon_image(
     catalog_config = options.get('_catalog_config')
     if catalog_config:
         prompt_config = dict(prompt_config)
-        prompt_config['output_dimensions'] = catalog_config['output_dimensions']
+        if 'output_dimensions' in catalog_config:
+            prompt_config['output_dimensions'] = catalog_config['output_dimensions']
         original = prompt_config['prompt']
         fallback = prompt_config.get('safety_fallback_prompt')
         framing = catalog_config.get('framing', '')

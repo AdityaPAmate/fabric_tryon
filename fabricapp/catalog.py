@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from fabricapp.ai.main import generate_tryon_image
 from fabricapp.ai.pipeline.catalog_prompts import catalog_plan, edit_config
 from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image as generate_edit
+from fabricapp.catalog_engine.registry import get_request_definition
 from fabricapp.serializers import FabricTryOnRequestSerializer
 from fabricapp.services.cloudinary_service import upload_generated_image
 
@@ -67,13 +68,10 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
             for key, box in crops.items():
                 if box[2] > width or box[3] > height:
                     raise serializers.ValidationError({'options': {key: 'Crop must be inside the original fabric image.'}})
-        if data.get('garment_image'):
-            raise serializers.ValidationError({'fabric_image': 'Catalog requires a fabric swatch and garment_type.'})
         if data.get('pose') or data.get('camera_view'):
             raise serializers.ValidationError({'camera_view': 'Catalog selects its own views; omit camera_view and pose.'})
-        from fabricapp.catalog_engine.registry import get_definition
         try:
-            definition = get_definition(data['garment_type'], data.get('catalog_edition'))
+            definition = get_request_definition(data)
         except ValueError as exc:
             raise serializers.ValidationError({'catalog_edition': str(exc)})
         unknown = set(data.get('catalog_product', {})) - set(definition.product_fields)
@@ -138,11 +136,9 @@ class GenerateCatalogView(APIView):
     def post(self, request):
         serializer = CatalogRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        from fabricapp.catalog_engine.registry import get_definition
         from fabricapp.catalog_engine.validation import validate_definition
         try:
-            validate_definition(get_definition(serializer.validated_data['garment_type'],
-                                               serializer.validated_data['catalog_edition']),
+            validate_definition(get_request_definition(serializer.validated_data),
                                 serializer.validated_data.get('catalog_product'))
         except ValueError:
             logger.exception('Invalid catalog definition')
@@ -153,7 +149,7 @@ class GenerateCatalogView(APIView):
         # Django closes request upload files after the response; detached buffers
         # give the stream ownership without depending on request file lifetime.
         try:
-            for key in ('person_image', 'fabric_image', 'face_image'):
+            for key in ('person_image', 'fabric_image', 'garment_image', 'face_image'):
                 if data.get(key):
                     data[key].seek(0)
                     data[key] = io.BytesIO(data[key].read())

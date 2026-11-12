@@ -141,6 +141,41 @@ class CatalogTests(SimpleTestCase):
             self.assertEqual(response.status_code, 400)
         front.assert_not_called()
 
+    @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/photo.png'})
+    @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
+    def test_ready_made_catalog_uses_the_uploaded_garment_for_every_view(self, post, upload):
+        sources = []
+
+        def provider(*args, **kwargs):
+            source = kwargs['files']['input_image_1']
+            self.assertEqual((source[0], source[2]), ('garment_source.jpg', 'image/jpeg'))
+            sources.append(source[1].read())
+            request = kwargs['data']
+            image = io.BytesIO()
+            Image.new('RGB', (request['width'], request['height']), 'white').save(image, 'PNG')
+            return Mock(status_code=200, headers={'Content-Type': 'image/png'}, content=image.getvalue())
+
+        post.side_effect = provider
+        garment = picture()
+        response = APIClient().post('/api/generate-catalog/', {
+            'garment_image': SimpleUploadedFile('garment.png', garment, content_type='image/png'),
+            'gender': 'women', 'options': json.dumps({'draft_mode': True}),
+        }, format='multipart')
+        self.assertEqual(response.status_code, 200)
+        events = [json.loads(line) for line in response.streaming_content]
+        self.assertEqual(events[0]['catalog_edition'], 'ready-made-v1')
+        self.assertEqual(events[-1]['status'], 'completed')
+        collage = events[-1]['collage']
+        self.assertEqual(collage['source_views'], [
+            'front', 'side', 'back', 'upper_detail', 'construction_detail', 'lower_detail',
+        ])
+        self.assertEqual(collage['aspect_ratio'], '3:4')
+        self.assertFalse(collage['includes_original_swatch'])
+        self.assertEqual(upload.call_count, 7)
+        self.assertEqual(len(sources), 6)
+        self.assertTrue(sources[0])
+        self.assertTrue(all(source == sources[0] for source in sources))
+
     def test_busy_response(self):
         self.assertTrue(CATALOG_SLOTS.acquire(blocking=False))
         try:
