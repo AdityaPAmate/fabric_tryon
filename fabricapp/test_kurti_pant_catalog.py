@@ -60,6 +60,11 @@ class KurtiPantCatalogTests(SimpleTestCase):
             self.assertEqual('input_image_2' in image['generation']['input_hashes'], image['view'] in ('front', 'side'))
         self.assertIn('full-length sleeves', provider.call_args_list[0].kwargs['data']['prompt'])
         self.assertIn('Add a dupatta', provider.call_args_list[2].kwargs['data']['prompt'])
+        for call in provider.call_args_list[:3]:
+            prompt = call.kwargs['data']['prompt']
+            self.assertIn('dominant cloth midtone', prompt)
+            self.assertIn('#008000', prompt)
+            self.assertIn('#FF0000', prompt)
         neckline = provider.call_args_list[3].kwargs['data']['prompt']
         sleeve = provider.call_args_list[4].kwargs['data']['prompt']
         self.assertIn('continues past the bottom edge', neckline)
@@ -69,6 +74,7 @@ class KurtiPantCatalogTests(SimpleTestCase):
         for prompt in (neckline, sleeve):
             self.assertNotIn('solid white', prompt)
             self.assertNotIn('full-length sleeves', prompt)
+        self.assertNotIn('#FF0000', sleeve)
         self.assertIn('Keep the pants solid white', provider.call_args_list[-1].kwargs['data']['prompt'])
         self.assertEqual(events[-1]['status'], 'completed')
         self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
@@ -86,6 +92,27 @@ class KurtiPantCatalogTests(SimpleTestCase):
         config = definition.build_config({'fabric_image': source, 'options': {'fabric_crop_box': crop}}, shot, 42)
         self.assertEqual(config['fabric_crop_box'], crop)
         self.assertEqual(config['fabric_region_selection'], 'explicit_crop')
+
+    def test_colour_guidance_handles_tonal_variation_and_balanced_patterns(self):
+        definition = get_definition('kurti_pant')
+        back = next(shot for shot in definition.shots if shot.key == 'back')
+        swatch = Image.new('RGB', (100, 100), '#24365A')
+        swatch.paste('#2C3E62', (0, 35, 100, 70))
+        swatch.paste('#942C43', (0, 70, 100, 100))
+        source = io.BytesIO()
+        swatch.save(source, 'PNG')
+        prompt = definition.build_config({'fabric_image': source}, back, 42)['prompt']
+        self.assertIn('dominant cloth midtone to deep blue (#283A5E)', prompt)
+        self.assertIn('#942C43', prompt)
+
+        swatch.paste('#942C43', (0, 50, 100, 100))
+        source = io.BytesIO()
+        swatch.save(source, 'PNG')
+        prompt = definition.build_config({'fabric_image': source}, back, 42)['prompt']
+        self.assertIn('Keep all the fabric colours distinct', prompt)
+        self.assertIn('#942C43', prompt)
+        self.assertIn('#24365A', prompt)
+        self.assertNotIn('dominant cloth midtone', prompt)
 
     def test_classic_edition_still_resolves_to_the_legacy_catalog(self):
         classic = get_definition('kurti_pant', 'classic-v1')

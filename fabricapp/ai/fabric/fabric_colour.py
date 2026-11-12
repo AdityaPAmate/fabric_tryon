@@ -32,7 +32,7 @@ def colour_name(rgb):
     return tone + family
 
 
-def measure_fabric_colours(source, crop_box=None):
+def measure_fabric_colours(source, crop_box=None, *, palette_size=5, min_coverage=.03):
     """Sample original RGB pixels; restore the caller's stream even on failure.
 
     Nearest-neighbour sampling avoids averaging tiny print colours together.
@@ -47,13 +47,13 @@ def measure_fabric_colours(source, crop_box=None):
         if crop_box is not None:
             image = image.crop(crop_box)
         image.thumbnail((256, 256), Image.Resampling.NEAREST)
-        quantized = image.quantize(colors=5, method=Image.Quantize.MEDIANCUT,
+        quantized = image.quantize(colors=palette_size, method=Image.Quantize.MEDIANCUT,
                                    dither=Image.Dither.NONE)
         palette = quantized.getpalette()
         total = image.width * image.height
         colours = []
         for count, index in sorted(quantized.getcolors(), reverse=True):
-            if count / total < .03:
+            if count / total < min_coverage:
                 continue
             rgb = palette[index * 3:index * 3 + 3]
             colours.append({'rgb': rgb, 'hex': '#' + ''.join(f'{v:02X}' for v in rgb),
@@ -63,6 +63,48 @@ def measure_fabric_colours(source, crop_box=None):
                 'colours': colours}
     finally:
         source.seek(position)
+
+
+def patterned_fabric_colour_prompt(profile, target):
+    """Anchor a clear majority colour while leaving motif placement to the swatch."""
+    colours = profile['colours']
+    if not colours:
+        return ''
+
+    def nearby(first, second):
+        return sum((a - b) ** 2 for a, b in zip(first['rgb'], second['rgb'])) <= 24 ** 2
+
+    def coverage(group):
+        return sum(colour['coverage'] for colour in group)
+
+    groups = [[colour for colour in colours if nearby(colour, anchor)] for anchor in colours]
+    majority = max(groups, key=coverage)
+    share = coverage(majority)
+    prompt = f'COLOUR REFERENCE: use image 1 as the colour authority for the {target}. '
+    if share >= .60:
+        rgb = [round(sum(colour['rgb'][i] * colour['coverage'] for colour in majority) / share)
+               for i in range(3)]
+        hex_value = '#' + ''.join(f'{value:02X}' for value in rgb)
+        prompt += f'Anchor the dominant cloth midtone to {colour_name(rgb)} ({hex_value}). '
+        remaining = [colour for colour in colours if colour not in majority]
+    else:
+        prompt += 'Keep all the fabric colours distinct, with their original proportions. '
+        remaining = colours
+
+    # List a few distinct samples without filling the prompt with shades of one colour.
+    samples = []
+    for colour in remaining:
+        if all(not nearby(colour, sample) for sample in samples):
+            samples.append(colour)
+            if len(samples) == 4:
+                break
+    if samples:
+        prompt += 'Sampled colours from image 1: ' + ', '.join(c['hex'] for c in samples) + '. '
+    return prompt + (
+        'Use the swatch pixels to keep each colour in its original motifs, checks, stripes or borders. '
+        'Match the swatch lightness and saturation in diffuse midtones across the garment. '
+        'Keep natural fold shadows and highlights while avoiding a colour cast from the scene. '
+    )
 
 
 def colour_reference_prompt(profile, target="jacket", *, preserve_palette=False):

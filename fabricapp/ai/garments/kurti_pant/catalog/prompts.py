@@ -115,7 +115,7 @@ def build_config(data, shot, seed):
             crop, selection = _sleeve_fabric_region(data)
             config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
             context['options'] = {**data.get('options', {}), 'fabric_crop_box': crop}
-        config = apply_fabric_conditioning(config, context, 'kurti_pant')
-    version = {'pant': 'v1', 'sleeve': 'v3'}.get(shot.key, 'v2')
+        config = apply_fabric_conditioning(config, context, 'kurti_pant', match_pattern_colours=True)
+    version = {'pant': 'v1', 'sleeve': 'v4'}.get(shot.key, 'v3')
     config['prompt_version'] = f'kurti-pant-catalog-{version}-{shot.key}'
     return config
