@@ -15,6 +15,12 @@ def image_buffer(rgb, size=(32, 32)):
 
 
 class FabricColourTests(TestCase):
+    def test_pale_neutral_tint_does_not_get_named_green_but_dyed_green_does(self):
+        pale = measure_fabric_colours(image_buffer('#DADCD1'))
+        green = measure_fabric_colours(image_buffer('#BAD1AA'))
+        self.assertIn('pale neutral base (#DADCD1)', patterned_fabric_colour_prompt(pale, 'kurti'))
+        self.assertIn('green (#BAD1AA)', patterned_fabric_colour_prompt(green, 'kurti'))
+
     def test_fold_shadows_use_a_lit_sample_without_whitening_grey_fabric(self):
         def prompt(image):
             stream = io.BytesIO()

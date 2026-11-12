@@ -5,6 +5,7 @@ from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel,
 
 
 REFERENCE_DIR = CATALOG_REFERENCE_DIR / 'kurti_pant'
+IDENTITY_VIEWS = {'front', 'side', 'back', 'neckline'}
 PANELS = (
     Panel('front', (0, 0, 894, 2400), 'cover'),
     Panel('side', (906, 0, 1320, 1194), 'cover'),
@@ -17,8 +18,8 @@ SHOTS = tuple(
     Shot(key, description, 'reference' if key == 'pant' else 'template_edit', framing,
          reference=REFERENCE_DIR / filename,
          reference_mask=REFERENCE_DIR / 'kurti_pant_6_mask.png' if key == 'pant' else None,
-         identity_from='request' if key in ('front', 'side') else None,
-         scenario='pose_reference' if key in ('front', 'side') else 'person_photo')
+         identity_from='request' if key in IDENTITY_VIEWS else None,
+         scenario='pose_reference' if key in IDENTITY_VIEWS else 'person_photo')
     for key, filename, framing, description in (
         ('front', 'kurti_front_1.png', 'full_body',
          'front full-length view of the complete kurti and pants, from head to feet'),

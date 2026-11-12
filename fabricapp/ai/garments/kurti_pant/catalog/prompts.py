@@ -15,6 +15,11 @@ SLEEVE_OPTIONS = {
     'half_sleeves': KURTI_SLEEVES_HALF_EDIT,
 }
 
+PRESET_HAIRSTYLES = {
+    'poonam': 'a centre part with dark hair gathered into a low bun and a few loose face-framing strands',
+    'anaya': 'loose, centre-parted dark hair with soft waves falling over the shoulders',
+}
+
 CATALOG_SCENERY = {
     'white_marble_terrace': 'a carved white marble terrace overlooking a lake and distant hills',
     'festive_street': 'a heritage street with marigold garlands, decorative lanterns and carved balconies',
@@ -65,6 +70,9 @@ def _output_dimensions(shot, draft):
 def build_config(data, shot, seed):
     details = data.get('garment_details') or ()
     portrait = shot.key in ('front', 'side', 'back')
+    has_identity = shot.identity_from == 'request' and any(
+        data.get(key) for key in ('person_image', 'face_image', 'face_choice')
+    )
     if shot.key == 'pant':
         scene = get_background_description(data.get('background'))
         return {
@@ -101,15 +109,28 @@ def build_config(data, shot, seed):
     if portrait:
         sleeves = next((SLEEVE_OPTIONS[key] for key in details if key in SLEEVE_OPTIONS), None)
         prompt += f'Use {sleeves}. ' if sleeves else 'Keep the sleeve length shown in image 0. '
-        if shot.identity_from and any(data.get(key) for key in ('person_image', 'face_image', 'face_choice')):
-            prompt += ('Image 2 provides the requested model identity. Match the face, hair and '
-                       'skin tone while retaining the pose and complete framing of image 0. ')
-        else:
+        if not has_identity:
             prompt += 'Retain the reference model and viewing angle. '
         prompt += DUPATTA_ADD if 'with_dupatta' in details else 'Keep the outfit free of a dupatta. '
         prompt += 'Include the complete kurti hem, both ankles and shoes in the frame. '
     else:
         prompt += 'Keep the requested close-up framing and isolate the garment detail. '
+
+    if has_identity:
+        identity = (
+            'Image 2 defines the model identity and hairstyle. Match the visible facial features, '
+            'hair part, hairline, colour, length and shape, including whether it is tied or loose. '
+            'Replace the hair from image 0 with that hairstyle as seen from the requested angle. '
+            'Use image 0 for framing, pose and outfit construction and image 1 for the fabric. '
+        )
+        hairstyle = PRESET_HAIRSTYLES.get(data.get('face_choice'))
+        if hairstyle:
+            identity += f'The selected hairstyle in image 2 is {hairstyle}. '
+        if shot.key == 'back':
+            identity += 'Show the hairstyle from behind. Keep the head and torso facing away and the face out of view. '
+        elif shot.key == 'neckline':
+            identity += 'Keep the neckline crop fixed. Only the selected model’s mouth, chin and hair visible in that crop may appear. '
+        prompt = identity + prompt
 
     if portrait:
         background = CATALOG_SCENERY.get(data.get('background'))
@@ -143,5 +164,5 @@ def build_config(data, shot, seed):
             config['prompt'] += (' The fabric input for this close-up is already corrected for '
                                  'the swatch photo shadows. Keep its bright base and original motif colours. '
                                  'Avoid making the broad flat cloth look darker than the supplied fabric.')
-    config['prompt_version'] = f'kurti-pant-catalog-v10-{shot.key}'
+    config['prompt_version'] = f'kurti-pant-catalog-v11-{shot.key}'
     return config

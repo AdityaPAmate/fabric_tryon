@@ -122,7 +122,12 @@ def patterned_fabric_colour_prompt(profile, target):
         rgb = [round(sum(colour['rgb'][i] * colour['coverage'] for colour in majority) / share)
                for i in range(3)]
         hex_value = '#' + ''.join(f'{value:02X}' for value in rgb)
-        prompt += f'Anchor the dominant cloth midtone to {colour_name(rgb)} ({hex_value}). '
+        if min(rgb) >= 190 and max(rgb) - min(rgb) <= 14:
+            prompt += (f'Anchor the dominant cloth midtone to the pale neutral base ({hex_value}). '
+                       'Keep its subtle tint at the same low saturation across every cloth panel. '
+                       'Do not turn a barely tinted base into a distinct dyed colour. ')
+        else:
+            prompt += f'Anchor the dominant cloth midtone to {colour_name(rgb)} ({hex_value}). '
         remaining = [colour for colour in colours if colour not in majority]
     else:
         prompt += 'Keep all the fabric colours distinct, with their original proportions. '
