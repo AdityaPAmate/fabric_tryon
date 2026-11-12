@@ -65,7 +65,7 @@ def measure_fabric_colours(source, crop_box=None, *, palette_size=5, min_coverag
         source.seek(position)
 
 
-def _lit_neutral_cloth(colours):
+def neutral_cloth_lighting(colours):
     """Find a broad lit shade on low-chroma cloth photographed with fold shadows."""
     neutral = sorted((c for c in colours if max(c['rgb']) - min(c['rgb']) <= 18),
                      key=lambda c: sum(c['rgb']))
@@ -85,13 +85,13 @@ def _lit_neutral_cloth(colours):
     lit = shade_at(.92)
     middle_level, lit_level = sum(middle['rgb']) / 3, sum(lit['rgb']) / 3
     # A narrow tonal range or a dark lit shade is insufficient evidence to lift the base.
-    if lit_level < 198 or lit_level - middle_level < 18:
+    if middle_level < 135 or lit_level < 198 or lit_level - middle_level < 18:
         return None
     # A two-tone design can have the same endpoints without a gradient between them.
     between = sum(c['coverage'] for c in neutral if middle_level + 5 < sum(c['rgb']) / 3 < lit_level - 5)
     if between < share * .10:
         return None
-    return lit
+    return middle, shade_at(.96)
 
 
 def patterned_fabric_colour_prompt(profile, target):
@@ -110,7 +110,8 @@ def patterned_fabric_colour_prompt(profile, target):
     majority = max(groups, key=coverage)
     share = coverage(majority)
     prompt = f'COLOUR REFERENCE: use image 1 as the colour authority for the {target}. '
-    lit = _lit_neutral_cloth(colours)
+    lighting = neutral_cloth_lighting(colours)
+    lit = lighting[1] if lighting else None
     if lit:
         prompt += (f'Use the well-lit cloth sample ({lit["hex"]}) for the base under neutral studio light. '
                    'The darker neutral tones in the swatch are fold shading. Match the lit base across '

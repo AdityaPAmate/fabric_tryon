@@ -2,6 +2,7 @@
 from PIL import Image
 
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
+from fabricapp.ai.fabric.fabric_colour import neutral_cloth_lighting
 from fabricapp.ai.garments.kurti_pant.catalog.fabric_region import select_body_fabric_region
 from fabricapp.ai.garments.kurti_pant.details import (
     DUPATTA_ADD, KURTI_SLEEVES_FULL_EDIT, KURTI_SLEEVES_HALF_EDIT,
@@ -134,5 +135,13 @@ def build_config(data, shot, seed):
         config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
         context['garment_details'] = ()
     config = apply_fabric_conditioning(config, context, 'kurti_pant', match_pattern_colours=True)
-    config['prompt_version'] = f'kurti-pant-catalog-v9-{shot.key}'
+    if not portrait:
+        profile = config.get('fabric_colour_reference', {})
+        lighting = neutral_cloth_lighting(profile.get('colours', ()))
+        if lighting:
+            config['fabric_neutral_lift'] = [round(sum(sample['rgb']) / 3) for sample in lighting]
+            config['prompt'] += (' The fabric input for this close-up is already corrected for '
+                                 'the swatch photo shadows. Keep its bright base and original motif colours. '
+                                 'Avoid making the broad flat cloth look darker than the supplied fabric.')
+    config['prompt_version'] = f'kurti-pant-catalog-v10-{shot.key}'
     return config

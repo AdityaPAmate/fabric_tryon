@@ -7,7 +7,7 @@ in-memory uploaded files instead of file paths on disk.
 """
 
 import io
-from PIL import Image
+from PIL import Image, ImageChops
 
 
 def crop_identity_reference(image_bytes, box):
@@ -24,7 +24,25 @@ def crop_identity_reference(image_bytes, box):
         return buffer.getvalue()
 
 
-def resize_to_fit(image_file, max_dim, crop_box=None, *, output_format="JPEG"):
+def lift_neutral_cloth_shadows(image, midtone, lit_tone):
+    """Lift low-chroma cloth toward a measured lit shade while retaining coloured motifs."""
+    red, green, blue = image.split()
+    maximum = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+    minimum = ImageChops.darker(ImageChops.darker(red, green), blue)
+    chroma = ImageChops.subtract(maximum, minimum)
+    neutral = chroma.point([round(255 * max(0, min(1, (24 - value) / 12))) for value in range(256)])
+    # Fade out in the darkest tones so neutral ink and deep fold detail survive.
+    lightness = image.convert('L')
+    shadow_mask = lightness.point([round(255 * max(0, min(1, (value - midtone + 65) / 36)))
+                                   for value in range(256)])
+    mask = ImageChops.multiply(neutral, shadow_mask)
+    gain = lit_tone - midtone
+    curve = [min(255, value + round(gain * min(value / midtone, (255 - value) / (255 - midtone))))
+             for value in range(256)]
+    return Image.composite(image.point(curve * 3), image, mask)
+
+
+def resize_to_fit(image_file, max_dim, crop_box=None, *, output_format="JPEG", neutral_lift=None):
     """
     Resize an uploaded image to fit inside max_dim x max_dim (keeping
     aspect ratio), and return it as an in-memory JPEG or lossless PNG buffer.
@@ -37,6 +55,8 @@ def resize_to_fit(image_file, max_dim, crop_box=None, *, output_format="JPEG"):
     img = Image.open(image_file).convert("RGB")
     if crop_box is not None:
         img = img.crop(crop_box)
+    if neutral_lift is not None:
+        img = lift_neutral_cloth_shadows(img, *neutral_lift)
     img.thumbnail((max_dim, max_dim), resample=Image.LANCZOS)
 
     buffer = io.BytesIO()

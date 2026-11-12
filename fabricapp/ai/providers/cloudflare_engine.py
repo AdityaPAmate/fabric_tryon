@@ -283,6 +283,7 @@ def generate_tryon_image(
             garment_source_buffer = resize_to_fit(
                 fabric_image, max_dim=MAX_INPUT_DIM, crop_box=prompt_config.get("fabric_crop_box", options.get("fabric_crop_box")),
                 output_format=source_format,
+                neutral_lift=prompt_config.get("fabric_neutral_lift"),
             )
             source_name, source_mime = (("garment_source.png", "image/png") if source_format == "PNG"
                                         else ("garment_source.jpg", "image/jpeg"))
@@ -365,6 +366,8 @@ def generate_tryon_image(
             diagnostics['fabric_region'] = prompt_config['fabric_region']
             diagnostics['fabric_region_selection'] = prompt_config['fabric_region_selection']
             diagnostics['fabric_crop_box'] = prompt_config.get('fabric_crop_box')
+        if prompt_config.get('fabric_neutral_lift'):
+            diagnostics['fabric_neutral_lift'] = prompt_config['fabric_neutral_lift']
 
     def generation_error(message, **kwargs):
         if diagnostics is not None:

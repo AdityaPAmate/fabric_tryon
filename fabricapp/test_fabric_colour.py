@@ -36,6 +36,21 @@ class FabricColourTests(TestCase):
         self.assertIn('#AAAAAA', two_tone)
         self.assertIn('#DDDDDD', two_tone)
 
+    def test_detail_input_lifts_neutral_shadows_and_preserves_motif_pixels(self):
+        from fabricapp.ai.images.image_utils import resize_to_fit
+        swatch = Image.new('RGB', (40, 20), '#AAAAAA')
+        swatch.paste('#137899', (10, 0, 20, 20))
+        swatch.paste('#242424', (20, 0, 30, 20))
+        swatch.paste('#E8E8E8', (30, 0, 40, 20))
+        source = io.BytesIO()
+        swatch.save(source, 'PNG')
+        prepared = resize_to_fit(source, 511, output_format='PNG', neutral_lift=(170, 212))
+        with Image.open(prepared) as result:
+            self.assertEqual(result.getpixel((5, 5)), (212, 212, 212))
+            self.assertEqual(result.getpixel((15, 5)), swatch.getpixel((15, 5)))
+            self.assertEqual(result.getpixel((25, 5)), swatch.getpixel((25, 5)))
+            self.assertGreater(result.getpixel((35, 5))[0], result.getpixel((5, 5))[0])
+
     def test_png_provider_input_keeps_adjacent_print_colours_and_crop(self):
         from fabricapp.ai.images.image_utils import resize_to_fit
         image = Image.new('RGB', (40, 20), '#FFFFFF')
