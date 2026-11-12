@@ -62,7 +62,7 @@ class KurtiPantCatalogTests(SimpleTestCase):
             else:
                 self.assertEqual(size, (160, 300))
                 self.assertEqual(pixel, (255, 0, 0))
-        identity_views = {'front', 'side', 'back', 'neckline'}
+        identity_views = {'front', 'side'}
         identity_hashes = set()
         for image in generated:
             hashes = image['generation']['input_hashes']
@@ -82,11 +82,16 @@ class KurtiPantCatalogTests(SimpleTestCase):
         sleeve = provider.call_args_list[4].kwargs['data']['prompt']
         self.assertIn('continues past the bottom edge', neckline)
         self.assertIn('single narrow floral vine', neckline)
-        self.assertIn('whether it is tied or loose', neckline)
-        self.assertIn('face out of view', provider.call_args_list[2].kwargs['data']['prompt'])
+        self.assertIn('Preserve the original visible mouth, chin', neckline)
+        self.assertNotIn('Image 2', neckline)
+        back = provider.call_args_list[2].kwargs['data']['prompt']
+        self.assertIn('face out of view', back)
+        self.assertIn('clear of the central back panel', back)
+        self.assertNotIn('Image 2', back)
         self.assertIn('single cuff opening', sleeve)
         self.assertIn('reverse of the same fabric', sleeve)
-        self.assertIn('outer sleeve, cuff, button placket, inner fold', sleeve)
+        self.assertIn('only to the outer sleeve, cuff, button placket and inner fold', sleeve)
+        self.assertIn('outside that edge smooth plain light grey', sleeve)
         self.assertIn('uninterrupted upper back', provider.call_args_list[2].kwargs['data']['prompt'])
         for prompt in (neckline, sleeve):
             self.assertNotIn('solid white', prompt)

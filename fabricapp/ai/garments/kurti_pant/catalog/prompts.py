@@ -29,8 +29,8 @@ CATALOG_SCENERY = {
 
 FABRIC_LIGHTING = (
     ' FINAL FABRIC LIGHTING: light the visible outfit with a broad, diffused neutral-white studio '
-    'softbox and gentle fill, with neutral camera white balance. Keep the selected scenery behind '
-    'the subject. No direct sunlight, warm sunset light, coloured reflections or strong shadows '
+    'softbox and gentle fill, with neutral camera white balance. '
+    'No direct sunlight, warm sunset light, coloured reflections or strong shadows '
     'on the garment. Use the fabric colour reference for the cloth under this lighting and retain soft local fold shadows. '
     'Keep the original motif colours, fabric weave and surface finish.'
 )
@@ -39,7 +39,8 @@ DETAIL_PROMPTS = {
     'neckline': (
         'Reproduce the exact crop of image 0: a neckline macro with only the mouth and chin at '
         'the top edge and fabric continuing past the bottom edge. The eyes, nose, full head, '
-        'waist and hands are outside the frame. Keep the round neckline, '
+        'waist and hands are outside the frame. Preserve the original visible mouth, chin, '
+        'skin, hair, earrings and background in place. Replace only the kurti cloth. Keep the round neckline, '
         'binding and shoulder positions. Preserve the single narrow floral vine below the binding '
         'and its small central flower with thread drops. Use a continuous field of the same body '
         'cloth around the stitchwork. Keep large hem artwork, edge bands and contrasting panels '
@@ -47,11 +48,12 @@ DETAIL_PROMPTS = {
         'bottom edge of the photograph. Show no lower hem, waistband or trousers. '
     ),
     'sleeve': (
-        'Reproduce image 0 as a tabletop macro of ONE kurti cuff lying flat on folded matching '
-        'kurti cloth. The whole frame is filled with the textile, including underneath the cuff. '
+        'Photograph one isolated kurti sleeve cuff from image 0 on a smooth, plain light grey '
+        'studio surface. Preserve the sleeve outline and the close-up crop. '
         'Keep the exact diagonal angle, single cuff opening, scalloped edge and pearl buttons. '
-        'Apply image 1 across the entire outer sleeve, cuff, button placket, inner fold and '
-        'surrounding cloth. Keep the floral stitching in place and use thread colours sampled '
+        'Apply image 1 only to the outer sleeve, cuff, button placket and inner fold. The area '
+        'outside the sleeve silhouette is solid, unpatterned light grey with a soft contact shadow. '
+        'Keep the floral stitching in place and use thread colours sampled '
         'from image 1. The buttons keep their pearl finish. Match the uploaded body motif shape '
         'and spacing. The inside of the opening is the reverse of the same fabric in shadow. '
         'Show no hem artwork, unedited template cloth, second sleeve, '
@@ -100,7 +102,10 @@ def build_config(data, shot, seed):
                    'separate from the printed kurti. ')
         if shot.key == 'back':
             prompt += ('Keep the plain, shallow rounded back neck seam and uninterrupted upper back '
-                       'from image 0. Continue the repeating body print up to that seam. Keep any '
+                       'from image 0. Keep the hair swept to the same side as in image 0 and its '
+                       'ends in the same position, clear of the central back panel. Do not add '
+                       'hair over the garment or lengthen it. Keep the head and torso facing away, '
+                       'with the face out of view. Continue the repeating body print up to that seam. Keep any '
                        'wide decorative fabric border at the lower hem. The upper back has no '
                        'front neckline embroidery, yoke, vertical placket or ornamental patch. ')
         else:
@@ -126,18 +131,14 @@ def build_config(data, shot, seed):
         hairstyle = PRESET_HAIRSTYLES.get(data.get('face_choice'))
         if hairstyle:
             identity += f'The selected hairstyle in image 2 is {hairstyle}. '
-        if shot.key == 'back':
-            identity += 'Show the hairstyle from behind. Keep the head and torso facing away and the face out of view. '
-        elif shot.key == 'neckline':
-            identity += 'Keep the neckline crop fixed. Only the selected model’s mouth, chin and hair visible in that crop may appear. '
         prompt = identity + prompt
 
     if portrait:
         background = CATALOG_SCENERY.get(data.get('background'))
         prompt += f'Use {background} as the scenery behind the subject. ' if background else 'Retain the reference setting. '
-    else:
+    elif shot.key == 'neckline':
         prompt += 'Keep the close-up studio composition in image 0. Do not widen the frame to show a scene. '
-    if data.get('additional_style_note'):
+    if portrait and data.get('additional_style_note'):
         prompt += f"Style direction: {data['additional_style_note']}. Preserve the supplied kurti textile and reference framing. "
     prompt += 'Use natural cloth shading. Produce one opaque clothing photograph without text, a watermark or a collage.'
     prompt += FABRIC_LIGHTING
@@ -164,5 +165,8 @@ def build_config(data, shot, seed):
             config['prompt'] += (' The fabric input for this close-up is already corrected for '
                                  'the swatch photo shadows. Keep its bright base and original motif colours. '
                                  'Avoid making the broad flat cloth look darker than the supplied fabric.')
-    config['prompt_version'] = f'kurti-pant-catalog-v11-{shot.key}'
+    if shot.key == 'sleeve':
+        config['prompt'] += (' FINAL BACKGROUND: the fabric print stops at the sleeve edge. '
+                             'Keep everything outside that edge smooth plain light grey, with no textile or scene.')
+    config['prompt_version'] = f'kurti-pant-catalog-v12-{shot.key}'
     return config

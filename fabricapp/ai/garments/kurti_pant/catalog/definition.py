@@ -5,7 +5,7 @@ from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel,
 
 
 REFERENCE_DIR = CATALOG_REFERENCE_DIR / 'kurti_pant'
-IDENTITY_VIEWS = {'front', 'side', 'back', 'neckline'}
+IDENTITY_VIEWS = {'front', 'side'}
 PANELS = (
     Panel('front', (0, 0, 894, 2400), 'cover'),
     Panel('side', (906, 0, 1320, 1194), 'cover'),
