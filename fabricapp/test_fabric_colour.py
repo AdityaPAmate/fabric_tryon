@@ -3,6 +3,7 @@ from unittest import TestCase
 from PIL import Image
 
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours, colour_reference_prompt, has_single_colour_family
+from fabricapp.ai.fabric.fabric_colour import patterned_fabric_colour_prompt
 from fabricapp.ai.garments.blazer.builder import build_prompt
 
 
@@ -14,6 +15,27 @@ def image_buffer(rgb, size=(32, 32)):
 
 
 class FabricColourTests(TestCase):
+    def test_fold_shadows_use_a_lit_sample_without_whitening_grey_fabric(self):
+        def prompt(image):
+            stream = io.BytesIO()
+            image.save(stream, 'PNG')
+            palette = measure_fabric_colours(stream, palette_size=24, min_coverage=.005)
+            return patterned_fabric_colour_prompt(palette, 'kurti')
+
+        shaded = Image.new('RGB', (100, 100))
+        for x in range(100):
+            level = 145 + x * 75 // 99
+            shaded.paste((level, level, level - 4), (x, 0, x + 1, 100))
+        self.assertIn('Use the well-lit cloth sample', prompt(shaded))
+
+        grey = Image.new('RGB', (100, 100), '#AAAAAA')
+        self.assertIn('grey (#AAAAAA)', prompt(grey))
+        grey.paste('#DDDDDD', (50, 0, 100, 100))
+        two_tone = prompt(grey)
+        self.assertNotIn('well-lit cloth sample', two_tone)
+        self.assertIn('#AAAAAA', two_tone)
+        self.assertIn('#DDDDDD', two_tone)
+
     def test_png_provider_input_keeps_adjacent_print_colours_and_crop(self):
         from fabricapp.ai.images.image_utils import resize_to_fit
         image = Image.new('RGB', (40, 20), '#FFFFFF')

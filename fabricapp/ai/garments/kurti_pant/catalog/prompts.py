@@ -25,7 +25,7 @@ FABRIC_LIGHTING = (
     ' FINAL FABRIC LIGHTING: light the visible outfit with a broad, diffused neutral-white studio '
     'softbox and gentle fill, with neutral camera white balance. Keep the selected scenery behind '
     'the subject. No direct sunlight, warm sunset light, coloured reflections or strong shadows '
-    'on the garment. Match image 1 in diffuse fabric midtones and retain soft local fold shadows. '
+    'on the garment. Use the fabric colour reference for the cloth under this lighting and retain soft local fold shadows. '
     'Keep the original motif colours, fabric weave and surface finish.'
 )
 
@@ -134,5 +134,5 @@ def build_config(data, shot, seed):
         config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
         context['garment_details'] = ()
     config = apply_fabric_conditioning(config, context, 'kurti_pant', match_pattern_colours=True)
-    config['prompt_version'] = f'kurti-pant-catalog-v8-{shot.key}'
+    config['prompt_version'] = f'kurti-pant-catalog-v9-{shot.key}'
     return config

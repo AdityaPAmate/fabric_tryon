@@ -65,6 +65,35 @@ def measure_fabric_colours(source, crop_box=None, *, palette_size=5, min_coverag
         source.seek(position)
 
 
+def _lit_neutral_cloth(colours):
+    """Find a broad lit shade on low-chroma cloth photographed with fold shadows."""
+    neutral = sorted((c for c in colours if max(c['rgb']) - min(c['rgb']) <= 18),
+                     key=lambda c: sum(c['rgb']))
+    share = sum(c['coverage'] for c in neutral)
+    if share < .65:
+        return None
+
+    def shade_at(fraction):
+        cumulative = 0
+        for colour in neutral:
+            cumulative += colour['coverage']
+            if cumulative >= share * fraction:
+                return colour
+        return neutral[-1]
+
+    middle = shade_at(.50)
+    lit = shade_at(.92)
+    middle_level, lit_level = sum(middle['rgb']) / 3, sum(lit['rgb']) / 3
+    # A narrow tonal range or a dark lit shade is insufficient evidence to lift the base.
+    if lit_level < 198 or lit_level - middle_level < 18:
+        return None
+    # A two-tone design can have the same endpoints without a gradient between them.
+    between = sum(c['coverage'] for c in neutral if middle_level + 5 < sum(c['rgb']) / 3 < lit_level - 5)
+    if between < share * .10:
+        return None
+    return lit
+
+
 def patterned_fabric_colour_prompt(profile, target):
     """Anchor a clear majority colour while leaving motif placement to the swatch."""
     colours = profile['colours']
@@ -81,7 +110,14 @@ def patterned_fabric_colour_prompt(profile, target):
     majority = max(groups, key=coverage)
     share = coverage(majority)
     prompt = f'COLOUR REFERENCE: use image 1 as the colour authority for the {target}. '
-    if share >= .60:
+    lit = _lit_neutral_cloth(colours)
+    if lit:
+        prompt += (f'Use the well-lit cloth sample ({lit["hex"]}) for the base under neutral studio light. '
+                   'The darker neutral tones in the swatch are fold shading. Match the lit base across '
+                   'broad visible areas and keep natural shadows local to the new folds. Preserve the '
+                   'source tint and keep each printed motif visible at its original size. ')
+        remaining = [c for c in colours if max(c['rgb']) - min(c['rgb']) > 18]
+    elif share >= .60:
         rgb = [round(sum(colour['rgb'][i] * colour['coverage'] for colour in majority) / share)
                for i in range(3)]
         hex_value = '#' + ''.join(f'{value:02X}' for value in rgb)
@@ -100,11 +136,10 @@ def patterned_fabric_colour_prompt(profile, target):
                 break
     if samples:
         prompt += 'Sampled colours from image 1: ' + ', '.join(c['hex'] for c in samples) + '. '
-    return prompt + (
-        'Use the swatch pixels to keep each colour in its original motifs, checks, stripes or borders. '
-        'Match the swatch lightness and saturation in diffuse midtones across the garment. '
-        'Keep natural fold shadows and highlights while avoiding a colour cast from the scene. '
-    )
+    prompt += 'Use the swatch pixels to keep each colour in its original motifs, checks, stripes or borders. '
+    if not lit:
+        prompt += 'Match the swatch lightness and saturation in diffuse midtones across the garment. '
+    return prompt + 'Keep natural fold shadows and highlights while avoiding a colour cast from the scene. '
 
 
 def colour_reference_prompt(profile, target="jacket", *, preserve_palette=False):
