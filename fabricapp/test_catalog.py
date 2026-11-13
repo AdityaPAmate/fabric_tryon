@@ -143,7 +143,7 @@ class CatalogTests(SimpleTestCase):
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/photo.png'})
     @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
-    def test_ready_made_catalog_uses_the_uploaded_garment_for_every_view(self, post, upload):
+    def test_ready_made_catalog_uses_the_person_and_garment_then_crops_details(self, post, upload):
         sources = []
 
         def provider(*args, **kwargs):
@@ -151,6 +151,7 @@ class CatalogTests(SimpleTestCase):
             self.assertEqual((source[0], source[2]), ('garment_source.jpg', 'image/jpeg'))
             sources.append(source[1].read())
             request = kwargs['data']
+            self.assertIn('input_image_2', kwargs['files'])
             image = io.BytesIO()
             Image.new('RGB', (request['width'], request['height']), 'white').save(image, 'PNG')
             return Mock(status_code=200, headers={'Content-Type': 'image/png'}, content=image.getvalue())
@@ -159,7 +160,8 @@ class CatalogTests(SimpleTestCase):
         garment = picture()
         response = APIClient().post('/api/generate-catalog/', {
             'garment_image': SimpleUploadedFile('garment.png', garment, content_type='image/png'),
-            'gender': 'women', 'options': json.dumps({'draft_mode': True}),
+            'person_image': SimpleUploadedFile('person.png', garment, content_type='image/png'),
+            'options': json.dumps({'draft_mode': True}),
         }, format='multipart')
         self.assertEqual(response.status_code, 200)
         events = [json.loads(line) for line in response.streaming_content]
@@ -172,7 +174,9 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(collage['aspect_ratio'], '3:4')
         self.assertFalse(collage['includes_original_swatch'])
         self.assertEqual(upload.call_count, 7)
-        self.assertEqual(len(sources), 6)
+        self.assertEqual(len(sources), 3)
+        self.assertEqual([image['generation']['source_view'] for image in events[-1]['images'][3:]],
+                         ['front', 'side', 'front'])
         self.assertTrue(sources[0])
         self.assertTrue(all(source == sources[0] for source in sources))
 
@@ -186,6 +190,27 @@ class CatalogTests(SimpleTestCase):
             self.assertEqual(response.status_code, 429)
         finally:
             CATALOG_SLOTS.release()
+
+    @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
+    def test_ready_garment_person_edit_uses_provider_size_grid(self, post):
+        from fabricapp.ai.main import generate_tryon_image
+
+        person = io.BytesIO()
+        Image.new('RGB', (1196, 1600), 'white').save(person, 'PNG')
+
+        def provider(*args, **kwargs):
+            params = kwargs['data']
+            size = (params['width'], params['height'])
+            self.assertEqual(size, (1120, 1536))
+            self.assertEqual(set(kwargs['files']), {'input_image_0', 'input_image_1'})
+            image = io.BytesIO()
+            Image.new('RGB', size, 'blue').save(image, 'PNG')
+            return Mock(status_code=200, headers={'Content-Type': 'image/png'}, content=image.getvalue())
+
+        post.side_effect = provider
+        result = generate_tryon_image(person_image=person, garment_image=io.BytesIO(picture()),
+                                      options={'draft_mode': False})
+        self.assertTrue(result.image_bytes)
 
     def test_page_and_targeted_detail_prompt(self):
         response = APIClient().get('/api/catalog/')

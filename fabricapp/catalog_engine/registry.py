@@ -37,4 +37,8 @@ def get_request_definition(data):
         raise ValueError('This ready-made garment type and style do not have a catalog edition.')
     if edition in STYLE_EDITIONS.values() and edition != style_edition:
         raise ValueError(f"Catalog edition '{edition}' requires its matching garment type and style.")
-    return get_definition(garment, edition or style_edition)
+    definition = get_definition(garment, edition or style_edition)
+    if data.get('garment_image') is not None:
+        module = import_module(CUSTOM[(garment, definition.edition)])
+        return getattr(module, 'READY_MADE_DEFINITION', definition)
+    return definition

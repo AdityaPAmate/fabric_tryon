@@ -94,10 +94,10 @@ class PlainKurtaCatalogTests(SimpleTestCase):
                 for index, (params, _, files, mime, reference_size) in enumerate(requests):
                     self.assertEqual(int(params['seed']), 73)
                     self.assertEqual(float(params['guidance']), 5.5)
-                    self.assertEqual('input_image_2' in files, index < 2)
+                    self.assertEqual('input_image_2' in files, index < 2 or (source == 'garment_image' and index >= 3))
                     self.assertEqual(max(params['width'], params['height']), 768)
                     if index >= 3:
-                        self.assertEqual(set(files), {'input_image_0', 'input_image_1'})
+                        self.assertTrue({'input_image_0', 'input_image_1'}.issubset(files))
                         self.assertLessEqual(max(reference_size), 511)
                         self.assertAlmostEqual(reference_size[0] / reference_size[1],
                                                params['width'] / params['height'], delta=.025)
@@ -110,6 +110,8 @@ class PlainKurtaCatalogTests(SimpleTestCase):
                     else:
                         self.assertEqual(mime, 'image/jpeg')
                         self.assertIn('finished kurta', params['prompt'])
+                        if index >= 3:
+                            self.assertIn('face-free crop', params['prompt'])
                 if source == 'fabric_image':
                     self.assertIn('plus-size', requests[0][0]['prompt'])
                     self.assertIn('dupatt', requests[0][0]['prompt'].lower())

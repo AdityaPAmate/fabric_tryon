@@ -1,4 +1,5 @@
 """Six reference photographs for the Plain Kurta catalog."""
+from dataclasses import replace
 from PIL import Image
 
 from fabricapp.ai.fabric.body_region import select_body_fabric_region
@@ -61,6 +62,11 @@ def build_config(data, shot, seed):
     details = data.get('garment_details') or ()
     if not portrait:
         prompt = [_detail_prompt(shot.key, ready_made, 'folded_sleeves' in details)]
+        if ready_made:
+            prompt.append('Image 2 is a face-free crop of the same human wearing this kurta. '
+                          'Use it to match the garment as worn. Keep the tight camera crop from image 0. '
+                          'Image 1 supplies garment construction, colour and print only. Exclude its display mannequin, '
+                          'original wearer and surroundings from the result.')
     else:
         prompt = [f'Edit image 0 in place for this Plain Kurta catalog view: {shot.description}. '
               'Keep its camera angle, framing, perspective and subject scale.']
@@ -71,6 +77,7 @@ def build_config(data, shot, seed):
                       'slit, show the real side seam and hem at the same scale. Continue the observed cloth and construction '
                       'on unseen areas without inventing decoration. Preserve any matching bottoms in '
                       'image 1; otherwise use simple coordinating trousers in full-length views.')
+        prompt.append('Use image 1 only for clothing. Keep its mannequin, hanger or photographed wearer out of the result.')
     elif portrait:
         prompt.append('Image 1 is the fabric swatch. Replace every visible kurta cloth pixel with its '
                       'colour, weave and pattern, following the existing cloth volume and seam directions. '
@@ -140,6 +147,8 @@ def build_config(data, shot, seed):
         config['prompt'] += (' FINAL SIDE SEAM: show a stitched lateral vent and continuous cloth above it. '
                              'The vent and hem are free of buttons, buttonholes, snaps and plackets.')
     version = 'v4' if shot.key in ('cuff', 'side_slit') else 'v2' if portrait else 'v3'
+    if ready_made:
+        version = 'ready-v2'
     config['prompt_version'] = f'kurta-plain-catalog-{version}-{shot.key}'
     return config
 
@@ -172,3 +181,14 @@ def _detail_prompt(view, ready_made, folded_sleeves):
 
 
 DEFINITION = CatalogDefinition('kurta', 'plain-v1', SHOTS, build_config, layout)
+
+READY_DETAIL_REFERENCES = {
+    'collar': ('front', (.20, .13, .80, .36)),
+    'cuff': ('front', (.10, .30, .90, .53)),
+    'side_slit': ('side', (.18, .44, .85, .77)),
+}
+READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
+    replace(shot, dependencies=(anchor,), identity_from=anchor, identity_crop=crop)
+    for shot in SHOTS[3:]
+    for anchor, crop in (READY_DETAIL_REFERENCES[shot.key],)
+))

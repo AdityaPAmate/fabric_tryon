@@ -170,7 +170,8 @@ def _build_subject(
     if scenario == SCENARIO_PERSON_PHOTO:
         subject_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
         out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
-        return subject_buffer, None, out_w, out_h
+        reference_buffer = _load_uploaded_face_buffer(face_image) if face_image else None
+        return subject_buffer, reference_buffer, out_w, out_h
 
     # Pose generation uses the original stable 3:4 portrait frame. It gives
     # the model enough space for the complete head-to-feet pose and keeps the
@@ -267,8 +268,8 @@ def generate_tryon_image(
                 subject_buffer = make_blank_canvas(round(out_w * scale), round(out_h * scale))
         # Catalog templates can have arbitrary aspect ratios. Request a stable
         # model-aligned size rather than accepting a silently rounded response.
-        # Ordinary requests retain their existing dimensions and strict validation.
-        if prompt_config.get('output_size_multiple') == 32:
+        # Match the provider's size grid for ready-made person edits as well.
+        if prompt_config.get('output_size_multiple') == 32 or (use_garment_image and scenario == SCENARIO_PERSON_PHOTO):
             out_w = max(256, (out_w // 32) * 32)
             out_h = max(256, (out_h // 32) * 32)
 

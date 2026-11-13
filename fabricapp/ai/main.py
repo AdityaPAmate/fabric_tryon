@@ -111,6 +111,9 @@ def generate_tryon_image(
         prompt_config = dict(prompt_config)
         if 'output_dimensions' in catalog_config:
             prompt_config['output_dimensions'] = catalog_config['output_dimensions']
+        if 'portrait_dimensions' in catalog_config:
+            draft_size, final_size = catalog_config['portrait_dimensions']
+            prompt_config['output_dimensions'] = draft_size if options.get('draft_mode') else final_size
         original = prompt_config['prompt']
         fallback = prompt_config.get('safety_fallback_prompt')
         framing = catalog_config.get('framing', '')
