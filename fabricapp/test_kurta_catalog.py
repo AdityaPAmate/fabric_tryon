@@ -138,9 +138,12 @@ class PlainKurtaCatalogTests(SimpleTestCase):
                         self.assertIn('cotton', params['prompt'].lower())
                     else:
                         self.assertEqual(mime, 'image/jpeg')
-                        self.assertIn('finished kurta', params['prompt'])
                         if index >= 3:
-                            self.assertIn('close crop of the kurta as worn', params['prompt'])
+                            self.assertEqual(files, {'input_image_0', 'input_image_1'})
+                            self.assertIn('exact zoom, angle and crop', params['prompt'])
+                            self.assertIn('garment detail from this catalog', params['prompt'])
+                        else:
+                            self.assertIn('finished kurta', params['prompt'])
                 if source == 'fabric_image':
                     self.assertIn('plus-size', requests[0][0]['prompt'])
                     self.assertIn('dupatt', requests[0][0]['prompt'].lower())
@@ -149,6 +152,17 @@ class PlainKurtaCatalogTests(SimpleTestCase):
                     self.assertIn('face, hairstyle and body build', requests[0][0]['prompt'])
 
         self.assertEqual(upload.call_count, 14)
+
+    def test_ready_detail_uses_the_side_sleeve_and_reference_framing(self):
+        from fabricapp.ai.garments.kurta.catalog.plain import READY_MADE_DEFINITION
+
+        collar, cuff, slit = READY_MADE_DEFINITION.shots[3:]
+        self.assertEqual([shot.garment_from for shot in (collar, cuff, slit)], ['front', 'side', 'side'])
+        prompts = [READY_MADE_DEFINITION.build_config({'garment_image': io.BytesIO(picture())}, shot, 42)['prompt']
+                   for shot in (collar, cuff, slit)]
+        self.assertIn('top of the placket', prompts[0])
+        self.assertIn('one sleeve and wrist', prompts[1])
+        self.assertIn('free of added fasteners', prompts[2])
 
     def test_other_styles_keep_classic_and_cannot_select_plain_edition(self):
         from fabricapp.catalog_engine.registry import get_request_definition

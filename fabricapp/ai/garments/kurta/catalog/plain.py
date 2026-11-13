@@ -181,12 +181,48 @@ def _detail_prompt(view, ready_made, folded_sleeves):
 DEFINITION = CatalogDefinition('kurta', 'plain-v1', SHOTS, build_config, layout)
 
 READY_DETAIL_REFERENCES = {
-    'collar': ('front', (.25, .16, .75, .33)),
-    'cuff': ('front', (.15, .36, .85, .54)),
-    'side_slit': ('side', (.40, .49, .81, .73)),
+    'collar': ('front', (.27, .16, .73, .32)),
+    'cuff': ('side', (.24, .39, .67, .51)),
+    'side_slit': ('side', (.49, .51, .79, .72)),
 }
+
+READY_DETAIL_EDITS = {
+    'collar': (
+        'Keep the chin at the top edge and the collar in the upper third. Show only the neck, collar '
+        'and top of the placket, with the chest cloth extending beyond the frame on both sides and below. '
+        'Copy the finished collar shape, stitching and visible fasteners from image 1.'
+    ),
+    'cuff': (
+        'Keep the diagonal sleeve, cuff edge and bare wrist in the same positions. Replace the sleeve '
+        'and cuff with the cloth and finish from image 1. Keep the area behind the arm smooth light grey. '
+        'The frame contains one sleeve and wrist.'
+    ),
+    'side_slit': (
+        'Keep the tight thigh-level view of the lower side seam and hem. Copy the fabric and visible '
+        'seam construction from image 1. Show a slit only when visible in image 1. Keep the lower '
+        'edge in frame and the opening free of added fasteners. The frame contains only lower cloth '
+        'and any plain trouser fabric visible behind the opening.'
+    ),
+}
+
+
+def build_ready_config(data, shot, seed):
+    config = build_config(data, shot, seed)
+    if shot.key not in READY_DETAIL_EDITS:
+        return config
+    config['prompt'] = (
+        'Edit the existing close-up in image 0 in place. Image 0 sets the exact zoom, angle and crop. '
+        'Image 1 is a garment detail from this catalog. Use it for the real colour, pattern scale '
+        'and garment construction. '
+        + READY_DETAIL_EDITS[shot.key]
+        + ' Keep the tight framing and neutral fabric colour. Output one close-up photograph.'
+    )
+    config['prompt_version'] = f'kurta-plain-catalog-ready-v4-{shot.key}'
+    return config
+
+
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
     replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
     for shot in SHOTS[3:]
     for anchor, crop in (READY_DETAIL_REFERENCES[shot.key],)
-))
+), build_config=build_ready_config)
