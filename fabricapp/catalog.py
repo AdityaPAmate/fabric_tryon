@@ -26,6 +26,7 @@ CATALOG_SLOTS = threading.BoundedSemaphore(1)
 class CatalogRequestSerializer(FabricTryOnRequestSerializer):
     catalog_edition = serializers.CharField(required=False, max_length=64)
     catalog_product = serializers.JSONField(required=False, default=dict)
+    garment_as_swatch = serializers.BooleanField(required=False)
 
     DETAIL_CROPS = ('fabric_body_crop_box', 'fabric_border_crop_box')
 
@@ -61,6 +62,31 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
         return {key: text.strip() for key, text in value.items()}
 
     def validate(self, data):
+        if data.pop('garment_as_swatch', False):
+            if (data.get('garment_image') is None or data.get('fabric_image') is not None or
+                    (data.get('garment_type'), data.get('garment_style')) != ('kurta', 'plain')):
+                raise serializers.ValidationError({'garment_as_swatch': 'Choose a ready garment photo and the Plain Kurta fabric catalog.'})
+            if data.get('catalog_edition') not in (None, 'plain-v1'):
+                raise serializers.ValidationError({'catalog_edition': 'Garment fabric extraction requires plain-v1.'})
+            from PIL import Image, ImageOps
+
+            source = data.pop('garment_image')
+            source.seek(0)
+            with Image.open(source) as opened:
+                image = ImageOps.exif_transpose(opened).convert('RGB')
+            options = data.setdefault('options', {})
+            box = options.pop('fabric_crop_box', None)
+            if box is None:
+                # Below the placket, inside the central panel of a front-on kurta photo.
+                box = [round(image.width * .34), round(image.height * .53),
+                       round(image.width * .66), round(image.height * .82)]
+            if box[2] > image.width or box[3] > image.height or box[2] <= box[0] or box[3] <= box[1]:
+                raise serializers.ValidationError({'options': {'fabric_crop_box': 'Choose a crop inside the garment photo.'}})
+            fabric = io.BytesIO()
+            image.crop(box).save(fabric, 'PNG')
+            fabric.seek(0)
+            data['fabric_image'] = fabric
+            data['catalog_edition'] = 'plain-v1'
         data = super().validate(data)
         crops = {key: data.get('options', {})[key] for key in self.DETAIL_CROPS if key in data.get('options', {})}
         if crops:

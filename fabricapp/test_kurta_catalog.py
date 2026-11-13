@@ -11,6 +11,32 @@ from fabricapp.test_catalog import picture
 
 
 class PlainKurtaCatalogTests(SimpleTestCase):
+    def test_garment_swatch_uses_reference_plan_and_extracts_only_body_pixels(self):
+        from PIL import ImageDraw
+        from fabricapp.catalog import CatalogRequestSerializer
+        from fabricapp.catalog_engine.registry import get_request_definition
+
+        photo = Image.new('RGB', (100, 200), 'white')
+        ImageDraw.Draw(photo).rectangle((30, 96, 70, 169), fill='navy')
+        image = io.BytesIO()
+        photo.save(image, 'PNG')
+        for options, size in (({}, (32, 58)), ({'fabric_crop_box': [32, 100, 68, 160]}, (36, 60))):
+            serializer = CatalogRequestSerializer(data={
+                'garment_image': SimpleUploadedFile('garment.png', image.getvalue(), 'image/png'),
+                'garment_as_swatch': True, 'garment_type': 'kurta', 'garment_style': 'plain',
+                'gender': 'men', 'face_choice': 'raghav', 'options': options,
+            })
+            self.assertTrue(serializer.is_valid(), serializer.errors)
+            data = serializer.validated_data
+            self.assertEqual(data['face_choice'], 'raghav')
+            self.assertNotIn('garment_image', data)
+            self.assertNotIn('fabric_crop_box', data['options'])
+            with Image.open(data['fabric_image']) as swatch:
+                self.assertEqual(swatch.size, size)
+                self.assertEqual(swatch.getcolors(), [(size[0] * size[1], (0, 0, 128))])
+            self.assertEqual([shot.key for shot in get_request_definition(data).shots],
+                             ['front', 'side', 'back', 'collar', 'cuff', 'side_slit'])
+
     def test_report_fixes_keep_detail_crops_and_plain_colour(self):
         from fabricapp.ai.garments.kurta.catalog.plain import SHOTS, build_config, layout
 

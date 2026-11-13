@@ -10,7 +10,7 @@ body{font:16px system-ui;background:#f5f4f0;color:#172a28;margin:0}main{max-widt
 <label>Source<select id="source"><option value="fabric">Fabric swatch</option><option value="ready">Ready garment photo</option></select></label>
 <label data-fabric-only>Fabric swatch<input name="fabric_image" type="file" accept="image/*" required></label>
 <label data-ready-only hidden>Garment photo<input name="garment_image" type="file" accept="image/*" required disabled></label>
-<label data-ready-only hidden>Ready garment catalog<select id="readyCatalog"><option value="">General</option><option value="kurta:plain">Kurta · Plain</option></select></label>
+<label data-ready-only hidden>Ready garment catalog<select id="readyCatalog"><option value="">General</option><option value="kurta:plain">Kurta · Plain</option><option value="kurta:plain:swatch">Kurta · Plain — use garment fabric</option></select></label>
 <label>Person photo (optional)<input name="person_image" type="file" accept="image/*"></label>
 <label data-fabric-only>Garment<select name="garment_type" id="garment"><option value="shirt">Shirt</option><option value="blazer">Blazer</option><option value="kurta">Kurta</option><option value="kurti_pant">Kurti + Pant</option><option value="pant">Trousers</option><option value="saree">Saree</option></select></label>
 <label id="styleLabel" hidden>Style<select name="garment_style" id="style" disabled></select></label>
@@ -53,10 +53,11 @@ source.onchange();
 function addImage(image){const article=document.createElement('article'), title=document.createElement('h3'), img=document.createElement('img'), link=document.createElement('a');title.textContent=image.view==='catalog'&&image.aspect_ratio?'Catalog ('+image.aspect_ratio+')':image.view.replaceAll('_',' ');img.src=image.url;img.alt=title.textContent;link.href=image.url;link.target='_blank';link.rel='noopener';link.textContent='Open / Save image';article.append(title,img,link);images.append(article);}
 form.onsubmit=async e=>{e.preventDefault();button.disabled=true;images.replaceChildren();statusBox.textContent='Starting catalog…';let completed=false;const failures=[];const data=new FormData(form);data.delete('csrfmiddlewaretoken');if(!data.get('person_image')?.size)data.delete('person_image');else data.delete('gender');const options={draft_mode:document.querySelector('#quality').value==='draft'};if(data.get('garment_type')==='saree'){for(const region of ['body','border']){const raw=document.querySelector('#'+region+'Crop').value.trim();if(!raw)continue;const parts=raw.split(','),box=parts.map(x=>Number(x.trim()));if(parts.some(x=>!x.trim())||box.length!==4||!box.every(Number.isInteger)||box[0]<0||box[1]<0||box[2]<=box[0]||box[3]<=box[1]){statusBox.textContent=region+' crop must be left, upper, right, lower in original fabric pixels.';button.disabled=false;return;}options['fabric_'+region+'_crop_box']=box;}}data.set('options',JSON.stringify(options));
 if (source.value === 'ready') {
-  const [type, style] = document.querySelector('#readyCatalog').value.split(':');
+  const [type, style, garmentSource] = document.querySelector('#readyCatalog').value.split(':');
   if (type) {
     data.set('garment_type', type);
     data.set('garment_style', style);
+    if (garmentSource === 'swatch') data.set('garment_as_swatch', 'true');
   }
 }
 try{const response=await fetch('../generate-catalog/',{method:'POST',body:data,headers:{'X-CSRFToken':form.querySelector('[name=csrfmiddlewaretoken]').value}});if(!response.ok)throw Error(JSON.stringify(await response.json()));const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';

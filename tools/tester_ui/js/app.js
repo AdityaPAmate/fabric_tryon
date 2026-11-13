@@ -64,6 +64,7 @@ let requestController = null;
 function setGenerationMode() {
   const fabric = garmentSource.value === 'fabric';
   const catalog = generationMode.value === 'catalog';
+  const extractFabric = !fabric && catalog && readyCatalog.value.endsWith(':swatch');
   document.querySelector('#ready-catalog-field').classList.toggle('hidden', fabric || !catalog);
   readyCatalog.disabled = fabric || !catalog;
   document.querySelectorAll('[data-saree-detail-crop]').forEach(field => {
@@ -72,9 +73,9 @@ function setGenerationMode() {
     field.querySelector('input').disabled = !enabled;
   });
   document.querySelector('#fabric-type-field').classList.toggle('hidden', !fabric);
-  document.querySelector('#fabric-crop-field').classList.toggle('hidden', !fabric);
+  document.querySelector('#fabric-crop-field').classList.toggle('hidden', !fabric && !extractFabric);
   fabricType.disabled = !fabric;
-  document.querySelector('#fabric-crop-box').disabled = !fabric;
+  document.querySelector('#fabric-crop-box').disabled = !fabric && !extractFabric;
   poseSelect.disabled = catalog;
   document.querySelector('#camera-view').disabled = catalog;
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
@@ -455,7 +456,8 @@ form.addEventListener("submit", async (event) => {
   const personFile = personImage.files[0];
   const selectedFaceFile = faceImage?.files?.[0] || null;
   const usesFabric = garmentSource.value === "fabric";
-  const [catalogGarment, catalogStyle] = isCatalog && !usesFabric ? readyCatalog.value.split(':') : [];
+  const [catalogGarment, catalogStyle, catalogSource] = isCatalog && !usesFabric ? readyCatalog.value.split(':') : [];
+  const extractFabric = catalogSource === 'swatch';
 
   if (usesFabric) {
     payload.append("fabric_image", sourceFile);
@@ -472,6 +474,7 @@ form.addEventListener("submit", async (event) => {
 
   } else {
     payload.append("garment_image", sourceFile);
+    if (extractFabric) payload.append('garment_as_swatch', 'true');
     if (catalogGarment) {
       payload.append('garment_type', catalogGarment);
       payload.append('garment_style', catalogStyle);
@@ -544,7 +547,7 @@ form.addEventListener("submit", async (event) => {
   if (seedValue !== "") payload.append("seed", seedValue);
   if (guidanceValue !== "") payload.append("guidance", guidanceValue);
   const options = { draft_mode: document.querySelector('#draft-mode').value === 'true' };
-  const crop = usesFabric ? document.querySelector('#fabric-crop-box').value.trim() : '';
+  const crop = usesFabric || extractFabric ? document.querySelector('#fabric-crop-box').value.trim() : '';
   if (crop) {
     const box = crop.split(',').map(value => Number(value.trim()));
     if (crop.split(',').some(value => !value.trim()) || box.length !== 4 ||
@@ -588,6 +591,7 @@ form.addEventListener("submit", async (event) => {
     fabric_type: usesFabric ? fabricType.value : 'unspecified',
     options,
     garment_source: usesFabric ? "fabric_image" : "garment_image",
+    ...(extractFabric ? {garment_as_swatch: true} : {}),
     garment_type: usesFabric
       ? garmentType.value
       : (catalogGarment || "garment_image"),
@@ -917,6 +921,7 @@ setGarmentSourceMode();
 setPersonMode();
 
 generationMode.addEventListener('change', setGenerationMode);
+readyCatalog.addEventListener('change', setGenerationMode);
 document.querySelector('#camera-view').addEventListener('change', setReferencePoseAvailability);
 cancelButton.addEventListener('click', () => {
   requestController?.abort();
