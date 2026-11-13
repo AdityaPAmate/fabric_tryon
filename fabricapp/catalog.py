@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from fabricapp.ai.main import generate_tryon_image
 from fabricapp.ai.pipeline.catalog_prompts import catalog_plan, edit_config
 from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image as generate_edit
-from fabricapp.catalog_engine.registry import get_request_definition
+from fabricapp.catalog_engine.registry import STYLE_EDITIONS, get_request_definition
 from fabricapp.serializers import FabricTryOnRequestSerializer
 from fabricapp.services.cloudinary_service import upload_generated_image
 
@@ -63,11 +63,12 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
 
     def validate(self, data):
         if data.pop('garment_as_swatch', False):
+            edition = STYLE_EDITIONS.get((data.get('garment_type'), data.get('garment_style')))
             if (data.get('garment_image') is None or data.get('fabric_image') is not None or
-                    (data.get('garment_type'), data.get('garment_style')) != ('kurta', 'plain')):
-                raise serializers.ValidationError({'garment_as_swatch': 'Choose a ready garment photo and the Plain Kurta fabric catalog.'})
-            if data.get('catalog_edition') not in (None, 'plain-v1'):
-                raise serializers.ValidationError({'catalog_edition': 'Garment fabric extraction requires plain-v1.'})
+                    data.get('garment_type') != 'kurta' or not edition):
+                raise serializers.ValidationError({'garment_as_swatch': 'Choose a ready garment photo and a supported Kurta catalog style.'})
+            if data.get('catalog_edition') not in (None, edition):
+                raise serializers.ValidationError({'catalog_edition': f'Garment fabric extraction requires {edition}.'})
             from PIL import Image, ImageOps
 
             source = data.pop('garment_image')
@@ -86,7 +87,7 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
             image.crop(box).save(fabric, 'PNG')
             fabric.seek(0)
             data['fabric_image'] = fabric
-            data['catalog_edition'] = 'plain-v1'
+            data['catalog_edition'] = edition
         data = super().validate(data)
         crops = {key: data.get('options', {})[key] for key in self.DETAIL_CROPS if key in data.get('options', {})}
         if crops:

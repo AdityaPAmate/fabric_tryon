@@ -111,12 +111,8 @@ def build_config(data, shot, seed):
                   'garment midtones. Keep pale colours pale and dark colours dark. Keep scene reflections '
                   'off the cloth. Preserve local fold shadows without boosting vibrance, warmth or contrast. '
                   'Output one photograph with no text, watermark or collage.')
-    with Image.open(shot.reference) as reference:
-        width, height = reference.size
-    max_side = 768 if data.get('options', {}).get('draft_mode') else 1536
-    scale = max_side / max(width, height)
     config = {'prompt': ' '.join(prompt), 'seed': seed, 'guidance': data.get('guidance', 7),
-              'output_dimensions': tuple(max(256, round(side * scale / 32) * 32) for side in (width, height)),
+              'output_dimensions': reference_output_dimensions(data, shot),
               'fabric_source_format': 'PNG', 'classified_recovery': True, 'safety_retry_count': 0}
     if not ready_made:
         crop, selection = select_body_fabric_region(data)
@@ -149,6 +145,14 @@ def build_config(data, shot, seed):
         version = 'ready-v3' if not portrait else 'ready-v2'
     config['prompt_version'] = f'kurta-plain-catalog-{version}-{shot.key}'
     return config
+
+
+def reference_output_dimensions(data, shot):
+    with Image.open(shot.reference) as reference:
+        width, height = reference.size
+    max_side = 768 if data.get('options', {}).get('draft_mode') else 1536
+    scale = max_side / max(width, height)
+    return tuple(max(256, round(side * scale / 32) * 32) for side in (width, height))
 
 
 def _detail_prompt(view, ready_made, folded_sleeves):

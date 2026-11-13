@@ -82,8 +82,8 @@ function setGenerationMode() {
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
   document.querySelector('#mode-help').textContent = catalog
     ? (fabric
-      ? 'Generate the garment’s catalog views and a finished collage. Plain Kurta, Saree and Kurti + Pant use a 3:4 collage.'
-      : 'Choose Kurta · Plain for reference-based collar, cuff and side slit views.')
+      ? 'Generate the garment’s catalog views and a finished collage. Plain Kurta, Sherwani, Saree and Kurti + Pant use a 3:4 collage.'
+      : 'Choose a Kurta style for reference-based collar, cuff and side slit views.')
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
 }
