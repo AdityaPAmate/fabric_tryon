@@ -21,8 +21,12 @@ class PlainKurtaCatalogTests(SimpleTestCase):
         self.assertIn('#D1C0D9', configs['front']['prompt'])
         self.assertIn('Plain cloth stays plain', configs['back']['prompt'])
         self.assertIn('collar and the first buttons', configs['collar']['prompt'])
-        self.assertIn('single cuff', configs['cuff']['prompt'])
-        self.assertIn('two hem edges', configs['side_slit']['prompt'])
+        self.assertIn('single diagonal sleeve', configs['cuff']['prompt'])
+        self.assertIn('lateral vent', configs['side_slit']['prompt'])
+        for view in ('collar', 'cuff', 'side_slit'):
+            self.assertTrue(configs[view]['prompt'].startswith('Edit this existing close-up in image 0.'))
+            self.assertNotIn('full-length sleeves', configs[view]['prompt'])
+            self.assertNotIn('trousers', configs[view]['prompt'])
         self.assertTrue(all(panel.fit == 'contain' for panel in layout({}).panels))
 
     def test_distinct_fabric_trim_is_excluded_from_collar_and_cuff_source(self):
@@ -53,7 +57,10 @@ class PlainKurtaCatalogTests(SimpleTestCase):
 
                 def provider(*args, **kwargs):
                     params, files = kwargs['data'], kwargs['files']
-                    requests.append((params, files['input_image_1'][1].read(), set(files), files['input_image_1'][2]))
+                    with Image.open(files['input_image_0'][1]) as reference:
+                        reference_size = reference.size
+                    requests.append((params, files['input_image_1'][1].read(), set(files),
+                                     files['input_image_1'][2], reference_size))
                     result = io.BytesIO()
                     Image.new('RGB', (params['width'], params['height']), 'blue').save(result, 'PNG')
                     return Mock(status_code=200, headers={'Content-Type': 'image/png'}, content=result.getvalue())
@@ -82,11 +89,16 @@ class PlainKurtaCatalogTests(SimpleTestCase):
                 self.assertEqual(len(requests), 6)
                 self.assertTrue(all(row[1] == requests[0][1] for row in requests))
                 self.assertTrue(requests[0][1])
-                for index, (params, _, files, mime) in enumerate(requests):
+                for index, (params, _, files, mime, reference_size) in enumerate(requests):
                     self.assertEqual(int(params['seed']), 73)
                     self.assertEqual(float(params['guidance']), 5.5)
                     self.assertEqual('input_image_2' in files, index < 2)
                     self.assertEqual(max(params['width'], params['height']), 768)
+                    if index >= 3:
+                        self.assertEqual(set(files), {'input_image_0', 'input_image_1'})
+                        self.assertLessEqual(max(reference_size), 511)
+                        self.assertAlmostEqual(reference_size[0] / reference_size[1],
+                                               params['width'] / params['height'], delta=.025)
                     if index < 3:
                         self.assertIn('palace courtyard', params['prompt'])
                         self.assertIn('simple shoes', params['prompt'])
@@ -99,7 +111,7 @@ class PlainKurtaCatalogTests(SimpleTestCase):
                 if source == 'fabric_image':
                     self.assertIn('plus-size', requests[0][0]['prompt'])
                     self.assertIn('dupatt', requests[0][0]['prompt'].lower())
-                    self.assertIn('folded back', requests[4][0]['prompt'])
+                    self.assertIn('folded back cuff', requests[4][0]['prompt'])
                 else:
                     self.assertIn('face, hairstyle and body build', requests[0][0]['prompt'])
 

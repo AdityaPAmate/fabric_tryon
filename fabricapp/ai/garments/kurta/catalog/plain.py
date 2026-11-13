@@ -14,18 +14,17 @@ IDENTITY_VIEWS = {'front', 'side'}
 PORTRAITS = IDENTITY_VIEWS | {'back'}
 DETAIL_FRAMING = {
     'collar': (
-        'Match the tight crop in image 0: the bottom of the chin at the top edge, a little neck, '
-        'the collar and the first buttons. The cloth continues through the bottom and side edges. '
-        'Keep the eyes, sleeves, hands, waist, hem and trousers out of the frame.'
+        'Keep the reference crop: the bottom of the chin touches the top edge, with the collar '
+        'and the first buttons below it. The chest cloth fills the bottom and both sides of the frame.'
     ),
     'cuff': (
-        'Match the diagonal sleeve end in image 0. Show a single cuff and the small patch of wrist '
-        'immediately below it. Keep the collar, full torso, head, hands and trousers out of the frame.'
+        'Keep the reference crop: a single diagonal sleeve crosses from the upper right to its cuff '
+        'near the centre. The wrist exits at the lower left. Keep that angle and cuff position.'
     ),
     'side_slit': (
-        'Match the tight lower side view in image 0: show the two hem edges around the side opening '
-        'and the small visible area behind it. The top edge cuts through the lower kurta cloth. '
-        'Keep the front opening, waist, arms, hands, neck, head and feet out of the frame.'
+        'Keep the reference crop: the camera faces the lower side seam at thigh level. Two hem edges '
+        'frame the narrow opening that starts above centre. The top edge shows only lower kurta cloth. '
+        'This is the lateral vent near the hem. Keep the front placket and upper body outside the frame.'
     ),
 }
 
@@ -59,30 +58,30 @@ def build_config(data, shot, seed):
     ready_made = data.get('garment_image') is not None
     portrait = shot.key in PORTRAITS
     details = data.get('garment_details') or ()
-    prompt = [f'Edit image 0 in place for this Plain Kurta catalog view: {shot.description}. '
+    if not portrait:
+        prompt = [_detail_prompt(shot.key, ready_made, 'folded_sleeves' in details)]
+    else:
+        prompt = [f'Edit image 0 in place for this Plain Kurta catalog view: {shot.description}. '
               'Keep its camera angle, framing, perspective and subject scale.']
-    if ready_made:
+    if portrait and ready_made:
         prompt.append('Image 1 shows the finished kurta. Copy its actual cut, length, seams, trim, closures, '
                       'colour, weave and print. Image 0 supplies composition only. Follow the construction '
                       'visible in image 1, including its actual collar and sleeve end. If there is no side '
                       'slit, show the real side seam and hem at the same scale. Continue the observed cloth and construction '
                       'on unseen areas without inventing decoration. Preserve any matching bottoms in '
                       'image 1; otherwise use simple coordinating trousers in full-length views.')
-    else:
+    elif portrait:
         prompt.append('Image 1 is the fabric swatch. Replace every visible kurta cloth pixel with its '
                       'colour, weave and pattern, following the existing cloth volume and seam directions. '
                       'Keep the garment outline, closures, stitching, skin and studio background in place. '
                       'Where visible, preserve the plain white trousers. Preserve the source pattern scale '
                       'and repeat. Plain cloth stays plain, including through folds. Do not turn wrinkles, '
                       'selvedges or weave texture into stripes, checks, piping or decorative seams.')
-        if shot.key in PORTRAITS or shot.key == 'side_slit':
-            prompt.append('When the swatch has a distinct decorative border, place it only at the lower hem. '
+        prompt.append('When the swatch has a distinct decorative border, place it only at the lower hem. '
                           'Keep the body pattern continuous above it. Use a plain stitched hem when the source has no border.')
-        if shot.key in PORTRAITS or shot.key == 'cuff':
-            prompt.append(SLEEVES_FOLDED.format(noun='kurta') if 'folded_sleeves' in details else
+        prompt.append(SLEEVES_FOLDED.format(noun='kurta') if 'folded_sleeves' in details else
                           'Keep the full-length sleeves and wrist finish from image 0.')
-        if portrait:
-            prompt.append(KURTA_DUPATTA_ADD if 'with_dupatta' in details else DUPATTA_REMOVE)
+        prompt.append(KURTA_DUPATTA_ADD if 'with_dupatta' in details else DUPATTA_REMOVE)
 
     if portrait:
         if shot.key in IDENTITY_VIEWS and data.get('person_image'):
@@ -101,12 +100,6 @@ def build_config(data, shot, seed):
         prompt.append(f'Use {background} behind the subject.' if background else 'Keep the studio setting of image 0.')
         if data.get('additional_style_note'):
             prompt.append(f"Styling direction: {data['additional_style_note']}. Keep the garment source and framing.")
-    else:
-        framing = DETAIL_FRAMING[shot.key]
-        if ready_made and shot.key == 'side_slit':
-            framing = ('Match the tight lower side view in image 0. Show the real side seam and hem, '
-                       'including the opening only if present. Keep the waist, arms, face and feet out of frame.')
-        prompt.append(framing)
 
     prompt.append('Under soft neutral lighting, match the source hue, saturation and lightness in the '
                   'garment midtones. Keep pale colours pale and dark colours dark. Keep scene reflections '
@@ -133,12 +126,33 @@ def build_config(data, shot, seed):
             config['prompt'] += ' The measured palette describes the main cloth; use image 1 for any real hem trim.'
         # Use the standard midtone anchor for single-family swatches and a
         # sampled body palette for multi-colour and bordered fabrics.
-        conditioned = apply_fabric_conditioning(config, context, 'kurta', 'plain')
+        conditioned = apply_fabric_conditioning(config, context, 'kurta', 'plain', lead_with_edit=not portrait)
         if selection == 'detected_body_crop' or 'fabric_colour_reference' not in conditioned:
-            conditioned = apply_fabric_conditioning(config, context, 'kurta', 'plain', match_pattern_colours=True)
+            conditioned = apply_fabric_conditioning(config, context, 'kurta', 'plain',
+                                                    match_pattern_colours=True, lead_with_edit=not portrait)
         config = conditioned
-    config['prompt_version'] = f'kurta-plain-catalog-v2-{shot.key}'
+    version = 'v2' if portrait else 'v3'
+    config['prompt_version'] = f'kurta-plain-catalog-{version}-{shot.key}'
     return config
+
+
+def _detail_prompt(view, ready_made, folded_sleeves):
+    framing = DETAIL_FRAMING[view]
+    if ready_made and view == 'side_slit':
+        framing = ('Keep the tight lower side crop of image 0. Show the real hem and side seam from '
+                   'image 1, with an opening only when the source garment has one.')
+    if ready_made:
+        textile = ('Use the finished kurta in image 1 for this feature’s cut, stitching, finish, '
+                   'colour and print. Match image 0 for camera distance, angle and frame boundaries.')
+    else:
+        textile = ('Replace only the kurta cloth in image 0 using the fabric swatch in image 1. '
+                   'Keep the reference seams, buttons, skin and background. Preserve the cloth’s '
+                   'actual weave and pattern. Plain cloth stays plain.')
+        if view == 'cuff' and folded_sleeves:
+            textile += ' Show the selected folded back cuff at the same diagonal angle and crop.'
+        if view == 'side_slit':
+            textile += ' Keep any distinct source border at the lower hem. A plain swatch has a plain stitched edge.'
+    return f'Edit this existing close-up in image 0. {framing} {textile} Keep the same tight crop.'
 
 
 DEFINITION = CatalogDefinition('kurta', 'plain-v1', SHOTS, build_config, layout)

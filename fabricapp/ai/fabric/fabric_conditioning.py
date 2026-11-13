@@ -9,7 +9,7 @@ from fabricapp.ai.pipeline.router import PromptRoutingError
 
 def apply_fabric_conditioning(config, context, garment_type, garment_style=None,
                               use_garment_image=False, legacy_colour_text="", *,
-                              match_pattern_colours=False):
+                              match_pattern_colours=False, lead_with_edit=False):
     context = context or {}
     fabric_type = context.get("fabric_type", "unspecified")
     error = validate_fabric_type(fabric_type, garment_type, use_garment_image)
@@ -42,7 +42,7 @@ def apply_fabric_conditioning(config, context, garment_type, garment_style=None,
             original = result[key]
             if profile and legacy_colour_text:
                 original = original.replace(legacy_colour_text, "", 1)
-            result[key] = prefix + original
+            result[key] = original + ' ' + prefix if lead_with_edit else prefix + original
             if garment_type == "shirt" and profile:
                 result[key] += SHIRT_COLOUR_PRIORITY
     primary = config.get("prompt", "")
