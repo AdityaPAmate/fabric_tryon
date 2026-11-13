@@ -91,10 +91,11 @@
               /><small>Ready-made garment photograph.</small></label
             >
             <label id="ready-catalog-field" class="field hidden">
-              <span>Ready garment catalog</span>
-              <select id="ready-catalog">
-                <option value="">General</option>
-                <option value="kurta:plain">Kurta · Plain</option>
+              <span>Ready garment catalog <b>*</b></span>
+              <select id="ready-catalog" disabled>
+                <option value="" selected disabled>Choose a catalog</option>
+                <option value="general">General — automatic detail crops</option>
+                <option value="kurta:plain">Kurta · Plain — collar, cuff and side slit references</option>
                 <option value="kurta:plain:swatch">Kurta · Plain — use garment fabric</option>
               </select>
             </label>
@@ -405,6 +406,6 @@
     <script src="js/request_timer.js?v=20261029"></script>
     <script src="js/api_options.js?v=20261102"></script>
     <script src="js/catalog_client.js?v=20261102"></script>
-    <script src="js/app.js?v=20261113-garment-swatch"></script>
+    <script src="js/app.js?v=20261113-ready-catalog-choice"></script>
   </body>
 </html>

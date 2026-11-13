@@ -67,6 +67,7 @@ function setGenerationMode() {
   const extractFabric = !fabric && catalog && readyCatalog.value.endsWith(':swatch');
   document.querySelector('#ready-catalog-field').classList.toggle('hidden', fabric || !catalog);
   readyCatalog.disabled = fabric || !catalog;
+  readyCatalog.required = !readyCatalog.disabled;
   document.querySelectorAll('[data-saree-detail-crop]').forEach(field => {
     const enabled = fabric && catalog && garmentType.value === 'saree';
     field.classList.toggle('hidden', !enabled);
@@ -82,7 +83,7 @@ function setGenerationMode() {
   document.querySelector('#mode-help').textContent = catalog
     ? (fabric
       ? 'Generate the garment’s catalog views and a finished collage. Plain Kurta, Saree and Kurti + Pant use a 3:4 collage.'
-      : 'Upload a finished garment photo to generate six views and a 3:4 collage. Keep this page open.')
+      : 'Choose Kurta · Plain for reference-based collar, cuff and side slit views.')
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
 }
@@ -409,6 +410,13 @@ form.addEventListener("submit", async (event) => {
 
   if (generateButton.disabled) return;
 
+  const isCatalog = generationMode.value === 'catalog';
+  const usesFabric = garmentSource.value === 'fabric';
+  if (isCatalog && !usesFabric && !readyCatalog.value) {
+    readyCatalog.reportValidity();
+    return;
+  }
+
   const sourceFile = currentSourceFile();
 
   if (!sourceFile) {
@@ -437,7 +445,6 @@ form.addEventListener("submit", async (event) => {
   generateButton.disabled = true;
   generateButton.textContent = "Generating...";
 
-  const isCatalog = generationMode.value === 'catalog';
   let apiUrl;
   try {
     apiUrl = CatalogClient.endpoint(document.querySelector('#api-url').value.trim(), isCatalog);
@@ -455,8 +462,8 @@ form.addEventListener("submit", async (event) => {
 
   const personFile = personImage.files[0];
   const selectedFaceFile = faceImage?.files?.[0] || null;
-  const usesFabric = garmentSource.value === "fabric";
-  const [catalogGarment, catalogStyle, catalogSource] = isCatalog && !usesFabric ? readyCatalog.value.split(':') : [];
+  const readySelection = isCatalog && !usesFabric ? readyCatalog.value : null;
+  const [catalogGarment, catalogStyle, catalogSource] = readySelection?.includes(':') ? readySelection.split(':') : [];
   const extractFabric = catalogSource === 'swatch';
 
   if (usesFabric) {
@@ -591,6 +598,7 @@ form.addEventListener("submit", async (event) => {
     fabric_type: usesFabric ? fabricType.value : 'unspecified',
     options,
     garment_source: usesFabric ? "fabric_image" : "garment_image",
+    ...(readySelection ? {ready_garment_catalog: readySelection} : {}),
     ...(extractFabric ? {garment_as_swatch: true} : {}),
     garment_type: usesFabric
       ? garmentType.value
