@@ -205,12 +205,18 @@ class SherwaniCatalogTests(SimpleTestCase):
                 ready = source == 'garment_image' and not extract
                 for index, call in enumerate(edit.call_args_list):
                     args = call.kwargs
+                    prompt = args['prompt_config']['prompt']
                     self.assertIn('garment_image' if ready else 'fabric_image', args)
                     self.assertEqual(args.get('face_choice'), 'raghav' if index < 2 else None)
+                    self.assertIn('only with broad, diffused neutral white light', prompt)
+                    self.assertNotIn('sunlit white marble terrace', prompt)
+                    self.assertNotIn('soft warm daylight', prompt)
                     if index >= 3:
-                        self.assertNotIn('marble terrace', args['prompt_config']['prompt'])
+                        self.assertNotIn('marble terrace', prompt)
                         if ready:
                             self.assertNotEqual(args['garment_image'].getvalue(), picture())
+                    else:
+                        self.assertIn('carved white marble terrace', prompt)
                 prompts = [call.kwargs['prompt_config']['prompt'] for call in edit.call_args_list[-3:]]
                 self.assertIn('stand collar', prompts[0])
                 self.assertIn('one sleeve and its wrist', prompts[1])

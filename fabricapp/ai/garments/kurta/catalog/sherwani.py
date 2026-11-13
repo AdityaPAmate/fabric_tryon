@@ -6,7 +6,6 @@ from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.garments.kurta.catalog import plain
 from fabricapp.ai.garments.kurta.details import DUPATTA_REMOVE, KURTA_DUPATTA_ADD
 from fabricapp.ai.pipeline.scenario_composer import _person_description
-from fabricapp.ai.scene.backgrounds import get_background_description
 from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel
 
 REFERENCES = plain.REFERENCES.parent / 'sherwani'
@@ -41,6 +40,20 @@ READY_CROPS = {
     'cuff': ('side', (.22, .36, .73, .52)),
     'side_slit': ('side', (.44, .49, .80, .72)),
 }
+
+SCENERY = {
+    'white_marble_terrace': 'a carved white marble terrace overlooking a lake and distant hills',
+    'festive_street': 'an Indian heritage street with carved balconies, marigolds and decorative lanterns',
+    'royal_courtyard': 'a palace courtyard with carved arches, columns and a central fountain',
+    'riverside_ghat': 'a riverside ghat with stone steps and distant temple spires',
+}
+
+WHITE_LIGHT = (
+    ' FINAL LIGHTING: Illuminate the subject and setting only with broad, diffused neutral white light '
+    'and neutral camera white balance. No direct sunlight, warm light, golden-hour glow or coloured reflections. '
+    'Match the source fabric hue, saturation, midtone brightness and motif contrast. '
+    'Keep natural soft fold shadows and the selected fabric finish. No saturation boost or orange colour cast.'
+)
 
 
 def layout(_product):
@@ -85,18 +98,19 @@ def build_config(data, shot, seed):
 
     if portrait:
         if shot.key in plain.IDENTITY_VIEWS and data.get('person_image'):
-            prompt.append('Image 2 supplies the human face, hairstyle and body build. Use the pose from image 0.')
+            prompt.append('Image 2 supplies the same human face, hairstyle, facial hair and body build in every view. '
+                          'Match those features and skin tone exactly. Use image 0 for the pose and camera framing.')
         elif data.get('gender'):
             prompt.append('Subject: ' + _person_description(data['gender'], data.get('body_type')) + '.')
             if shot.key in plain.IDENTITY_VIEWS and (data.get('face_choice') or data.get('face_image')):
                 prompt.append('Image 2 supplies the face and hairstyle. Keep the requested body build.')
-        background = get_background_description(data.get('background'))
+        background = SCENERY.get(data.get('background'))
         if background:
             prompt.append(f'Use {background} behind the subject.')
         if data.get('additional_style_note'):
             prompt.append(f"Styling direction: {data['additional_style_note']}. Preserve garment fidelity and framing.")
 
-    prompt.append('Match the source colour and motif contrast in neutral light. Output one photograph.')
+    prompt.append('Output one photograph.')
     config = {'prompt': ' '.join(prompt), 'seed': seed, 'guidance': data.get('guidance', 7),
               'output_dimensions': plain.reference_output_dimensions(data, shot),
               'fabric_source_format': 'PNG', 'classified_recovery': True, 'safety_retry_count': 0}
@@ -107,11 +121,18 @@ def build_config(data, shot, seed):
             context['garment_details'] = ()
         if shot.key in ('collar', 'cuff'):
             config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
-            config['prompt'] += ' Use the body cloth here and keep decorative hem borders outside the frame.'
-        config = apply_fabric_conditioning(config, context, 'kurta', 'sherwani',
-                                           match_pattern_colours=True, lead_with_edit=True)
+            config['prompt'] += ' Use the body cloth here. The cloth runs continuously to the frame edges without a hem border.'
+        else:
+            config['prompt'] += (' A decorative hem border must come from a visible edge band in image 1. '
+                                 'For a plain swatch, keep the hem plain with a simple stitch line.')
+        conditioned = apply_fabric_conditioning(config, context, 'kurta', 'sherwani', lead_with_edit=True)
+        if selection == 'detected_body_crop' or 'fabric_colour_reference' not in conditioned:
+            conditioned = apply_fabric_conditioning(config, context, 'kurta', 'sherwani',
+                                                    match_pattern_colours=True, lead_with_edit=True)
+        config = conditioned
+    config['prompt'] += WHITE_LIGHT
     source = 'ready' if ready else 'swatch'
-    config['prompt_version'] = f'sherwani-catalog-{source}-v1-{shot.key}'
+    config['prompt_version'] = f'sherwani-catalog-{source}-v2-{shot.key}'
     return config
 
 
