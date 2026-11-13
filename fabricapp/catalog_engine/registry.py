@@ -6,11 +6,13 @@ CUSTOM = {
     ('shirt', 'classic-v1'): 'fabricapp.ai.garments.shirt.catalog.definition',
     ('saree', 'editorial-v1'): 'fabricapp.ai.garments.saree.catalog.definition',
     ('kurti_pant', 'editorial-v1'): 'fabricapp.ai.garments.kurti_pant.catalog.definition',
+    ('kurta', 'plain-v1'): 'fabricapp.ai.garments.kurta.catalog.plain',
     ('ready_made', 'ready-made-v1'): 'fabricapp.catalog_engine.ready_made',
 }
 DEFAULTS = {'shirt': 'classic-v1', 'saree': 'editorial-v1',
             'blazer': 'classic-v1', 'kurta': 'classic-v1',
             'kurti_pant': 'editorial-v1', 'pant': 'classic-v1'}
+STYLE_EDITIONS = {('kurta', 'plain'): 'plain-v1'}
 
 
 def get_definition(garment, edition=None):
@@ -25,6 +27,14 @@ def get_definition(garment, edition=None):
 
 def get_request_definition(data):
     edition = data.get('catalog_edition')
-    if data.get('garment_image') is not None:
+    garment = data.get('garment_type')
+    style = data.get('garment_style')
+    if data.get('garment_image') is not None and garment is None:
         return get_definition('ready_made', edition or 'ready-made-v1')
-    return get_definition(data['garment_type'], edition)
+
+    style_edition = STYLE_EDITIONS.get((garment, style))
+    if data.get('garment_image') is not None and (not style_edition or edition not in (None, style_edition)):
+        raise ValueError('This ready-made garment type and style do not have a catalog edition.')
+    if edition in STYLE_EDITIONS.values() and edition != style_edition:
+        raise ValueError(f"Catalog edition '{edition}' requires its matching garment type and style.")
+    return get_definition(garment, edition or style_edition)

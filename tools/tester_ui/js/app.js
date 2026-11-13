@@ -53,6 +53,7 @@ const issueNote = document.querySelector("#issue-note");
 const saveReportButton = document.querySelector("#save-report-button");
 const reportSaveMessage = document.querySelector("#report-save-message");
 const generationMode = document.querySelector('#generation-mode');
+const readyCatalog = document.querySelector('#ready-catalog');
 const fabricType = document.querySelector('#fabric-type');
 const cancelButton = document.querySelector('#cancel-generation');
 const catalogGrid = document.querySelector('#catalog-grid');
@@ -63,6 +64,8 @@ let requestController = null;
 function setGenerationMode() {
   const fabric = garmentSource.value === 'fabric';
   const catalog = generationMode.value === 'catalog';
+  document.querySelector('#ready-catalog-field').classList.toggle('hidden', fabric || !catalog);
+  readyCatalog.disabled = fabric || !catalog;
   document.querySelectorAll('[data-saree-detail-crop]').forEach(field => {
     const enabled = fabric && catalog && garmentType.value === 'saree';
     field.classList.toggle('hidden', !enabled);
@@ -77,7 +80,7 @@ function setGenerationMode() {
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
   document.querySelector('#mode-help').textContent = catalog
     ? (fabric
-      ? 'One request generates the garment’s catalog shots and a finished collage. Saree and Kurti + Pant use six views in a 3:4 collage. Keep this page open.'
+      ? 'Generate the garment’s catalog views and a finished collage. Plain Kurta, Saree and Kurti + Pant use a 3:4 collage.'
       : 'Upload a finished garment photo to generate six views and a 3:4 collage. Keep this page open.')
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
@@ -452,6 +455,7 @@ form.addEventListener("submit", async (event) => {
   const personFile = personImage.files[0];
   const selectedFaceFile = faceImage?.files?.[0] || null;
   const usesFabric = garmentSource.value === "fabric";
+  const [catalogGarment, catalogStyle] = isCatalog && !usesFabric ? readyCatalog.value.split(':') : [];
 
   if (usesFabric) {
     payload.append("fabric_image", sourceFile);
@@ -468,6 +472,10 @@ form.addEventListener("submit", async (event) => {
 
   } else {
     payload.append("garment_image", sourceFile);
+    if (catalogGarment) {
+      payload.append('garment_type', catalogGarment);
+      payload.append('garment_style', catalogStyle);
+    }
   }
 
   // Person image is sent independently; it does not control model settings.
@@ -582,8 +590,8 @@ form.addEventListener("submit", async (event) => {
     garment_source: usesFabric ? "fabric_image" : "garment_image",
     garment_type: usesFabric
       ? garmentType.value
-      : "garment_image",
-    garment_style: usesFabric ? (garmentStyle.value || null) : null,
+      : (catalogGarment || "garment_image"),
+    garment_style: usesFabric ? (garmentStyle.value || null) : (catalogStyle || null),
     seed: seedValue === "" ? null : Number(seedValue),
     guidance: guidanceValue === "" ? null : Number(guidanceValue),
     pose: payload.get('pose') || null,

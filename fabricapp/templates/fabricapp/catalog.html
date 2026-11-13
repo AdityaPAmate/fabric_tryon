@@ -5,14 +5,17 @@
 body{font:16px system-ui;background:#f5f4f0;color:#172a28;margin:0}main{max-width:1100px;margin:40px auto;padding:24px}h1{margin-bottom:8px}form{display:flex;flex-wrap:wrap;gap:18px;background:white;padding:24px;border-radius:16px}label{display:flex;flex-direction:column;gap:8px}select,input,button{font:inherit;padding:10px;border:1px solid #bbc9c5;border-radius:6px}button{background:#165c4d;color:white;cursor:pointer;align-self:end}button:disabled{opacity:.5}#images{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}article{background:white;padding:12px;border-radius:12px}img{width:100%;border-radius:8px}a{color:#165c4d}#status{white-space:pre-wrap}
 [hidden]{display:none!important}
 </style>
-<main><h1>Generate Catalog</h1><p>One fabric. One portrait catalog to share with your customer.</p>
+<main><h1>Generate Catalog</h1><p>Generate a portrait catalog from a fabric swatch or a finished garment photo.</p>
 <form id="form">{% csrf_token %}
-<label>Fabric swatch<input name="fabric_image" type="file" accept="image/*" required></label>
+<label>Source<select id="source"><option value="fabric">Fabric swatch</option><option value="ready">Ready garment photo</option></select></label>
+<label data-fabric-only>Fabric swatch<input name="fabric_image" type="file" accept="image/*" required></label>
+<label data-ready-only hidden>Garment photo<input name="garment_image" type="file" accept="image/*" required disabled></label>
+<label data-ready-only hidden>Ready garment catalog<select id="readyCatalog"><option value="">General</option><option value="kurta:plain">Kurta · Plain</option></select></label>
 <label>Person photo (optional)<input name="person_image" type="file" accept="image/*"></label>
-<label>Garment<select name="garment_type" id="garment"><option value="shirt">Shirt</option><option value="blazer">Blazer</option><option value="kurta">Kurta</option><option value="kurti_pant">Kurti + Pant</option><option value="pant">Trousers</option><option value="saree">Saree</option></select></label>
+<label data-fabric-only>Garment<select name="garment_type" id="garment"><option value="shirt">Shirt</option><option value="blazer">Blazer</option><option value="kurta">Kurta</option><option value="kurti_pant">Kurti + Pant</option><option value="pant">Trousers</option><option value="saree">Saree</option></select></label>
 <label id="styleLabel" hidden>Style<select name="garment_style" id="style" disabled></select></label>
 <label>Generated model<select name="gender"><option value="men">Man</option><option value="women">Woman</option></select></label>
-<label>Material<select name="fabric_type"><option value="unspecified">Use fabric reference</option><option value="cotton">Cotton</option><option value="silk">Silk</option><option value="velvet">Velvet</option></select></label>
+<label data-fabric-only>Material<select name="fabric_type"><option value="unspecified">Use fabric reference</option><option value="cotton">Cotton</option><option value="silk">Silk</option><option value="velvet">Velvet</option></select></label>
 <label>Quality<select id="quality"><option value="final">Final</option><option value="draft">Draft (preview)</option></select></label>
 
 <label data-saree-region hidden>Main body crop (optional)<input id="bodyCrop" placeholder="left, upper, right, lower"></label>
@@ -22,9 +25,40 @@ body{font:16px system-ui;background:#f5f4f0;color:#172a28;margin:0}main{max-widt
 <script>
 const form=document.querySelector('#form'), statusBox=document.querySelector('#status'), images=document.querySelector('#images'), button=document.querySelector('#generate');
 const styles={blazer:['business','wedding','casual'],kurta:['plain','sherwani','pathani','jodhpuri']};
-document.querySelector('#garment').onchange=e=>{document.querySelectorAll('[data-saree-region]').forEach(el=>el.hidden=e.target.value!=='saree');const select=document.querySelector('#style'), choices=styles[e.target.value]||[];select.replaceChildren(...choices.map(value=>new Option(value,value)));select.disabled=!choices.length;document.querySelector('#styleLabel').hidden=!choices.length;if(e.target.value==='saree')form.elements.gender.value='women';};
+const source = document.querySelector('#source'), garment = document.querySelector('#garment');
+function updateStyle() {
+  const fabric = source.value === 'fabric';
+  const select = document.querySelector('#style');
+  const choices = fabric ? (styles[garment.value] || []) : [];
+  const previous = select.value;
+  select.replaceChildren(...choices.map(value => new Option(value, value)));
+  if (choices.includes(previous)) select.value = previous;
+  select.disabled = !choices.length;
+  document.querySelector('#styleLabel').hidden = select.disabled;
+  document.querySelectorAll('[data-saree-region]').forEach(el => el.hidden = !fabric || garment.value !== 'saree');
+}
+source.onchange = () => {
+  const fabric = source.value === 'fabric';
+  for (const label of form.querySelectorAll('[data-fabric-only], [data-ready-only]')) {
+    label.hidden = fabric === label.hasAttribute('data-ready-only');
+    label.querySelector('input, select').disabled = label.hidden;
+  }
+  updateStyle();
+};
+garment.onchange = () => {
+  updateStyle();
+  if (garment.value === 'saree') form.elements.gender.value = 'women';
+};
+source.onchange();
 function addImage(image){const article=document.createElement('article'), title=document.createElement('h3'), img=document.createElement('img'), link=document.createElement('a');title.textContent=image.view==='catalog'&&image.aspect_ratio?'Catalog ('+image.aspect_ratio+')':image.view.replaceAll('_',' ');img.src=image.url;img.alt=title.textContent;link.href=image.url;link.target='_blank';link.rel='noopener';link.textContent='Open / Save image';article.append(title,img,link);images.append(article);}
 form.onsubmit=async e=>{e.preventDefault();button.disabled=true;images.replaceChildren();statusBox.textContent='Starting catalog…';let completed=false;const failures=[];const data=new FormData(form);data.delete('csrfmiddlewaretoken');if(!data.get('person_image')?.size)data.delete('person_image');else data.delete('gender');const options={draft_mode:document.querySelector('#quality').value==='draft'};if(data.get('garment_type')==='saree'){for(const region of ['body','border']){const raw=document.querySelector('#'+region+'Crop').value.trim();if(!raw)continue;const parts=raw.split(','),box=parts.map(x=>Number(x.trim()));if(parts.some(x=>!x.trim())||box.length!==4||!box.every(Number.isInteger)||box[0]<0||box[1]<0||box[2]<=box[0]||box[3]<=box[1]){statusBox.textContent=region+' crop must be left, upper, right, lower in original fabric pixels.';button.disabled=false;return;}options['fabric_'+region+'_crop_box']=box;}}data.set('options',JSON.stringify(options));
+if (source.value === 'ready') {
+  const [type, style] = document.querySelector('#readyCatalog').value.split(':');
+  if (type) {
+    data.set('garment_type', type);
+    data.set('garment_style', style);
+  }
+}
 try{const response=await fetch('../generate-catalog/',{method:'POST',body:data,headers:{'X-CSRFToken':form.querySelector('[name=csrfmiddlewaretoken]').value}});if(!response.ok)throw Error(JSON.stringify(await response.json()));const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
 function receive(line){if(!line.trim())return;const event=JSON.parse(line);if(event.event==='generating')statusBox.textContent=`Generating ${event.view.replaceAll('_',' ')} (${event.index}/${event.total})…`;
 if(event.event==='image_ready')addImage(event.image);if(event.event==='collage_ready'){images.replaceChildren();addImage(event.image);}if(event.event==='composing')statusBox.textContent='Assembling portrait catalog…';if(event.event==='image_failed')failures.push(event.view);if(event.event==='error')throw Error(event.error);

@@ -29,6 +29,16 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
 
     DETAIL_CROPS = ('fabric_body_crop_box', 'fabric_border_crop_box')
 
+    def _check_garment_source(self, data):
+        if not data.get('garment_image'):
+            return super()._check_garment_source(data)
+        # In a catalog these fields select a template. The finished garment
+        # still goes through the ordinary ready-made source validation.
+        super()._check_garment_source({key: value for key, value in data.items()
+                                     if key not in ('garment_type', 'garment_style')})
+        if data.get('garment_style') and not data.get('garment_type'):
+            raise serializers.ValidationError({'garment_type': 'Choose a garment type with garment_style.'})
+
     def validate_options(self, value):
         if not isinstance(value, dict):
             return super().validate_options(value)
