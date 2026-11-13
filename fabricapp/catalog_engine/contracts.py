@@ -21,6 +21,7 @@ class Shot:
     composition_crop: tuple[float, float, float, float] | None = None
     source_crop: tuple[float, float, float, float] | None = None
     reference_mask: Path | None = None
+    garment_from: str | None = None
 
 
 @dataclass(frozen=True)
@@ -61,3 +62,4 @@ class CatalogDefinition:
     layout: Callable
     product_fields: tuple[str, ...] = ()
     validate_request: Callable | None = None
+    resolve_crop: Callable | None = None

@@ -34,7 +34,8 @@ def generate_shot(data, shot, definition, shot_bytes, seeds, services):
         source = shot_bytes[source_key]
         seed = seeds[source_key]
         config = definition.build_config(data, shot, seed)
-        cropped = crop_identity_reference(source, shot.source_crop)
+        box = definition.resolve_crop(data, shot, source) if definition.resolve_crop else shot.source_crop
+        cropped = crop_identity_reference(source, box)
         with Image.open(io.BytesIO(cropped)) as image:
             image = ImageOps.fit(image, config['output_dimensions'], method=Image.Resampling.LANCZOS)
             output = io.BytesIO()
@@ -42,7 +43,7 @@ def generate_shot(data, shot, definition, shot_bytes, seeds, services):
         return GenerationResult(output.getvalue(), seed, {
             'kind': 'derived_crop', 'source_view': source_key,
             'source_image_sha256': hashlib.sha256(source).hexdigest(),
-            'source_crop': list(shot.source_crop), 'output_dimensions': list(config['output_dimensions']),
+            'source_crop': list(box), 'output_dimensions': list(config['output_dimensions']),
             'no_new_ai_generation': True,
         })
     for key in ('person_image', 'fabric_image', 'garment_image', 'face_image'):
@@ -77,11 +78,15 @@ def generate_shot(data, shot, definition, shot_bytes, seeds, services):
             reference_args['composition_reference_path'] = shot.reference
             reference_args['composition_reference_crop'] = shot.composition_crop
         source_key = 'garment_image' if data.get('garment_image') is not None else 'fabric_image'
+        garment_source = data[source_key]
+        if shot.garment_from:
+            from fabricapp.ai.images.image_utils import crop_identity_reference
+            garment_source = io.BytesIO(crop_identity_reference(shot_bytes[shot.garment_from], shot.source_crop))
         generation = services.edit(
             person_image=io.BytesIO(source), garment_type=data.get('garment_type'),
             garment_style=data.get('garment_style'),
             scenario=shot.scenario, options=data.get('options', {}), prompt_config=config,
-            **{source_key: data[source_key]}, **reference_args,
+            **{source_key: garment_source}, **reference_args,
         )
     return generation
 

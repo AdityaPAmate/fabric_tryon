@@ -20,6 +20,9 @@ def validate_definition(definition, product=None):
             raise ValueError(f"Composition reference needs an anchor and pose generation: {shot.key}")
         if any(key not in seen for key in shot.dependencies):
             raise ValueError(f"Dependencies must precede {shot.key}")
+        if shot.garment_from and (shot.operation != 'template_edit' or shot.garment_from not in shot.dependencies
+                                  or not shot.source_crop):
+            raise ValueError(f"Garment crop needs a template and dependency: {shot.key}")
         if shot.identity_from not in (None, "request"):
             if shot.identity_from not in shot.dependencies:
                 raise ValueError(f"Identity source must be a dependency: {shot.key}")
@@ -31,7 +34,7 @@ def validate_definition(definition, product=None):
             left, top, right, bottom = shot.composition_crop
             if shot.reference_role != 'composition' or not (0 <= left < right <= 1 and 0 <= top < bottom <= 1):
                 raise ValueError(f"Invalid composition crop for {shot.key}")
-        if shot.operation == 'crop':
+        if shot.operation == 'crop' or shot.garment_from:
             if not shot.dependencies or not shot.source_crop:
                 raise ValueError(f"Crop needs a source and bounds: {shot.key}")
             left, top, right, bottom = shot.source_crop

@@ -63,10 +63,8 @@ def build_config(data, shot, seed):
     if not portrait:
         prompt = [_detail_prompt(shot.key, ready_made, 'folded_sleeves' in details)]
         if ready_made:
-            prompt.append('Image 2 is a face-free crop of the same human wearing this kurta. '
-                          'Use it to match the garment as worn. Keep the tight camera crop from image 0. '
-                          'Image 1 supplies garment construction, colour and print only. Exclude its display mannequin, '
-                          'original wearer and surroundings from the result.')
+            prompt.append('Image 1 is a close crop of the kurta as worn in this catalog. '
+                          'Use its garment detail only. Keep the tight camera crop and studio composition from image 0.')
     else:
         prompt = [f'Edit image 0 in place for this Plain Kurta catalog view: {shot.description}. '
               'Keep its camera angle, framing, perspective and subject scale.']
@@ -148,7 +146,7 @@ def build_config(data, shot, seed):
                              'The vent and hem are free of buttons, buttonholes, snaps and plackets.')
     version = 'v4' if shot.key in ('cuff', 'side_slit') else 'v2' if portrait else 'v3'
     if ready_made:
-        version = 'ready-v2'
+        version = 'ready-v3' if not portrait else 'ready-v2'
     config['prompt_version'] = f'kurta-plain-catalog-{version}-{shot.key}'
     return config
 
@@ -159,7 +157,7 @@ def _detail_prompt(view, ready_made, folded_sleeves):
         framing = ('Keep the tight lower side crop of image 0. Show the real hem and side seam from '
                    'image 1, with an opening only when the source garment has one.')
     if ready_made:
-        textile = ('Use the finished kurta in image 1 for this feature’s cut, stitching, finish, '
+        textile = ('Use the finished kurta crop in image 1 for this feature’s cut, stitching, finish, '
                    'colour and print. Match image 0 for camera distance, angle and frame boundaries.')
     elif view == 'cuff':
         textile = ('Apply the swatch in image 1 across the entire diagonal sleeve, including the cuff '
@@ -183,12 +181,12 @@ def _detail_prompt(view, ready_made, folded_sleeves):
 DEFINITION = CatalogDefinition('kurta', 'plain-v1', SHOTS, build_config, layout)
 
 READY_DETAIL_REFERENCES = {
-    'collar': ('front', (.20, .13, .80, .36)),
-    'cuff': ('front', (.10, .30, .90, .53)),
-    'side_slit': ('side', (.18, .44, .85, .77)),
+    'collar': ('front', (.25, .16, .75, .33)),
+    'cuff': ('front', (.15, .36, .85, .54)),
+    'side_slit': ('side', (.40, .49, .81, .73)),
 }
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
-    replace(shot, dependencies=(anchor,), identity_from=anchor, identity_crop=crop)
+    replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
     for shot in SHOTS[3:]
     for anchor, crop in (READY_DETAIL_REFERENCES[shot.key],)
 ))

@@ -191,6 +191,21 @@ class CatalogTests(SimpleTestCase):
         finally:
             CATALOG_SLOTS.release()
 
+    def test_ready_detail_crop_follows_garment_below_large_headroom(self):
+        from PIL import ImageDraw
+        from fabricapp.catalog_engine.ready_made import DEFINITION, resolve_crop
+
+        garment = io.BytesIO()
+        Image.new('RGB', (80, 160), '#173b78').save(garment, 'PNG')
+        portrait = Image.new('RGB', (80, 160), '#ddddcc')
+        ImageDraw.Draw(portrait).rectangle((19, 85, 61, 144), fill='#173b78')
+        image = io.BytesIO()
+        portrait.save(image, 'PNG')
+        upper = DEFINITION.shots[3]
+        _, top, _, bottom = resolve_crop({'garment_image': garment}, upper, image.getvalue())
+        self.assertGreater(top, .52)
+        self.assertLess(bottom, .70)
+
     @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
     def test_ready_garment_person_edit_uses_provider_size_grid(self, post):
         from fabricapp.ai.main import generate_tryon_image

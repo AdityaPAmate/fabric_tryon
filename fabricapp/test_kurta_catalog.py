@@ -89,12 +89,15 @@ class PlainKurtaCatalogTests(SimpleTestCase):
                 self.assertEqual(collage['source_views'], views)
                 self.assertEqual(collage['aspect_ratio'], '3:4')
                 self.assertEqual(len(requests), 6)
-                self.assertTrue(all(row[1] == requests[0][1] for row in requests))
+                original_count = 6 if source == 'fabric_image' else 3
+                self.assertTrue(all(row[1] == requests[0][1] for row in requests[:original_count]))
+                if source == 'garment_image':
+                    self.assertTrue(all(row[1] != requests[0][1] for row in requests[3:]))
                 self.assertTrue(requests[0][1])
                 for index, (params, _, files, mime, reference_size) in enumerate(requests):
                     self.assertEqual(int(params['seed']), 73)
                     self.assertEqual(float(params['guidance']), 5.5)
-                    self.assertEqual('input_image_2' in files, index < 2 or (source == 'garment_image' and index >= 3))
+                    self.assertEqual('input_image_2' in files, index < 2)
                     self.assertEqual(max(params['width'], params['height']), 768)
                     if index >= 3:
                         self.assertTrue({'input_image_0', 'input_image_1'}.issubset(files))
@@ -111,7 +114,7 @@ class PlainKurtaCatalogTests(SimpleTestCase):
                         self.assertEqual(mime, 'image/jpeg')
                         self.assertIn('finished kurta', params['prompt'])
                         if index >= 3:
-                            self.assertIn('face-free crop', params['prompt'])
+                            self.assertIn('close crop of the kurta as worn', params['prompt'])
                 if source == 'fabric_image':
                     self.assertIn('plus-size', requests[0][0]['prompt'])
                     self.assertIn('dupatt', requests[0][0]['prompt'].lower())
