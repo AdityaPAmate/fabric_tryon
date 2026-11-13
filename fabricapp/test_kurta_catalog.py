@@ -26,7 +26,9 @@ class PlainKurtaCatalogTests(SimpleTestCase):
         for view in ('collar', 'cuff', 'side_slit'):
             self.assertTrue(configs[view]['prompt'].startswith('Edit this existing close-up in image 0.'))
             self.assertNotIn('full-length sleeves', configs[view]['prompt'])
-            self.assertNotIn('trousers', configs[view]['prompt'])
+            self.assertNotIn('coordinating trousers', configs[view]['prompt'])
+        self.assertIn('smooth, unpatterned light-grey', configs['cuff']['prompt'])
+        self.assertIn('free of buttons, buttonholes, snaps and plackets', configs['side_slit']['prompt'])
         self.assertTrue(all(panel.fit == 'contain' for panel in layout({}).panels))
 
     def test_distinct_fabric_trim_is_excluded_from_collar_and_cuff_source(self):

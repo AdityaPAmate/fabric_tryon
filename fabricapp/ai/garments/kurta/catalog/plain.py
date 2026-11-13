@@ -19,7 +19,8 @@ DETAIL_FRAMING = {
     ),
     'cuff': (
         'Keep the reference crop: a single diagonal sleeve crosses from the upper right to its cuff '
-        'near the centre. The wrist exits at the lower left. Keep that angle and cuff position.'
+        'near the centre. Preserve the broad stitched cuff band, its clean diagonal edge and the small '
+        'inner fold. The bare wrist exits at the lower left.'
     ),
     'side_slit': (
         'Keep the reference crop: the camera faces the lower side seam at thigh level. Two hem edges '
@@ -131,7 +132,14 @@ def build_config(data, shot, seed):
             conditioned = apply_fabric_conditioning(config, context, 'kurta', 'plain',
                                                     match_pattern_colours=True, lead_with_edit=not portrait)
         config = conditioned
-    version = 'v2' if portrait else 'v3'
+    if shot.key == 'cuff':
+        config['prompt'] += (' FINAL SLEEVE BOUNDARY: the source pattern covers the sleeve and cuff only. '
+                             'Everything behind the sleeve and wrist is a smooth, unpatterned light-grey '
+                             'studio backdrop. Keep the wrist bare and the stitched cuff edge visible.')
+    elif shot.key == 'side_slit' and not ready_made:
+        config['prompt'] += (' FINAL SIDE SEAM: show a stitched lateral vent and continuous cloth above it. '
+                             'The vent and hem are free of buttons, buttonholes, snaps and plackets.')
+    version = 'v4' if shot.key in ('cuff', 'side_slit') else 'v2' if portrait else 'v3'
     config['prompt_version'] = f'kurta-plain-catalog-{version}-{shot.key}'
     return config
 
@@ -144,14 +152,22 @@ def _detail_prompt(view, ready_made, folded_sleeves):
     if ready_made:
         textile = ('Use the finished kurta in image 1 for this feature’s cut, stitching, finish, '
                    'colour and print. Match image 0 for camera distance, angle and frame boundaries.')
+    elif view == 'cuff':
+        textile = ('Apply the swatch in image 1 across the entire diagonal sleeve, including the cuff '
+                   'band, its stitched edges and the inner fold. Continue the same print across the '
+                   'cuff seam at the same scale and density. Keep the original contrast and colours '
+                   'of each motif. Use plain light grey behind the sleeve and wrist.')
+        if folded_sleeves:
+            textile += ' Show the selected folded back cuff at the same diagonal angle and crop.'
+    elif view == 'side_slit':
+        textile = ('Apply the swatch in image 1 to both sides of the vent and both folded hem edges. '
+                   'Keep the original motif scale, spacing and contrast through the seams and folds. '
+                   'Preserve the visible plain trousers inside the slit. Place any real source border '
+                   'along the lower hem only. A plain swatch has a plain stitched edge.')
     else:
         textile = ('Replace only the kurta cloth in image 0 using the fabric swatch in image 1. '
                    'Keep the reference seams, buttons, skin and background. Preserve the cloth’s '
                    'actual weave and pattern. Plain cloth stays plain.')
-        if view == 'cuff' and folded_sleeves:
-            textile += ' Show the selected folded back cuff at the same diagonal angle and crop.'
-        if view == 'side_slit':
-            textile += ' Keep any distinct source border at the lower hem. A plain swatch has a plain stitched edge.'
     return f'Edit this existing close-up in image 0. {framing} {textile} Keep the same tight crop.'
 
 
