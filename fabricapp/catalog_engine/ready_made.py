@@ -92,10 +92,10 @@ def resolve_crop(data, shot, source):
 
 
 def layout(_product):
-    return Layout('ready-made-3x4-v2', (1800, 2400), (
-        Panel('front', (0, 0, 816, 2400)),
-        Panel('side', (828, 0, 1308, 1194)),
-        Panel('back', (828, 1206, 1308, 2400)),
+    return Layout('ready-made-3x4-v3', (1800, 2400), (
+        Panel('front', (0, 0, 816, 2400), 'cover'),
+        Panel('side', (828, 0, 1308, 1194), 'cover'),
+        Panel('back', (828, 1206, 1308, 2400), 'cover'),
         Panel('upper_detail', (1320, 0, 1800, 792), 'cover'),
         Panel('construction_detail', (1320, 804, 1800, 1596), 'cover'),
         Panel('lower_detail', (1320, 1608, 1800, 2400), 'cover'),

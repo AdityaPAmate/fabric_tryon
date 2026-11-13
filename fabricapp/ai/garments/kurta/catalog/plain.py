@@ -46,13 +46,13 @@ SHOTS = tuple(
 
 
 def layout(_product):
-    return Layout('kurta-plain-six-panel-3x4-v2', (1800, 2400), (
-        Panel('front', (0, 0, 800, 2400)),
-        Panel('side', (812, 0, 1280, 1194)),
-        Panel('back', (812, 1206, 1280, 2400)),
-        Panel('collar', (1292, 0, 1800, 792)),
-        Panel('cuff', (1292, 804, 1800, 1596)),
-        Panel('side_slit', (1292, 1608, 1800, 2400)),
+    return Layout('kurta-plain-six-panel-3x4-v3', (1800, 2400), (
+        Panel('front', (0, 0, 800, 2400), 'cover'),
+        Panel('side', (812, 0, 1280, 1194), 'cover'),
+        Panel('back', (812, 1206, 1280, 2400), 'cover'),
+        Panel('collar', (1292, 0, 1800, 792), 'cover'),
+        Panel('cuff', (1292, 804, 1800, 1596), 'cover'),
+        Panel('side_slit', (1292, 1608, 1800, 2400), 'cover'),
     ))
 
 

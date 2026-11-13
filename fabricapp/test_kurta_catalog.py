@@ -29,7 +29,7 @@ class PlainKurtaCatalogTests(SimpleTestCase):
             self.assertNotIn('coordinating trousers', configs[view]['prompt'])
         self.assertIn('smooth, unpatterned light-grey', configs['cuff']['prompt'])
         self.assertIn('free of buttons, buttonholes, snaps and plackets', configs['side_slit']['prompt'])
-        self.assertTrue(all(panel.fit == 'contain' for panel in layout({}).panels))
+        self.assertTrue(all(panel.fit == 'cover' for panel in layout({}).panels))
 
     def test_distinct_fabric_trim_is_excluded_from_collar_and_cuff_source(self):
         from PIL import ImageDraw
