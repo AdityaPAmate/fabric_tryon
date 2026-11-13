@@ -11,6 +11,38 @@ from fabricapp.test_catalog import picture
 
 
 class PlainKurtaCatalogTests(SimpleTestCase):
+    def test_report_fixes_keep_detail_crops_and_plain_colour(self):
+        from fabricapp.ai.garments.kurta.catalog.plain import SHOTS, build_config, layout
+
+        image = io.BytesIO()
+        Image.new('RGB', (72, 96), '#d1c0d9').save(image, 'PNG')
+        data = {'fabric_image': image}
+        configs = {shot.key: build_config(data, shot, 42) for shot in SHOTS}
+        self.assertIn('#D1C0D9', configs['front']['prompt'])
+        self.assertIn('Plain cloth stays plain', configs['back']['prompt'])
+        self.assertIn('collar and the first buttons', configs['collar']['prompt'])
+        self.assertIn('single cuff', configs['cuff']['prompt'])
+        self.assertIn('two hem edges', configs['side_slit']['prompt'])
+        self.assertTrue(all(panel.fit == 'contain' for panel in layout({}).panels))
+
+    def test_distinct_fabric_trim_is_excluded_from_collar_and_cuff_source(self):
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.kurta.catalog.plain import SHOTS, build_config
+
+        swatch = Image.new('RGB', (160, 240), '#174139')
+        draw = ImageDraw.Draw(swatch)
+        for x in range(160):
+            draw.line((x, 180, x, 239), fill='gold' if x % 4 < 2 else 'red')
+        image = io.BytesIO()
+        swatch.save(image, 'PNG')
+        data = {'fabric_image': image}
+        configs = {shot.key: build_config(data, shot, 42) for shot in SHOTS}
+        for view in ('collar', 'cuff'):
+            self.assertEqual(configs[view]['fabric_region_selection'], 'detected_body_crop')
+            self.assertLessEqual(configs[view]['fabric_crop_box'][3], 180)
+        for view in ('front', 'side_slit'):
+            self.assertNotIn('fabric_crop_box', configs[view])
+
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
     @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
     def test_both_sources_generate_all_six_reference_views(self, post, upload):

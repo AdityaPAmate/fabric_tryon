@@ -3,7 +3,7 @@ from PIL import Image
 
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.fabric.fabric_colour import neutral_cloth_lighting
-from fabricapp.ai.garments.kurti_pant.catalog.fabric_region import select_body_fabric_region
+from fabricapp.ai.fabric.body_region import select_body_fabric_region
 from fabricapp.ai.garments.kurti_pant.details import (
     DUPATTA_ADD, KURTI_SLEEVES_FULL_EDIT, KURTI_SLEEVES_HALF_EDIT,
 )
