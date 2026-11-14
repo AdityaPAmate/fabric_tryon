@@ -5,8 +5,9 @@ from fabricapp.ai.fabric.body_region import select_body_fabric_region
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.garments.kurta.catalog import plain
+from fabricapp.ai.garments.kurta.catalog.pathani_colour import match_cloth_exposure
 from fabricapp.ai.garments.kurta.catalog.sherwani import SCENERY, WHITE_LIGHT
-from fabricapp.ai.garments.kurta.catalog.sherwani_colour import match_solid_cloth, solid_swatch_rgb
+from fabricapp.ai.garments.kurta.catalog.sherwani_colour import solid_swatch_rgb
 from fabricapp.ai.garments.kurta.details import SLEEVES_FOLDED
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel, Shot
@@ -126,16 +127,20 @@ def build_config(data, shot, seed):
         config = apply_fabric_conditioning(config, context, 'kurta', 'pathani',
                                            match_pattern_colours=True, lead_with_edit=True)
     config['prompt'] += WHITE_LIGHT + ' Output one photograph without text or watermark.'
-    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v1-{shot.key}"
+    config['prompt'] += (
+        ' Use broad soft fill from both sides and above so the shoulders, sleeves and lower body '
+        'share the same cloth exposure. Keep neutral studio fill on the garment in outdoor scenes. '
+        'Keep narrow, soft shadows at folds and seams. Keep hard shadow bands, sun patches, rim '
+        'lights and bright shoulder highlights off the cloth. Preserve skin, fasteners and trousers.'
+    )
+    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v2-{shot.key}"
     return config
 
 
 def finish_shot(data, shot, generation):
-    if shot.key not in plain.PORTRAITS:
-        return generation
     crop, _ = select_body_fabric_region(data)
     profile = measure_fabric_colours(data['fabric_image'], crop, palette_size=16, min_coverage=.015)
-    return match_solid_cloth(generation, shot.key, solid_swatch_rgb(profile))
+    return match_cloth_exposure(generation, shot.key, solid_swatch_rgb(profile))
 
 
 DEFINITION = CatalogDefinition('kurta', 'pathani-v1', SHOTS, build_config, layout, finish_shot=finish_shot)

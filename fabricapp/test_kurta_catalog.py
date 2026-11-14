@@ -179,6 +179,29 @@ class PlainKurtaCatalogTests(SimpleTestCase):
 
 
 class PathaniCatalogTests(SimpleTestCase):
+    def test_pathani_exposure_reduces_cast_and_broad_shadows_without_recolouring_skin(self):
+        import numpy as np
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.kurta.catalog.pathani_colour import match_cloth_exposure
+
+        image = Image.new('RGB', (180, 240), '#eeeeee')
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((0, 85, 179, 239), fill='#7a4738')
+        draw.rectangle((0, 178, 179, 239), fill='#40261e')
+        draw.rectangle((70, 0, 110, 105), fill='#d69a7e')
+        source = io.BytesIO()
+        image.save(source, 'PNG')
+        generation = GenerationResult(source.getvalue(), 42)
+        target = np.array([81, 57, 45])
+        result = match_cloth_exposure(generation, 'collar', target)
+        with Image.open(io.BytesIO(result.image_bytes)) as output:
+            self.assertEqual(output.getpixel((90, 96)), image.getpixel((90, 96)))
+            self.assertEqual(output.getpixel((13, 40)), image.getpixel((13, 40)))
+            bright, dark = (np.array(output.getpixel((45, y))) for y in (130, 210))
+            self.assertLess(np.linalg.norm(bright - target), 10)
+            self.assertLess(np.linalg.norm(bright - dark), 18)
+            self.assertLess(np.linalg.norm(np.array(output.getpixel((135, 130))) - target), 10)
+
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
     def test_pathani_uses_six_references_in_each_source_mode(self, edit, upload):
