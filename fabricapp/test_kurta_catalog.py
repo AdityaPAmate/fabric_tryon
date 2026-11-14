@@ -171,7 +171,7 @@ class PlainKurtaCatalogTests(SimpleTestCase):
     def test_other_styles_keep_classic_and_cannot_select_plain_edition(self):
         from fabricapp.catalog_engine.registry import get_request_definition
 
-        for style in ('pathani', 'jodhpuri'):
+        for style in ('pathani',):
             data = {'garment_type': 'kurta', 'garment_style': style}
             self.assertEqual(get_request_definition(data).edition, 'classic-v1')
             with self.assertRaises(ValueError):
@@ -268,3 +268,49 @@ class SherwaniCatalogTests(SimpleTestCase):
                 if ready:
                     self.assertIn('one sleeve and its wrist', prompts[1])
                     self.assertIn('lower side seam, hem and vent', prompts[2])
+
+
+class JodhpuriCatalogTests(SimpleTestCase):
+    @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
+    @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
+    def test_jacket_catalog_routes_all_sources_to_the_six_jodhpuri_references(self, edit, upload):
+        from PIL import ImageDraw
+
+        jacket = Image.new('RGB', (100, 200), 'white')
+        ImageDraw.Draw(jacket).rectangle((50, 58, 74, 88), fill='navy')
+        source_image = io.BytesIO()
+        jacket.save(source_image, 'PNG')
+        for source, extract in (('fabric_image', False), ('garment_image', False), ('garment_image', True)):
+            with self.subTest(source=source, extract=extract):
+                edit.reset_mock()
+                upload.reset_mock()
+                response = APIClient().post('/api/generate-catalog/', {
+                    source: SimpleUploadedFile('sample.png', source_image.getvalue(), 'image/png'),
+                    'garment_as_swatch': extract, 'garment_type': 'kurta', 'garment_style': 'jodhpuri',
+                    'gender': 'men', 'face_choice': 'raghav', 'background': 'white_marble_terrace',
+                    'options': json.dumps({'draft_mode': True}),
+                }, format='multipart')
+                self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+                events = [json.loads(line) for line in response.streaming_content]
+                self.assertEqual(events[0]['catalog_edition'], 'jodhpuri-v1')
+                self.assertEqual(events[-1]['status'], 'completed')
+                self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
+                self.assertEqual([view['view'] for view in events[-1]['images']],
+                                 ['front', 'side', 'back', 'collar', 'cuff', 'pocket'])
+                self.assertEqual(upload.call_count, 7)
+                self.assertEqual(edit.call_count, 6)
+                ready = source == 'garment_image' and not extract
+                for index, call in enumerate(edit.call_args_list):
+                    args = call.kwargs
+                    self.assertEqual(args.get('face_choice'), 'raghav' if index < 2 else None)
+                    prompt = args['prompt_config']['prompt']
+                    self.assertIn('diffused neutral white light', prompt)
+                    if index >= 3:
+                        self.assertNotIn('marble terrace', prompt)
+                        if ready:
+                            with Image.open(io.BytesIO(args['garment_image'].getvalue())) as cropped:
+                                self.assertLess(cropped.height, 96)
+                self.assertIn('breast welt pocket', edit.call_args.kwargs['prompt_config']['prompt'])
+                if extract:
+                    with Image.open(io.BytesIO(edit.call_args.kwargs['fabric_image'].getvalue())) as swatch:
+                        self.assertEqual(swatch.getpixel((5, 5)), (0, 0, 128))

@@ -78,9 +78,14 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
             options = data.setdefault('options', {})
             box = options.pop('fabric_crop_box', None)
             if box is None:
-                # Below the placket, inside the central panel of a front-on kurta photo.
-                box = [round(image.width * .34), round(image.height * .53),
-                       round(image.width * .66), round(image.height * .82)]
+                if data['garment_style'] == 'jodhpuri':
+                    # Sample the jacket chest off-centre, below its welt pocket.
+                    box = [round(image.width * .55), round(image.height * .31),
+                           round(image.width * .70), round(image.height * .43)]
+                else:
+                    # Inside the lower front panel of a long kurta or Sherwani.
+                    box = [round(image.width * .34), round(image.height * .53),
+                           round(image.width * .66), round(image.height * .82)]
             if box[2] > image.width or box[3] > image.height or box[2] <= box[0] or box[3] <= box[1]:
                 raise serializers.ValidationError({'options': {'fabric_crop_box': 'Choose a crop inside the garment photo.'}})
             fabric = io.BytesIO()
