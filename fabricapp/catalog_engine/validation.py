@@ -49,6 +49,8 @@ def validate_definition(definition, product=None):
         if shot.reference_mask and (shot.operation not in ('reference', 'swatch_composite') or
                                     not shot.reference_mask.is_file()):
             raise ValueError(f"Invalid reference mask for {shot.key}")
+        if shot.composite_backdrop and (shot.operation != 'swatch_composite' or not shot.composite_backdrop.is_file()):
+            raise ValueError(f"Invalid composite backdrop for {shot.key}")
         if shot.operation == "pipeline" and not shot.camera_view:
             raise ValueError(f"Pipeline shot needs a camera view: {shot.key}")
         seen.add(shot.key)

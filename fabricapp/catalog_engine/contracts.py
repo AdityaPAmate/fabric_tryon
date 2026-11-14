@@ -22,6 +22,8 @@ class Shot:
     source_crop: tuple[float, float, float, float] | None = None
     reference_mask: Path | None = None
     garment_from: str | None = None
+    swatch_body_only: bool = False
+    composite_backdrop: Path | None = None
 
 
 @dataclass(frozen=True)

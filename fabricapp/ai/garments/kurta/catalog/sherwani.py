@@ -14,7 +14,11 @@ SHOTS = tuple(replace(shot, reference=REFERENCES / shot.reference.name) for shot
 FRAMING = {
     'front': 'Show the full-length front pose, including head, hands and shoes. Keep the long fitted coat and centred closure.',
     'side': 'Show the full-length side pose and the side seam at the same angle as image 0. Keep both feet in frame.',
-    'back': 'Show the full-length rear pose with the face turned away. Show the continuous fitted back and complete hem.',
+    'back': (
+        'Show the full-length rear pose with the face turned away. Show one continuous closed rear panel and the complete hem. '
+        'Keep the back and rear collar free of buttons, buttonholes, plackets, fasteners and ornament. '
+        'Any front closures remain out of view.'
+    ),
     'collar': (
         'Keep the chin at the top edge, the stand collar and the upper closure with two visible buttons. '
         'The chest fabric extends through the left, right and bottom edges. Frame only the neck and upper chest.'
@@ -85,10 +89,13 @@ def build_config(data, shot, seed):
             else:
                 prompt.append('Show a vent only if visible in image 1. Keep the side seam and hem free of added fasteners.')
     else:
-        prompt.append('Image 1 is the fabric swatch. Use its real colour, weave and motif scale across every '
-                      'visible Sherwani cloth panel, including folds. Preserve the reference garment shape and fasteners. '
-                      'Use a plain finish when the swatch is plain. Keep fabric off skin and the background.')
+        prompt.append('Image 0 is a guide to pose, cut and framing only. Completely replace its embroidered cloth '
+                      'with the cloth in image 1. The swatch alone supplies colour, weave and any actual motifs. '
+                      'A solid swatch stays solid in every panel: preserve its weave and sheen without borrowing '
+                      'embroidery, diamonds, jacquard, stripes or borders from image 0. Keep fabric off skin and background.')
         if portrait:
+            if shot.key != 'back':
+                prompt.append('Keep the reference front closure and its visible fasteners.')
             prompt.append('Keep the separate trousers plain ivory. Place any distinct decorative swatch border at the lower hem only.')
             prompt.append(KURTA_DUPATTA_ADD if 'with_dupatta' in data.get('garment_details', ()) else DUPATTA_REMOVE)
         else:
@@ -131,12 +138,19 @@ def build_config(data, shot, seed):
                                                     match_pattern_colours=True, lead_with_edit=True)
         config = conditioned
     config['prompt'] += WHITE_LIGHT
+    if shot.key == 'cuff':
+        config['prompt'] += ' Keep the cuff evenly exposed with no glare, white patches or clipped highlights.'
     source = 'ready' if ready else 'swatch'
-    config['prompt_version'] = f'sherwani-catalog-{source}-v2-{shot.key}'
+    config['prompt_version'] = f'sherwani-catalog-{source}-v3-{shot.key}'
     return config
 
 
-DEFINITION = CatalogDefinition('kurta', 'sherwani-v1', plain.swatch_shots(SHOTS), build_config, layout)
+SWATCH_SHOTS = tuple(
+    replace(shot, operation='swatch_composite', reference_mask=REFERENCES / '05_cuff_mask.png',
+            swatch_body_only=True, composite_backdrop=REFERENCES / '05_cuff_neutral.png')
+    if shot.key == 'cuff' else shot for shot in plain.swatch_shots(SHOTS)
+)
+DEFINITION = CatalogDefinition('kurta', 'sherwani-v1', SWATCH_SHOTS, build_config, layout)
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
     replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
     for shot in SHOTS[3:]

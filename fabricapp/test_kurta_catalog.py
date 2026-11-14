@@ -216,13 +216,14 @@ class SherwaniCatalogTests(SimpleTestCase):
                 self.assertEqual(events[-1]['status'], 'completed')
                 self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
                 ready = source == 'garment_image' and not extract
-                self.assertEqual(edit.call_count, 6 if ready else 5)
+                self.assertEqual(edit.call_count, 6 if ready else 4)
                 self.assertEqual(upload.call_count, 7)
                 views = events[-1]['images']
                 self.assertEqual([image['reference_template'] for image in views], [
                     '01_front.png', '02_side.png', '03_back.png', '04_collar.png', '05_cuff.png', '06_side_slit.png',
                 ])
                 self.assertEqual(views[-1]['operation'], 'template_edit' if ready else 'swatch_composite')
+                self.assertEqual(views[4]['operation'], 'template_edit' if ready else 'swatch_composite')
                 for index, call in enumerate(edit.call_args_list):
                     args = call.kwargs
                     prompt = args['prompt_config']['prompt']
@@ -231,6 +232,11 @@ class SherwaniCatalogTests(SimpleTestCase):
                     self.assertIn('only with broad, diffused neutral white light', prompt)
                     self.assertNotIn('sunlit white marble terrace', prompt)
                     self.assertNotIn('soft warm daylight', prompt)
+                    if index == 2:
+                        self.assertIn('back and rear collar free of buttons', prompt)
+                        self.assertNotIn('Keep the reference front closure', prompt)
+                    if index == 1 and not ready:
+                        self.assertIn('A solid swatch stays solid', prompt)
                     if index >= 3:
                         self.assertNotIn('marble terrace', prompt)
                         if ready:
@@ -239,6 +245,6 @@ class SherwaniCatalogTests(SimpleTestCase):
                         self.assertIn('carved white marble terrace', prompt)
                 prompts = [call.kwargs['prompt_config']['prompt'] for call in edit.call_args_list[3:]]
                 self.assertIn('stand collar', prompts[0])
-                self.assertIn('one sleeve and its wrist', prompts[1])
                 if ready:
+                    self.assertIn('one sleeve and its wrist', prompts[1])
                     self.assertIn('lower side seam, hem and vent', prompts[2])
