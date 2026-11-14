@@ -23,6 +23,9 @@ class Services:
 
 def generate_shot(data, shot, definition, shot_bytes, seeds, services):
     """Execute one declared shot; reused by full catalogs and focused live rechecks."""
+    if shot.operation == 'swatch_composite':
+        from fabricapp.catalog_engine.swatch_composite import render_swatch_shot
+        return render_swatch_shot(data, shot)
     if shot.operation == 'reference':
         from fabricapp.catalog_engine.reference import render_reference_shot
         return render_reference_shot(data, shot, definition, services)

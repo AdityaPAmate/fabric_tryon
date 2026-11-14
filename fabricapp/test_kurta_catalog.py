@@ -115,8 +115,11 @@ class PlainKurtaCatalogTests(SimpleTestCase):
                 collage = events[-1]['collage']
                 self.assertEqual(collage['source_views'], views)
                 self.assertEqual(collage['aspect_ratio'], '3:4')
-                self.assertEqual(len(requests), 6)
-                original_count = 6 if source == 'fabric_image' else 3
+                using_swatch = source == 'fabric_image'
+                self.assertEqual(len(requests), 5 if using_swatch else 6)
+                self.assertEqual(events[-1]['images'][-1]['operation'],
+                                 'swatch_composite' if using_swatch else 'template_edit')
+                original_count = 5 if using_swatch else 3
                 self.assertTrue(all(row[1] == requests[0][1] for row in requests[:original_count]))
                 if source == 'garment_image':
                     self.assertTrue(all(row[1] != requests[0][1] for row in requests[3:]))
@@ -178,6 +181,22 @@ class PlainKurtaCatalogTests(SimpleTestCase):
 
 
 class SherwaniCatalogTests(SimpleTestCase):
+    def test_swatch_side_slit_preserves_reference_gap_and_background_pixels(self):
+        from PIL import ImageChops
+        from fabricapp.ai.garments.kurta.catalog import plain, sherwani
+        from fabricapp.catalog_engine.swatch_composite import render_swatch_shot
+
+        for definition in (plain.DEFINITION, sherwani.DEFINITION):
+            shot = definition.shots[-1]
+            result = render_swatch_shot({'fabric_image': io.BytesIO(picture())}, shot)
+            with Image.open(io.BytesIO(result.image_bytes)) as output, Image.open(shot.reference) as reference, \
+                    Image.open(shot.reference_mask) as mask:
+                self.assertEqual(output.size, reference.size)
+                difference = ImageChops.difference(output, reference.convert('RGB'))
+                outside = mask.point(lambda pixel: 255 if pixel == 0 else 0)
+                self.assertIsNone(Image.composite(difference, Image.new('RGB', output.size), outside).getbbox())
+                self.assertNotEqual(output.getpixel((100, 100)), reference.convert('RGB').getpixel((100, 100)))
+
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
     def test_sherwani_uses_six_references_for_each_source_mode(self, edit, upload):
@@ -196,13 +215,14 @@ class SherwaniCatalogTests(SimpleTestCase):
                 self.assertEqual(events[0]['catalog_edition'], 'sherwani-v1')
                 self.assertEqual(events[-1]['status'], 'completed')
                 self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
-                self.assertEqual(edit.call_count, 6)
+                ready = source == 'garment_image' and not extract
+                self.assertEqual(edit.call_count, 6 if ready else 5)
                 self.assertEqual(upload.call_count, 7)
                 views = events[-1]['images']
                 self.assertEqual([image['reference_template'] for image in views], [
                     '01_front.png', '02_side.png', '03_back.png', '04_collar.png', '05_cuff.png', '06_side_slit.png',
                 ])
-                ready = source == 'garment_image' and not extract
+                self.assertEqual(views[-1]['operation'], 'template_edit' if ready else 'swatch_composite')
                 for index, call in enumerate(edit.call_args_list):
                     args = call.kwargs
                     prompt = args['prompt_config']['prompt']
@@ -217,7 +237,8 @@ class SherwaniCatalogTests(SimpleTestCase):
                             self.assertNotEqual(args['garment_image'].getvalue(), picture())
                     else:
                         self.assertIn('carved white marble terrace', prompt)
-                prompts = [call.kwargs['prompt_config']['prompt'] for call in edit.call_args_list[-3:]]
+                prompts = [call.kwargs['prompt_config']['prompt'] for call in edit.call_args_list[3:]]
                 self.assertIn('stand collar', prompts[0])
                 self.assertIn('one sleeve and its wrist', prompts[1])
-                self.assertIn('lower side seam, hem and vent', prompts[2])
+                if ready:
+                    self.assertIn('lower side seam, hem and vent', prompts[2])

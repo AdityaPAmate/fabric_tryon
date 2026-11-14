@@ -182,7 +182,13 @@ def _detail_prompt(view, ready_made, folded_sleeves):
     return f'Edit this existing close-up in image 0. {framing} {textile} Keep the same tight crop.'
 
 
-DEFINITION = CatalogDefinition('kurta', 'plain-v1', SHOTS, build_config, layout)
+def swatch_shots(shots):
+    return tuple(replace(shot, operation='swatch_composite',
+                         reference_mask=shot.reference.with_name('06_side_slit_mask.png'))
+                 if shot.key == 'side_slit' else shot for shot in shots)
+
+
+DEFINITION = CatalogDefinition('kurta', 'plain-v1', swatch_shots(SHOTS), build_config, layout)
 
 READY_DETAIL_REFERENCES = {
     'collar': ('front', (.27, .16, .73, .32)),

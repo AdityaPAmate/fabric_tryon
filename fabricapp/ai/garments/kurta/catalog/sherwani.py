@@ -136,7 +136,7 @@ def build_config(data, shot, seed):
     return config
 
 
-DEFINITION = CatalogDefinition('kurta', 'sherwani-v1', SHOTS, build_config, layout)
+DEFINITION = CatalogDefinition('kurta', 'sherwani-v1', plain.swatch_shots(SHOTS), build_config, layout)
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
     replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
     for shot in SHOTS[3:]

@@ -8,7 +8,7 @@ from typing import Callable
 class Shot:
     key: str
     description: str
-    operation: str  # pipeline, anchor_edit, template_edit, crop, reference
+    operation: str  # pipeline, anchor_edit, template_edit, crop, reference, swatch_composite
     framing: str
     dependencies: tuple[str, ...] = ()
     reference: Path | None = None
