@@ -2,8 +2,10 @@
 from dataclasses import replace
 
 from fabricapp.ai.fabric.body_region import select_body_fabric_region
+from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.garments.kurta.catalog import plain
+from fabricapp.ai.garments.kurta.catalog.jodhpuri_colour import align_jacket_colour
 from fabricapp.ai.garments.kurta.catalog.sherwani import SCENERY, WHITE_LIGHT
 from fabricapp.ai.garments.kurta.catalog.sherwani_colour import solid_swatch_rgb
 from fabricapp.ai.pipeline.scenario_composer import _person_description
@@ -113,19 +115,34 @@ def build_config(data, shot, seed):
             config.update(fabric_crop_box=crop, fabric_region='body', fabric_region_selection=selection)
         config = apply_fabric_conditioning(config, context, 'kurta', 'jodhpuri',
                                            match_pattern_colours=True, lead_with_edit=True)
-        profile = config.get('fabric_colour_reference')
-        target = solid_swatch_rgb(profile) if profile else None
+        target = swatch_colour(data)
         if target is not None:
             shade = '#%02X%02X%02X' % tuple(round(float(component)) for component in target)
             config['prompt'] += f' Match the common jacket midtone {shade} across views.'
     config['prompt'] += WHITE_LIGHT + ' Output one photograph.'
-    config['prompt_version'] = f"jodhpuri-catalog-{'ready' if ready else 'swatch'}-v1-{shot.key}"
+    config['prompt_version'] = f"jodhpuri-catalog-{'ready-v1' if ready else 'swatch-v2'}-{shot.key}"
     return config
 
 
-DEFINITION = CatalogDefinition('kurta', 'jodhpuri-v1', SHOTS, build_config, layout)
+def swatch_colour(data):
+    crop, _ = select_body_fabric_region(data)
+    return solid_swatch_rgb(measure_fabric_colours(data['fabric_image'], crop, palette_size=16, min_coverage=.015))
+
+
+def finish_shot(data, shot, generation):
+    if shot.operation == 'swatch_composite':
+        return generation
+    return align_jacket_colour(generation, shot.key, swatch_colour(data))
+
+
+SWATCH_SHOTS = SHOTS[:-1] + (
+    replace(SHOTS[-1], operation='swatch_composite', reference_mask=REFERENCES / '06_pocket_mask.png',
+            swatch_body_only=True, natural_swatch_shading=True),
+)
+DEFINITION = CatalogDefinition('kurta', 'jodhpuri-v1', SWATCH_SHOTS, build_config, layout,
+                               finish_shot=finish_shot, swatch_colour=swatch_colour)
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
     replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
     for shot in SHOTS[3:]
     for anchor, crop in (READY_CROPS[shot.key],)
-))
+), finish_shot=None, swatch_colour=None)

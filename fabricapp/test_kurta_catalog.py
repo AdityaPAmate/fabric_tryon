@@ -271,6 +271,26 @@ class SherwaniCatalogTests(SimpleTestCase):
 
 
 class JodhpuriCatalogTests(SimpleTestCase):
+    def test_pale_jodhpuri_back_matches_body_shade_without_recolouring_print(self):
+        import numpy as np
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.kurta.catalog.jodhpuri_colour import align_jacket_colour
+
+        image = Image.new('RGB', (120, 240), '#c7b9aa')
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((20, 56, 99, 151), fill='#c0c9bc')
+        draw.rectangle((49, 89, 61, 101), fill='#ad3147')
+        source = io.BytesIO()
+        image.save(source, 'PNG')
+        result = align_jacket_colour(GenerationResult(source.getvalue(), 42), 'back', np.array([124, 164, 128]))
+        with Image.open(io.BytesIO(result.image_bytes)) as corrected:
+            target = np.array([124, 164, 128])
+            corrected_cloth = np.array(corrected.getpixel((70, 110)))
+            self.assertLess(np.linalg.norm(corrected_cloth - target),
+                            .25 * np.linalg.norm(np.array([192, 201, 188]) - target))
+            self.assertEqual(corrected.getpixel((54, 95)), (173, 49, 71))
+            self.assertEqual(corrected.getpixel((10, 170)), (199, 185, 170))
+
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
     def test_jacket_catalog_routes_all_sources_to_the_six_jodhpuri_references(self, edit, upload):
@@ -298,8 +318,10 @@ class JodhpuriCatalogTests(SimpleTestCase):
                 self.assertEqual([view['view'] for view in events[-1]['images']],
                                  ['front', 'side', 'back', 'collar', 'cuff', 'pocket'])
                 self.assertEqual(upload.call_count, 7)
-                self.assertEqual(edit.call_count, 6)
                 ready = source == 'garment_image' and not extract
+                self.assertEqual(edit.call_count, 6 if ready else 5)
+                self.assertEqual(events[-1]['images'][-1]['operation'],
+                                 'template_edit' if ready else 'swatch_composite')
                 for index, call in enumerate(edit.call_args_list):
                     args = call.kwargs
                     self.assertEqual(args.get('face_choice'), 'raghav' if index < 2 else None)
@@ -310,7 +332,8 @@ class JodhpuriCatalogTests(SimpleTestCase):
                         if ready:
                             with Image.open(io.BytesIO(args['garment_image'].getvalue())) as cropped:
                                 self.assertLess(cropped.height, 96)
-                self.assertIn('breast welt pocket', edit.call_args.kwargs['prompt_config']['prompt'])
+                if ready:
+                    self.assertIn('breast welt pocket', edit.call_args.kwargs['prompt_config']['prompt'])
                 if extract:
                     with Image.open(io.BytesIO(edit.call_args.kwargs['fabric_image'].getvalue())) as swatch:
                         self.assertEqual(swatch.getpixel((5, 5)), (0, 0, 128))
