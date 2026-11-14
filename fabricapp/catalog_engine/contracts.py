@@ -24,6 +24,7 @@ class Shot:
     garment_from: str | None = None
     swatch_body_only: bool = False
     composite_backdrop: Path | None = None
+    natural_swatch_shading: bool = False
 
 
 @dataclass(frozen=True)
@@ -65,3 +66,5 @@ class CatalogDefinition:
     product_fields: tuple[str, ...] = ()
     validate_request: Callable | None = None
     resolve_crop: Callable | None = None
+    finish_shot: Callable | None = None
+    swatch_colour: Callable | None = None

@@ -181,8 +181,25 @@ class PlainKurtaCatalogTests(SimpleTestCase):
 
 
 class SherwaniCatalogTests(SimpleTestCase):
+    def test_colour_alignment_changes_cloth_and_leaves_disconnected_background(self):
+        import numpy as np
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.kurta.catalog.sherwani_colour import match_solid_cloth
+
+        image = Image.new('RGB', (160, 240), '#eeeeee')
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((48, 46, 113, 172), fill='#4e8b4a')
+        draw.rectangle((16, 68, 26, 156), fill='#4e8b4a')
+        buffer = io.BytesIO()
+        image.save(buffer, 'PNG')
+        original = GenerationResult(buffer.getvalue(), 42)
+        result = match_solid_cloth(original, 'back', np.array([122, 138, 31]))
+        with Image.open(io.BytesIO(result.image_bytes)) as corrected:
+            self.assertEqual(corrected.getpixel((80, 100)), (122, 138, 31))
+            self.assertEqual(corrected.getpixel((21, 100)), (78, 139, 74))
+
     def test_swatch_side_slit_preserves_reference_gap_and_background_pixels(self):
-        from PIL import ImageChops
+        from PIL import ImageChops, ImageFilter
         from fabricapp.ai.garments.kurta.catalog import plain, sherwani
         from fabricapp.catalog_engine.swatch_composite import render_swatch_shot
 
@@ -193,7 +210,10 @@ class SherwaniCatalogTests(SimpleTestCase):
                     Image.open(shot.reference_mask) as mask:
                 self.assertEqual(output.size, reference.size)
                 difference = ImageChops.difference(output, reference.convert('RGB'))
-                outside = mask.point(lambda pixel: 255 if pixel == 0 else 0)
+                protected = mask
+                if shot.natural_swatch_shading:
+                    protected = mask.filter(ImageFilter.GaussianBlur(reference.width / 90))
+                outside = protected.point(lambda pixel: 255 if pixel == 0 else 0)
                 self.assertIsNone(Image.composite(difference, Image.new('RGB', output.size), outside).getbbox())
                 self.assertNotEqual(output.getpixel((100, 100)), reference.convert('RGB').getpixel((100, 100)))
 

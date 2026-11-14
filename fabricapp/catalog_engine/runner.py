@@ -25,7 +25,8 @@ def generate_shot(data, shot, definition, shot_bytes, seeds, services):
     """Execute one declared shot; reused by full catalogs and focused live rechecks."""
     if shot.operation == 'swatch_composite':
         from fabricapp.catalog_engine.swatch_composite import render_swatch_shot
-        return render_swatch_shot(data, shot)
+        target_rgb = definition.swatch_colour(data) if definition.swatch_colour else None
+        return render_swatch_shot(data, shot, target_rgb)
     if shot.operation == 'reference':
         from fabricapp.catalog_engine.reference import render_reference_shot
         return render_reference_shot(data, shot, definition, services)
@@ -125,6 +126,8 @@ def generate_catalog(data, stopped, services):
         yield {'event': 'generating', 'view': shot.key, 'index': index + 1, 'total': len(plan)}
         try:
             generation = generate_shot(data, shot, definition, shot_bytes, seeds, services)
+            if definition.finish_shot:
+                generation = definition.finish_shot(data, shot, generation)
             # A generated dependency survives even if its delivery upload fails.
             shot_bytes[shot.key] = generation.image_bytes
             seeds[shot.key] = generation.effective_seed

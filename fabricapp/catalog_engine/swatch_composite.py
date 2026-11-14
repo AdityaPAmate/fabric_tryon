@@ -8,7 +8,7 @@ from fabricapp.ai.providers.cloudflare_engine import GenerationResult
 from fabricapp.ai.fabric.body_region import select_body_fabric_region
 
 
-def render_swatch_shot(data, shot):
+def render_swatch_shot(data, shot, target_rgb=None):
     with Image.open(shot.reference) as image, Image.open(shot.reference_mask) as mask:
         reference = image.convert('RGB')
         fabric_mask = mask.convert('L')
@@ -37,19 +37,38 @@ def render_swatch_shot(data, shot):
     midtone = max(1, float(np.median(luminance[inside])))
     shading = np.clip(luminance / midtone, .82 if shot.swatch_body_only else .76,
                       1.0 if shot.swatch_body_only else 1.06)
-    cloth = Image.fromarray(np.clip(np.asarray(texture) * shading[:, :, None], 0, 255).astype(np.uint8))
+    pixels = np.asarray(texture, dtype=np.float32)
+    if shot.natural_swatch_shading:
+        # Remove broad exposure bands in the source, preserving weave and print.
+        swatch_light = np.asarray(texture.convert('L').filter(
+            ImageFilter.GaussianBlur(reference.width / 15)), dtype=np.float32)
+        cloth_midtone = max(1, float(np.median(swatch_light[inside])))
+        pixels *= np.clip(cloth_midtone / np.maximum(swatch_light, 1), .65, 1.20)[:, :, None]
+        if target_rgb is not None:
+            texture_rgb = np.maximum(np.median(pixels[inside], axis=0), 1)
+            pixels *= np.clip(target_rgb / texture_rgb, .75, 1.25)
+        shading = np.clip(luminance / midtone, .60, 1.10)
+    cloth = Image.fromarray(np.clip(pixels * shading[:, :, None], 0, 255).astype(np.uint8))
     backdrop = reference
     if shot.composite_backdrop:
         with Image.open(shot.composite_backdrop) as image:
             backdrop = image.convert('RGB')
         if backdrop.size != reference.size:
             raise ValueError(f'Composite backdrop does not match {shot.reference.name}')
+    if shot.natural_swatch_shading:
+        # Keep a soft contact shadow just beyond the cloth boundary.
+        alpha = np.asarray(fabric_mask.filter(
+            ImageFilter.GaussianBlur(reference.width / 90)), dtype=np.float32)
+        backdrop = Image.fromarray(np.uint8(np.asarray(backdrop) * (1 - .25 * alpha[:, :, None] / 255)))
     result = Image.composite(cloth, backdrop, fabric_mask)
     if options.get('draft_mode'):
         result.thumbnail((768, 768), Image.Resampling.LANCZOS)
     output = io.BytesIO()
     result.save(output, 'PNG')
-    return GenerationResult(output.getvalue(), data.get('seed', 42), {
+    diagnostics = {
         'kind': 'swatch_composite', 'reference_mask': shot.reference_mask.name,
         'fabric_crop_box': crop, 'output_dimensions': list(result.size), 'no_new_ai_generation': True,
-    })
+    }
+    if shot.natural_swatch_shading and target_rgb is not None:
+        diagnostics['solid_fabric_target_rgb'] = np.rint(target_rgb).astype(int).tolist()
+    return GenerationResult(output.getvalue(), data.get('seed', 42), diagnostics)

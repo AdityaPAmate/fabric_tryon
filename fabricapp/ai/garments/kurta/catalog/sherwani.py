@@ -3,7 +3,9 @@ from dataclasses import replace
 
 from fabricapp.ai.fabric.body_region import select_body_fabric_region
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
+from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 from fabricapp.ai.garments.kurta.catalog import plain
+from fabricapp.ai.garments.kurta.catalog.sherwani_colour import match_solid_cloth, solid_swatch_rgb
 from fabricapp.ai.garments.kurta.details import DUPATTA_REMOVE, KURTA_DUPATTA_ADD
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel
@@ -137,22 +139,42 @@ def build_config(data, shot, seed):
             conditioned = apply_fabric_conditioning(config, context, 'kurta', 'sherwani',
                                                     match_pattern_colours=True, lead_with_edit=True)
         config = conditioned
+        target = swatch_colour(data)
+        if target is not None:
+            shade = '#%02X%02X%02X' % tuple(round(float(value)) for value in target)
+            config['prompt'] += f' Use the shared Sherwani body midtone {shade} under neutral white light.'
     config['prompt'] += WHITE_LIGHT
     if shot.key == 'cuff':
         config['prompt'] += ' Keep the cuff evenly exposed with no glare, white patches or clipped highlights.'
     source = 'ready' if ready else 'swatch'
-    config['prompt_version'] = f'sherwani-catalog-{source}-v3-{shot.key}'
+    version = 'v3' if ready else 'v4'
+    config['prompt_version'] = f'sherwani-catalog-{source}-{version}-{shot.key}'
     return config
+
+
+def swatch_colour(data):
+    crop, _ = select_body_fabric_region(data)
+    profile = measure_fabric_colours(data['fabric_image'], crop, palette_size=12, min_coverage=.01)
+    return solid_swatch_rgb(profile)
+
+
+def finish_shot(data, shot, generation):
+    if shot.operation == 'swatch_composite':
+        return generation
+    return match_solid_cloth(generation, shot.key, swatch_colour(data))
 
 
 SWATCH_SHOTS = tuple(
     replace(shot, operation='swatch_composite', reference_mask=REFERENCES / '05_cuff_mask.png',
-            swatch_body_only=True, composite_backdrop=REFERENCES / '05_cuff_neutral.png')
-    if shot.key == 'cuff' else shot for shot in plain.swatch_shots(SHOTS)
+            swatch_body_only=True, composite_backdrop=REFERENCES / '05_cuff_neutral.png',
+            natural_swatch_shading=True)
+    if shot.key == 'cuff' else replace(shot, natural_swatch_shading=True)
+    if shot.key == 'side_slit' else shot for shot in plain.swatch_shots(SHOTS)
 )
-DEFINITION = CatalogDefinition('kurta', 'sherwani-v1', SWATCH_SHOTS, build_config, layout)
+DEFINITION = CatalogDefinition('kurta', 'sherwani-v1', SWATCH_SHOTS, build_config, layout,
+                               finish_shot=finish_shot, swatch_colour=swatch_colour)
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
     replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
     for shot in SHOTS[3:]
     for anchor, crop in (READY_CROPS[shot.key],)
-))
+), finish_shot=None, swatch_colour=None)
