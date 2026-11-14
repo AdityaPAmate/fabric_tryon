@@ -48,6 +48,18 @@ def render_swatch_shot(data, shot, target_rgb=None):
             texture_rgb = np.maximum(np.median(pixels[inside], axis=0), 1)
             pixels *= np.clip(target_rgb / texture_rgb, .75, 1.25)
         shading = np.clip(luminance / midtone, .60, 1.10)
+    if shot.composite_relief:
+        # A neutral map carries construction shadows and highlights independently
+        # of the reference textile's colour. Its alpha marks a separate welt
+        # whose cut of the same cloth has a different pattern alignment.
+        with Image.open(shot.composite_relief) as image:
+            if image.size != reference.size:
+                raise ValueError(f'Composite relief does not match {shot.reference.name}')
+            shading *= np.asarray(image.convert('L'), dtype=np.float32) / 128
+            welt = np.asarray(image.getchannel('A'), dtype=np.float32)[:, :, None] / 255
+        offset = max(1, reference.width // 24)
+        shifted = np.pad(pixels, ((0, 0), (0, offset), (0, 0)), mode='edge')[:, offset:]
+        pixels = pixels * (1 - welt) + shifted * welt
     cloth = Image.fromarray(np.clip(pixels * shading[:, :, None], 0, 255).astype(np.uint8))
     backdrop = reference
     if shot.composite_backdrop:
@@ -55,7 +67,7 @@ def render_swatch_shot(data, shot, target_rgb=None):
             backdrop = image.convert('RGB')
         if backdrop.size != reference.size:
             raise ValueError(f'Composite backdrop does not match {shot.reference.name}')
-    if shot.natural_swatch_shading:
+    if shot.natural_swatch_shading and not shot.composite_relief:
         # Keep a soft contact shadow just beyond the cloth boundary.
         alpha = np.asarray(fabric_mask.filter(
             ImageFilter.GaussianBlur(reference.width / 90)), dtype=np.float32)

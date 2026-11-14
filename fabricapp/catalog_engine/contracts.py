@@ -25,6 +25,7 @@ class Shot:
     swatch_body_only: bool = False
     composite_backdrop: Path | None = None
     natural_swatch_shading: bool = False
+    composite_relief: Path | None = None
 
 
 @dataclass(frozen=True)

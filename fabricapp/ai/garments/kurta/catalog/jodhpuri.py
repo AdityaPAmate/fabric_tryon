@@ -85,6 +85,10 @@ def build_config(data, shot, seed):
 
     if shot.key == 'back':
         prompt.append('The rear jacket and rear collar are continuous cloth without buttons, buttonholes or a front placket.')
+        if not ready:
+            prompt.append('Carry the same base shade and motif density across the back and both sleeves. '
+                          'Keep the supplied print visible in shadows and along both shoulders. Preserve genuine '
+                          'light motifs from the swatch and avoid pale patches from glare or scene lighting.')
     if shot.key == 'cuff':
         prompt.append('The diagonal sleeve and wrist fill the frame. Keep the uncovered studio area light grey, '
                       'the cloth edge natural and softly shadowed, and the sleeve evenly exposed without white glare.')
@@ -120,7 +124,8 @@ def build_config(data, shot, seed):
             shade = '#%02X%02X%02X' % tuple(round(float(component)) for component in target)
             config['prompt'] += f' Match the common jacket midtone {shade} across views.'
     config['prompt'] += WHITE_LIGHT + ' Output one photograph.'
-    config['prompt_version'] = f"jodhpuri-catalog-{'ready-v1' if ready else 'swatch-v2'}-{shot.key}"
+    version = 'ready-v1' if ready else ('swatch-v3' if shot.key == 'back' else 'swatch-v2')
+    config['prompt_version'] = f'jodhpuri-catalog-{version}-{shot.key}'
     return config
 
 
@@ -137,7 +142,8 @@ def finish_shot(data, shot, generation):
 
 SWATCH_SHOTS = SHOTS[:-1] + (
     replace(SHOTS[-1], operation='swatch_composite', reference_mask=REFERENCES / '06_pocket_mask.png',
-            swatch_body_only=True, natural_swatch_shading=True),
+            swatch_body_only=True, natural_swatch_shading=True,
+            composite_relief=REFERENCES / '06_pocket_relief.png'),
 )
 DEFINITION = CatalogDefinition('kurta', 'jodhpuri-v1', SWATCH_SHOTS, build_config, layout,
                                finish_shot=finish_shot, swatch_colour=swatch_colour)

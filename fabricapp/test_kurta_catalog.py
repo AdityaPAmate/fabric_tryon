@@ -280,6 +280,7 @@ class JodhpuriCatalogTests(SimpleTestCase):
         draw = ImageDraw.Draw(image)
         draw.rectangle((20, 56, 99, 151), fill='#c0c9bc')
         draw.rectangle((49, 89, 61, 101), fill='#ad3147')
+        draw.rectangle((75, 75, 88, 90), fill='#ececec')
         source = io.BytesIO()
         image.save(source, 'PNG')
         result = align_jacket_colour(GenerationResult(source.getvalue(), 42), 'back', np.array([124, 164, 128]))
@@ -289,6 +290,9 @@ class JodhpuriCatalogTests(SimpleTestCase):
             self.assertLess(np.linalg.norm(corrected_cloth - target),
                             .25 * np.linalg.norm(np.array([192, 201, 188]) - target))
             self.assertEqual(corrected.getpixel((54, 95)), (173, 49, 71))
+            highlight = np.array(corrected.getpixel((81, 82)))
+            self.assertLess(np.linalg.norm(highlight - target), 55)
+            self.assertGreater(highlight[1] - highlight[0], 20)
             self.assertEqual(corrected.getpixel((10, 170)), (199, 185, 170))
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
