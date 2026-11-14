@@ -168,16 +168,56 @@ class PlainKurtaCatalogTests(SimpleTestCase):
         self.assertIn('one sleeve and wrist', prompts[1])
         self.assertIn('free of added fasteners', prompts[2])
 
-    def test_other_styles_keep_classic_and_cannot_select_plain_edition(self):
+    def test_pathani_defaults_to_its_own_edition(self):
         from fabricapp.catalog_engine.registry import get_request_definition
 
-        for style in ('pathani',):
-            data = {'garment_type': 'kurta', 'garment_style': style}
-            self.assertEqual(get_request_definition(data).edition, 'classic-v1')
-            with self.assertRaises(ValueError):
-                get_request_definition({**data, 'catalog_edition': 'plain-v1'})
-            with self.assertRaises(ValueError):
-                get_request_definition({**data, 'garment_image': object()})
+        data = {'garment_type': 'kurta', 'garment_style': 'pathani'}
+        self.assertEqual(get_request_definition(data).edition, 'pathani-v1')
+        self.assertEqual(get_request_definition({**data, 'catalog_edition': 'classic-v1'}).edition, 'classic-v1')
+        with self.assertRaises(ValueError):
+            get_request_definition({**data, 'catalog_edition': 'plain-v1'})
+
+
+class PathaniCatalogTests(SimpleTestCase):
+    @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
+    @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
+    def test_pathani_uses_six_references_in_each_source_mode(self, edit, upload):
+        for source, extract in (('fabric_image', False), ('garment_image', False), ('garment_image', True)):
+            with self.subTest(source=source, extract=extract):
+                edit.reset_mock()
+                upload.reset_mock()
+                response = APIClient().post('/api/generate-catalog/', {
+                    source: SimpleUploadedFile('source.png', picture(), 'image/png'),
+                    'garment_as_swatch': extract, 'garment_type': 'kurta', 'garment_style': 'pathani',
+                    'face_choice': 'raghav', 'gender': 'men', 'background': 'royal_courtyard',
+                    'options': json.dumps({'draft_mode': True}),
+                }, format='multipart')
+                self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+                events = [json.loads(line) for line in response.streaming_content]
+                self.assertEqual(events[0]['catalog_edition'], 'pathani-v1')
+                self.assertEqual(events[-1]['status'], 'completed')
+                self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
+                self.assertEqual([view['reference_template'] for view in events[-1]['images']], [
+                    '01_front.png', '02_side.png', '03_back.png', '04_collar.png', '05_cuff.png', '06_pocket.png',
+                ])
+                self.assertEqual(edit.call_count, 6)
+                self.assertEqual(upload.call_count, 7)
+                ready = source == 'garment_image' and not extract
+                for index, call in enumerate(edit.call_args_list):
+                    args = call.kwargs
+                    prompt = args['prompt_config']['prompt']
+                    self.assertEqual(args.get('face_choice'), 'raghav' if index < 2 else None)
+                    self.assertIn('only with broad, diffused neutral white light', prompt)
+                    self.assertIn('garment_image' if ready else 'fabric_image', args)
+                    self.assertEqual('palace courtyard' in prompt, index < 3)
+                    if index == 2:
+                        self.assertIn('free of front closures, chest pockets and buttons', prompt)
+                    if ready and index >= 3:
+                        self.assertNotEqual(args['garment_image'].getvalue(), picture())
+                prompts = [call.kwargs['prompt_config']['prompt'] for call in edit.call_args_list[3:]]
+                self.assertIn('only the lower chin', prompts[0])
+                self.assertIn('smooth light-grey studio background', prompts[1])
+                self.assertIn('one chest pocket in close-up', prompts[2])
 
 
 class SherwaniCatalogTests(SimpleTestCase):
