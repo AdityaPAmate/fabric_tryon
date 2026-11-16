@@ -3,7 +3,7 @@ import io
 from dataclasses import replace
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image
 from scipy.ndimage import binary_fill_holes, gaussian_filter, label
 
 
@@ -30,8 +30,7 @@ def match_cloth_exposure(generation, view, target):
     hsv = np.asarray(image.convert('HSV'), dtype=np.float32)
     light = pixels @ LUMA
     source_light = float(target @ LUMA)
-    correction = pixels.copy()
-    matte = np.zeros(light.shape, dtype=np.float32)
+    adjustment = np.zeros_like(pixels)
     width, height = image.size
 
     def bounds(box):
@@ -96,32 +95,35 @@ def match_cloth_exposure(generation, view, target):
         # surrounded by cloth. Recover only broad, bright interior holes.
         holes = binary_fill_holes(cloth) & ~cloth
         spread = gaussian_filter(holes.astype(np.float32), max(1, min(image.size) / 135))
-        cloth |= holes & (spread > .65) & (tone > measured + 12)
+        glare = holes & (spread > .65) & (tone > measured + 12)
+        cloth |= glare
 
-        # Compress broad lighting variations while retaining a fraction of the
-        # original thread, fold and stitched edge contrast.
-        sigma = max(2, min(image.size) / 75)
-        local = gaussian_filter(tone * cloth, sigma) / np.maximum(gaussian_filter(cloth.astype(np.float32), sigma), .001)
-        shade = np.clip((local - measured) * .09 + (tone - local) * .50, -28, 28)
-        correction[window] = target + shade[:, :, None]
-        # Taper at interior crop edges, including the hand exclusion band.
-        pad = max(2, min(image.size) * .065)
+        # Adjust the broad light and colour cast additively. The original
+        # pixel differences still carry the weave, stitching and fold detail.
+        sigma = max(2, min(image.size) / 58)
+        coverage = np.maximum(gaussian_filter(cloth.astype(np.float32), sigma), .001)
+        local = gaussian_filter(pixels[window] * cloth[:, :, None], (sigma, sigma, 0))
+        local /= coverage[:, :, None]
+        strength = np.where(glare, .97, .86)
+        shift = np.clip((target - local) * strength[:, :, None], -220, 85)
+        # Taper near the edge of each safe sampling region.
+        pad = max(2, min(image.size) * .085)
         x, y = np.arange(left, right), np.arange(top, bottom)
         fade = np.ones(cloth.shape, dtype=np.float32)
         for distance, interior in ((x - left, left > 0), (right - 1 - x, right < width),
                                    ((y - top)[:, None], top > 0), ((bottom - 1 - y)[:, None], bottom < height)):
             if interior:
                 fade *= np.clip(distance / pad, 0, 1)
-        matte[window] = cloth * fade
+        adjustment[window] = shift * (cloth * fade)[:, :, None]
 
-    if not matte.any():
+    if not adjustment.any():
         return generation
-    # Fade across sampling bounds instead of creating a visible exposure step.
-    mask = Image.fromarray(np.uint8(matte * 255)).filter(ImageFilter.GaussianBlur(max(1, width / 180)))
-    mask_pixels = np.asarray(mask) * (matte > 0)
+    # Blur the correction rather than the photograph so the cloth boundary
+    # blends without smearing seams, skin or the original photograph.
+    feather = max(1, min(image.size) / 100)
+    adjustment = gaussian_filter(adjustment, (feather, feather, 0))
     out = io.BytesIO()
-    matched = Image.fromarray(np.uint8(np.clip(correction, 0, 255)))
-    Image.composite(matched, image, Image.fromarray(np.uint8(mask_pixels))).save(out, 'PNG')
+    Image.fromarray(np.rint(np.clip(pixels + adjustment, 0, 255)).astype(np.uint8)).save(out, 'PNG')
     return replace(generation, image_bytes=out.getvalue(), diagnostics={
         **(generation.diagnostics or {}), 'pathani_swatch_rgb': np.rint(target).astype(int).tolist(),
     })

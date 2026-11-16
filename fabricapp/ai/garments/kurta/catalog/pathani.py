@@ -30,7 +30,8 @@ FRAMING = {
 SWATCH_CONSTRUCTION = {
     'front': 'Keep the pointed shirt collar, short front placket, buttoned shoulder tabs and two button-flap chest pockets.',
     'side': 'Keep the stitched side vent near the lower hem and the shirt collar at the reference angle. '
-            'Clearly show the near-side chest flap pocket, its button and stitched edges on the same cloth.',
+            'Show the near-side chest flap pocket in the same fabric with tonal thread. '
+            'Its shape reads through a subtle fold, a real button and a soft shadow below the flap.',
     'back': 'Keep the reference yoke and carry the source cloth continuously across the back and both shoulders.',
     'collar': 'Keep the pointed collar, short placket, shoulder tabs and their reference fasteners.',
     'cuff': 'Keep the stitched cuff band, sleeve placket and their reference fasteners. Continue the source '
@@ -138,12 +139,13 @@ def build_config(data, shot, seed):
     config['prompt'] += (
         ' Use a single broad diffuse exposure over the entire outfit from shoulder to hem. '
         'Keep illumination free of dappled light, isolated bright spots and strong gradients. '
-        'Scene lighting belongs to the background only. Preserve natural seam and fold depth. '
+        'Use the same diffuse light on the garment and the wearer, with soft transitions between '
+        'light and shadow. Keep fine weave and small shadows at seams, folds and pocket edges. '
         'Copy ornament only where visible in image 1. For plain source cloth, keep every panel and '
         'edge plain, including the hem, side vent, pockets and cuffs. Do not invent embroidery, '
         'decorative borders, motifs, appliqué or contrast piping.'
     )
-    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v4-{shot.key}"
+    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v5-{shot.key}"
     return config
 
 
