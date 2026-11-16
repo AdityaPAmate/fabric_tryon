@@ -15,7 +15,8 @@ from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel,
 REFERENCES = plain.REFERENCES.parent / 'pathani'
 FRAMING = {
     'front': 'Keep the full-length front pose, from head to shoes, and show the chest and the knee-length hem.',
-    'side': 'Keep the full-length side pose, including both shoes. Keep the side seam and hem visible.',
+    'side': 'Keep the full-length side pose, including both shoes. Keep the side seam and hem visible. '
+            'Show the near-side chest in a slight three-quarter profile so its pocket reads clearly when present.',
     'back': 'Keep the full-length straight rear pose with the face out of view. Keep the full hem visible. '
             'The rear panel stays continuous and free of front closures, chest pockets and buttons.',
     'collar': 'Keep only the lower chin and neck at the top edge. The collar, shoulders, upper placket and chest '
@@ -28,7 +29,8 @@ FRAMING = {
 }
 SWATCH_CONSTRUCTION = {
     'front': 'Keep the pointed shirt collar, short front placket, buttoned shoulder tabs and two button-flap chest pockets.',
-    'side': 'Keep the stitched side vent near the lower hem and the shirt collar at the reference angle.',
+    'side': 'Keep the stitched side vent near the lower hem and the shirt collar at the reference angle. '
+            'Clearly show the near-side chest flap pocket, its button and stitched edges on the same cloth.',
     'back': 'Keep the reference yoke and carry the source cloth continuously across the back and both shoulders.',
     'collar': 'Keep the pointed collar, short placket, shoulder tabs and their reference fasteners.',
     'cuff': 'Keep the stitched cuff band, sleeve placket and their reference fasteners. Continue the source '
@@ -141,7 +143,7 @@ def build_config(data, shot, seed):
         'edge plain, including the hem, side vent, pockets and cuffs. Do not invent embroidery, '
         'decorative borders, motifs, appliqué or contrast piping.'
     )
-    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v3-{shot.key}"
+    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v4-{shot.key}"
     return config
 
 
@@ -155,7 +157,7 @@ def finish_shot(data, shot, generation):
 
 SWATCH_SHOTS = SHOTS[:-1] + (
     replace(SHOTS[-1], operation='swatch_composite', reference_mask=REFERENCES / '06_pocket_mask.png',
-            swatch_body_only=True),
+            swatch_body_only=True, composite_relief=REFERENCES / '06_pocket_relief.png'),
 )
 DEFINITION = CatalogDefinition('kurta', 'pathani-v1', SWATCH_SHOTS, build_config, layout, finish_shot=finish_shot)
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(

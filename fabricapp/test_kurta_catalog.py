@@ -179,6 +179,24 @@ class PlainKurtaCatalogTests(SimpleTestCase):
 
 
 class PathaniCatalogTests(SimpleTestCase):
+    def test_pathani_exposure_reaches_full_length_side_hem(self):
+        import numpy as np
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.kurta.catalog.pathani_colour import match_cloth_exposure
+
+        image = Image.new('RGB', (160, 480), '#eeeeee')
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((55, 96, 118, 360), fill='#3e281b')
+        draw.rectangle((55, 325, 118, 360), fill='#8a5237')
+        draw.rectangle((40, 180, 65, 211), fill='#d69a7e')
+        payload = io.BytesIO()
+        image.save(payload, 'PNG')
+        target = np.array([62, 40, 27])
+        result = match_cloth_exposure(GenerationResult(payload.getvalue(), 42), 'side', target)
+        with Image.open(io.BytesIO(result.image_bytes)) as output:
+            self.assertLess(np.linalg.norm(np.array(output.getpixel((85, 349))) - target), 18)
+            self.assertEqual(output.getpixel((57, 197)), image.getpixel((57, 197)))
+
     def test_pathani_exposure_reduces_cast_and_broad_shadows_without_recolouring_skin(self):
         import numpy as np
         from PIL import ImageDraw

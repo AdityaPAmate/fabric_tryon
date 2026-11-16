@@ -10,14 +10,13 @@ from scipy.ndimage import binary_fill_holes, gaussian_filter, label
 # Central cloth sample, then the bounds where cloth correction is safe.
 # The front and side hands divide the upper and lower cloth regions.
 REGIONS = {
-    'front': (((.37, .26, .65, .35), (0, .18, 1, .43)),
-              ((.35, .53, .65, .61), (.06, .46, .94, .70))),
-    'side': (((.56, .25, .72, .32), (.28, .18, .97, .39)),
-             ((.42, .50, .64, .57), (.13, .43, .94, .68))),
-    'back': (((.37, .32, .63, .47), (0, .15, 1, .70)),),
+    'front': (((.37, .26, .65, .35), (0, .17, 1, .44)),
+              ((.35, .53, .65, .61), (.06, .47, .94, .78))),
+    'side': (((.52, .25, .68, .32), (.24, .16, .97, .46)),
+             ((.42, .50, .60, .57), (.17, .46, .91, .78))),
+    'back': (((.37, .32, .63, .47), (0, .15, 1, .73)),),
     'collar': (((.12, .46, .35, .65), (0, .16, 1, 1)),),
     'cuff': (((.48, .37, .63, .51), (0, 0, 1, 1)),),
-    'pocket': (((.30, .18, .62, .29), (0, 0, 1, .91)),),
 }
 LUMA = np.array([.2126, .7152, .0722], dtype=np.float32)
 
@@ -51,15 +50,26 @@ def match_cloth_exposure(generation, view, target):
         patch_hue, patch_sat, _ = np.moveaxis(hsv[window], -1, 0)
         delta = np.abs(patch_hue - hue)
         hue_gap = np.minimum(delta, 256 - delta)
+        side_chest = view == 'side' and sy / height < .4
         if saturation < 24:
             # Achromatic cloth has no reliable hue. Combine chroma and tone.
             candidate = (patch_sat < 32) & (np.abs(tone - measured) < 38)
         else:
             candidate = (hue_gap < 27) & (patch_sat > max(22, saturation * .36))
-            candidate &= (tone > measured * .38) & (tone < measured * 2 + 24)
+            ceiling = measured * (3 if side_chest else 2) + 24
+            candidate &= (tone > measured * .38) & (tone < ceiling)
             # Bright skin can share a brown cloth hue. Require a closer
             # chroma match as lightness approaches the top of the range.
-            candidate &= (tone < measured * 1.5 + 12) | (patch_sat >= saturation * .76)
+            bright_chroma = .52 if side_chest else .76
+            candidate &= (tone < measured * 1.5 + 12) | (patch_sat >= saturation * bright_chroma)
+        if side_chest:
+            # Exclude the exposed neck and hands before including stronger
+            # highlights on the shoulder and chest of the side pose.
+            x = np.arange(left, right) / width
+            y = np.arange(top, bottom)[:, None] / height
+            neck = (y < .218) & (x < .56)
+            hands = (y > .376) & (x < .33)
+            candidate &= ~(neck | hands)
         if view == 'collar':
             # The central opening contains the chin and neck down to the
             # start of the placket. Preserve it even when skin matches hue.
@@ -95,7 +105,7 @@ def match_cloth_exposure(generation, view, target):
         shade = np.clip((local - measured) * .09 + (tone - local) * .50, -28, 28)
         correction[window] = target + shade[:, :, None]
         # Taper at interior crop edges, including the hand exclusion band.
-        pad = max(2, min(image.size) * .12)
+        pad = max(2, min(image.size) * .065)
         x, y = np.arange(left, right), np.arange(top, bottom)
         fade = np.ones(cloth.shape, dtype=np.float32)
         for distance, interior in ((x - left, left > 0), (right - 1 - x, right < width),
@@ -107,7 +117,7 @@ def match_cloth_exposure(generation, view, target):
     if not matte.any():
         return generation
     # Fade across sampling bounds instead of creating a visible exposure step.
-    mask = Image.fromarray(np.uint8(matte * 255)).filter(ImageFilter.GaussianBlur(max(2, width / 45)))
+    mask = Image.fromarray(np.uint8(matte * 255)).filter(ImageFilter.GaussianBlur(max(1, width / 180)))
     mask_pixels = np.asarray(mask) * (matte > 0)
     out = io.BytesIO()
     matched = Image.fromarray(np.uint8(np.clip(correction, 0, 255)))
