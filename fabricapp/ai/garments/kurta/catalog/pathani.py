@@ -90,8 +90,8 @@ def build_config(data, shot, seed):
                       'colour and texture out of the garment. Keep skin, hardware and backdrop clean.')
         prompt.append(SWATCH_CONSTRUCTION[shot.key])
         if portrait:
-            prompt.append('Use separate plain coordinating straight trousers. Keep any genuine decorative border '
-                          'at the lower kurta hem and keep the body fabric continuous above it.')
+            prompt.append('Use separate plain coordinating straight trousers. The hem and side vent have '
+                          'simple stitching. Continue the same source textile to the edge.')
         if 'folded_sleeves' in details and (portrait or shot.key == 'cuff'):
             prompt.append(SLEEVES_FOLDED.format(noun='Pathani') if portrait else
                           'Show the selected rolled cuff at the same diagonal angle, with a bare forearm.')
@@ -133,17 +133,31 @@ def build_config(data, shot, seed):
         'Keep narrow, soft shadows at folds and seams. Keep hard shadow bands, sun patches, rim '
         'lights and bright shoulder highlights off the cloth. Preserve skin, fasteners and trousers.'
     )
-    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v2-{shot.key}"
+    config['prompt'] += (
+        ' Use a single broad diffuse exposure over the entire outfit from shoulder to hem. '
+        'Keep illumination free of dappled light, isolated bright spots and strong gradients. '
+        'Scene lighting belongs to the background only. Preserve natural seam and fold depth. '
+        'Copy ornament only where visible in image 1. For plain source cloth, keep every panel and '
+        'edge plain, including the hem, side vent, pockets and cuffs. Do not invent embroidery, '
+        'decorative borders, motifs, appliqué or contrast piping.'
+    )
+    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v3-{shot.key}"
     return config
 
 
 def finish_shot(data, shot, generation):
+    if shot.operation == 'swatch_composite':
+        return generation
     crop, _ = select_body_fabric_region(data)
     profile = measure_fabric_colours(data['fabric_image'], crop, palette_size=16, min_coverage=.015)
     return match_cloth_exposure(generation, shot.key, solid_swatch_rgb(profile))
 
 
-DEFINITION = CatalogDefinition('kurta', 'pathani-v1', SHOTS, build_config, layout, finish_shot=finish_shot)
+SWATCH_SHOTS = SHOTS[:-1] + (
+    replace(SHOTS[-1], operation='swatch_composite', reference_mask=REFERENCES / '06_pocket_mask.png',
+            swatch_body_only=True),
+)
+DEFINITION = CatalogDefinition('kurta', 'pathani-v1', SWATCH_SHOTS, build_config, layout, finish_shot=finish_shot)
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
     replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
     for shot in SHOTS[3:]

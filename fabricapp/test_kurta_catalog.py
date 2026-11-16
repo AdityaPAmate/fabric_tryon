@@ -188,6 +188,7 @@ class PathaniCatalogTests(SimpleTestCase):
         draw = ImageDraw.Draw(image)
         draw.rectangle((0, 85, 179, 239), fill='#7a4738')
         draw.rectangle((0, 178, 179, 239), fill='#40261e')
+        draw.rectangle((20, 146, 48, 172), fill='#e5dfd5')
         draw.rectangle((70, 0, 110, 105), fill='#d69a7e')
         source = io.BytesIO()
         image.save(source, 'PNG')
@@ -201,6 +202,7 @@ class PathaniCatalogTests(SimpleTestCase):
             self.assertLess(np.linalg.norm(bright - target), 10)
             self.assertLess(np.linalg.norm(bright - dark), 18)
             self.assertLess(np.linalg.norm(np.array(output.getpixel((135, 130))) - target), 10)
+            self.assertLess(np.linalg.norm(np.array(output.getpixel((34, 160))) - target), 22)
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
@@ -223,14 +225,16 @@ class PathaniCatalogTests(SimpleTestCase):
                 self.assertEqual([view['reference_template'] for view in events[-1]['images']], [
                     '01_front.png', '02_side.png', '03_back.png', '04_collar.png', '05_cuff.png', '06_pocket.png',
                 ])
-                self.assertEqual(edit.call_count, 6)
-                self.assertEqual(upload.call_count, 7)
                 ready = source == 'garment_image' and not extract
+                self.assertEqual(edit.call_count, 6 if ready else 5)
+                self.assertEqual(upload.call_count, 7)
+                self.assertEqual(events[-1]['images'][-1]['operation'], 'template_edit' if ready else 'swatch_composite')
                 for index, call in enumerate(edit.call_args_list):
                     args = call.kwargs
                     prompt = args['prompt_config']['prompt']
                     self.assertEqual(args.get('face_choice'), 'raghav' if index < 2 else None)
                     self.assertIn('only with broad, diffused neutral white light', prompt)
+                    self.assertIn('including the hem, side vent, pockets and cuffs', prompt)
                     self.assertIn('garment_image' if ready else 'fabric_image', args)
                     self.assertEqual('palace courtyard' in prompt, index < 3)
                     if index == 2:
@@ -240,7 +244,8 @@ class PathaniCatalogTests(SimpleTestCase):
                 prompts = [call.kwargs['prompt_config']['prompt'] for call in edit.call_args_list[3:]]
                 self.assertIn('only the lower chin', prompts[0])
                 self.assertIn('smooth light-grey studio background', prompts[1])
-                self.assertIn('one chest pocket in close-up', prompts[2])
+                if ready:
+                    self.assertIn('one chest pocket in close-up', prompts[2])
 
 
 class SherwaniCatalogTests(SimpleTestCase):

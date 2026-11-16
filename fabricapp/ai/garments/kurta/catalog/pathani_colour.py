@@ -4,14 +4,14 @@ from dataclasses import replace
 
 import numpy as np
 from PIL import Image, ImageFilter
-from scipy.ndimage import gaussian_filter, label
+from scipy.ndimage import binary_fill_holes, gaussian_filter, label
 
 
 # Central cloth sample, then the bounds where cloth correction is safe.
 # The front and side hands divide the upper and lower cloth regions.
 REGIONS = {
     'front': (((.37, .26, .65, .35), (0, .18, 1, .43)),
-              ((.35, .53, .65, .61), (.06, .46, .94, .68))),
+              ((.35, .53, .65, .61), (.06, .46, .94, .70))),
     'side': (((.56, .25, .72, .32), (.28, .18, .97, .39)),
              ((.42, .50, .64, .57), (.13, .43, .94, .68))),
     'back': (((.37, .32, .63, .47), (0, .15, 1, .70)),),
@@ -82,11 +82,17 @@ def match_cloth_exposure(generation, view, target):
             if opposite_ids.size >= opposite.size * .45:
                 cloth |= components == np.bincount(opposite_ids).argmax()
 
+        # An isolated glare patch can fall outside the hue mask even while
+        # surrounded by cloth. Recover only broad, bright interior holes.
+        holes = binary_fill_holes(cloth) & ~cloth
+        spread = gaussian_filter(holes.astype(np.float32), max(1, min(image.size) / 135))
+        cloth |= holes & (spread > .65) & (tone > measured + 12)
+
         # Compress broad lighting variations while retaining a fraction of the
         # original thread, fold and stitched edge contrast.
-        sigma = max(2, min(image.size) / 38)
+        sigma = max(2, min(image.size) / 75)
         local = gaussian_filter(tone * cloth, sigma) / np.maximum(gaussian_filter(cloth.astype(np.float32), sigma), .001)
-        shade = np.clip((local - measured) * .13 + (tone - local) * .58, -36, 36)
+        shade = np.clip((local - measured) * .09 + (tone - local) * .50, -28, 28)
         correction[window] = target + shade[:, :, None]
         # Taper at interior crop edges, including the hand exclusion band.
         pad = max(2, min(image.size) * .12)
