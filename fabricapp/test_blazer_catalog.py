@@ -11,9 +11,9 @@ from rest_framework.test import APIClient
 from fabricapp.ai.garments.blazer.catalog.casual import REFERENCES as CASUAL_REFERENCES
 from fabricapp.ai.garments.blazer.catalog.wedding import REFERENCES as WEDDING_REFERENCES
 from fabricapp.ai.garments.blazer.catalog.colour import align_portrait_colour, jacket_midtone
+from fabricapp.ai.garments.kurta.catalog.sherwani import SCENERY
 from fabricapp.ai.fabric.fabric_material import FABRIC_TYPES
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
-from fabricapp.ai.scene.backgrounds import BACKGROUND_DESCRIPTIONS
 from fabricapp.catalog import CatalogRequestSerializer
 from fabricapp.catalog_engine.registry import get_definition
 
@@ -75,8 +75,11 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
             self.assertEqual(call.kwargs['face_choice'], 'vihaan')
             self.assertIn('plus-size', config['prompt'])
             self.assertIn('dense short plush pile', config['prompt'])
-            self.assertIn('grand palace courtyard', config['prompt'])
+            self.assertIn(SCENERY['royal_courtyard'], config['prompt'])
             self.assertIn('Keep a formal tie', config['prompt'])
+            self.assertIn('Replace the original reference trousers', config['prompt'])
+            self.assertIn('diffused neutral white light', config['prompt'])
+        self.assertIn('plain solid tie and plain solid trousers', calls[0].kwargs['prompt_config']['prompt'])
         self.assertIn('keep the face hidden', calls[-1].kwargs['prompt_config']['prompt'])
         details = [event['image']['generation'] for event in events
                    if event['event'] == 'image_ready' and event['image']['view'] in VIEWS[3:]]
@@ -84,6 +87,7 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
         for item in details:
             self.assertEqual(item['kind'], 'swatch_composite')
             self.assertEqual(item['fabric_crop_box'], [4, 6, 88, 120])
+        self.assertEqual(details[0]['business_tie_rgb'], list(MIDTONE))
         for raw, (x, y) in zip(delivered[3:6], ((.80, .55), (.76, .34), (.30, .55))):
             with Image.open(io.BytesIO(raw)) as image:
                 sample = image.getpixel((round(image.width * x), round(image.height * y)))
@@ -124,7 +128,7 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
     def test_supported_material_background_and_uploaded_face_options(self):
         definition = get_definition('blazer', 'business-v1')
         for material, (background, scenery), gender in zip(
-            FABRIC_TYPES, BACKGROUND_DESCRIPTIONS.items(), ('women', 'men', 'boy', 'girl'),
+            FABRIC_TYPES, SCENERY.items(), ('women', 'men', 'boy', 'girl'),
         ):
             with self.subTest(material=material, background=background, gender=gender):
                 serializer = CatalogRequestSerializer(data={
