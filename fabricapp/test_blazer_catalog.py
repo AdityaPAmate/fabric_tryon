@@ -171,6 +171,24 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
             self.assertLess(np.linalg.norm(patch - target), 20)
             self.assertEqual(output.getpixel((20, 285)), image.getpixel((20, 285)))
 
+    def test_shirt_cleanup_lifts_cast_shadow_without_repainting_tie_or_jacket(self):
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.blazer.catalog.business_details import neutralize_dress_shirt
+
+        image = Image.new('RGB', (200, 480), '#73533d')
+        draw = ImageDraw.Draw(image)
+        draw.polygon([(77, 95), (122, 95), (118, 130), (103, 181), (96, 181), (82, 130)],
+                     fill='#f4f3f3')
+        draw.rectangle((84, 120, 106, 139), fill='#a4aabd')
+        draw.polygon([(97, 99), (105, 99), (106, 158), (101, 173), (96, 158)], fill='#55402d')
+        encoded = io.BytesIO()
+        image.save(encoded, 'PNG')
+        fixed = neutralize_dress_shirt(GenerationResult(encoded.getvalue(), 42), 'front', (115, 83, 61))
+        with Image.open(io.BytesIO(fixed.image_bytes)) as result:
+            self.assertGreater(result.getpixel((91, 130))[0], 196)
+            self.assertEqual(result.getpixel((101, 129)), image.getpixel((101, 129)))
+            self.assertEqual(result.getpixel((64, 124)), image.getpixel((64, 124)))
+
 
 class CasualBlazerCatalogTests(SimpleTestCase):
     def test_dark_side_jacket_moves_towards_swatch_without_colour_spilling_into_scene(self):

@@ -9,7 +9,7 @@ from fabricapp.ai.fabric.body_region import select_body_fabric_region
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 from fabricapp.ai.garments.blazer.catalog.colour import LUMA, align_portrait_colour, profile_midtone
 from fabricapp.ai.garments.blazer.catalog.business_details import (
-    TROUSER_REGIONS, clean_trouser_motifs, colour_lapel_tie, colour_portrait_tie,
+    TROUSER_REGIONS, clean_trouser_motifs, colour_lapel_tie, colour_portrait_tie, neutralize_dress_shirt,
 )
 from fabricapp.ai.garments.kurta.catalog.sherwani import SCENERY, WHITE_LIGHT
 from fabricapp.ai.pipeline.scenario_composer import _person_description
@@ -92,6 +92,14 @@ def build_config(data, shot, seed):
             'and the same tailoring as image 0. Preserve weave, print proportions and chroma. '
             'Keep the shirt, pocket square, shoes, buttons and skin in their own materials.'
         )
+        if shot.key != 'back':
+            prompt.append(
+                'This is the same two-piece business suit as image 0. The jacket opens directly onto '
+                'a freshly pressed matte white dress shirt and a solid tie. Keep the shirt collar, '
+                'placket and exposed cuffs clean neutral white under broad frontal fill. Preserve '
+                'gentle fold shadows. Keep the shirt opening clear of extra layers, a waistcoat, '
+                'fabric pattern, yellow or blue reflections, and dark patches.'
+            )
     if shot.key == 'back':
         prompt.append('Show the back of the blazer and both sleeves. Keep the face turned away.')
     if data.get('gender'):
@@ -134,7 +142,7 @@ def build_config(data, shot, seed):
                 outfit += f'The plain solid tie and plain solid trousers share the swatch base {shade}. '
             config['prompt'] = outfit + config['prompt']
             config['prompt'] += f' Match the swatch jacket midtone {shade} under diffuse white light.'
-    config['prompt_version'] = f'blazer-business-catalog-{"ready" if ready else "swatch"}-v3-{shot.key}'
+    config['prompt_version'] = f'blazer-business-catalog-{"ready-v3" if ready else "swatch-v4"}-{shot.key}'
     return config
 
 
@@ -181,7 +189,8 @@ def finish_shot(data, shot, generation):
                                        region=TROUSER_REGIONS[shot.key], soft_edges=True,
                                        local_exposure=True, even_exposure=True)
     generation = clean_trouser_motifs(generation, shot.key, target)
-    return colour_portrait_tie(generation, shot.key, target)
+    generation = colour_portrait_tie(generation, shot.key, target)
+    return neutralize_dress_shirt(generation, shot.key, target)
 
 
 def validate_request(data):

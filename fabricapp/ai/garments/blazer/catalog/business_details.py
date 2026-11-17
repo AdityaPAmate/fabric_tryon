@@ -4,7 +4,9 @@ from io import BytesIO
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
-from scipy.ndimage import binary_dilation, binary_fill_holes, binary_propagation, gaussian_filter, label
+from scipy.ndimage import (
+    binary_dilation, binary_fill_holes, binary_propagation, distance_transform_edt, gaussian_filter, label,
+)
 
 
 TROUSER_REGIONS = {
@@ -18,6 +20,49 @@ TROUSER_REGIONS = {
              ((.23, .52), (.77, .52), (.81, .68), (.77, .94), (.55, .95), (.50, .67),
               (.44, .95), (.23, .94), (.19, .68))),
 }
+SHIRT_OPENINGS = {
+    'front': ((.38, .195), (.61, .195), (.59, .26), (.53, .38), (.47, .38), (.40, .265)),
+    'side': ((.36, .225), (.48, .195), (.51, .216), (.455, .258), (.397, .299),
+             (.366, .345), (.342, .34)),
+}
+
+
+def neutralize_dress_shirt(generation, view, target):
+    if view not in SHIRT_OPENINGS or target is None:
+        return generation
+    target = np.asarray(target, dtype=np.float32)
+    if target.mean() > 222 and np.ptp(target) < 16:
+        return generation
+    with Image.open(BytesIO(generation.image_bytes)) as source:
+        image = source.convert('RGB')
+    width, height = image.size
+    bounds = Image.new('1', image.size)
+    ImageDraw.Draw(bounds).polygon([(round(x * width), round(y * height))
+                                   for x, y in SHIRT_OPENINGS[view]], fill=1)
+    pixels = np.asarray(image, dtype=np.float32)
+    light = pixels.mean(axis=2)
+    chroma = pixels - light[:, :, None]
+    dist_from_jacket = np.linalg.norm(chroma - (target - target.mean()), axis=2)
+    candidate = np.asarray(bounds) & (light > 148) & (np.ptp(pixels, axis=2) < 33)
+    candidate &= (dist_from_jacket > 12) | (light > target.mean() + 26)
+    seeds = candidate & (light > 214) & (np.ptp(pixels, axis=2) < 23)
+    shirt = binary_propagation(seeds, mask=candidate)
+    if not shirt.any():
+        return generation
+
+    # Lift broad shadows on the white cotton and keep folds, seams and the
+    # exact tie boundary. Only pixels connected to a bright shirt seed qualify.
+    sigma = max(2, width / 70)
+    support = np.maximum(gaussian_filter(shirt.astype(np.float32), sigma), .001)
+    local = gaussian_filter(pixels * shirt[:, :, None], (sigma, sigma, 0)) / support[:, :, None]
+    shift = np.clip((242 - local) * .70, -8, 56)
+    weight = np.clip(distance_transform_edt(shirt) / max(2, width / 165), 0, 1)
+    corrected = np.rint(np.clip(pixels + shift * weight[:, :, None], 0, 255)).astype(np.uint8)
+    output = BytesIO()
+    Image.fromarray(corrected).save(output, 'PNG')
+    return replace(generation, image_bytes=output.getvalue(), diagnostics={
+        **(generation.diagnostics or {}), 'business_shirt_neutralized': True,
+    })
 
 
 def clean_trouser_motifs(generation, view, target):
