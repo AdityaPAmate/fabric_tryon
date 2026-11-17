@@ -2,7 +2,10 @@
 from dataclasses import replace
 
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
-from fabricapp.ai.garments.blazer.catalog.business import layout as blazer_layout, output_dimensions, validate_request
+from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
+from fabricapp.ai.garments.blazer.catalog.business import (
+    REFERENCES as BUSINESS_REFERENCES, has_uniform_swatch, layout as blazer_layout, output_dimensions, validate_request,
+)
 from fabricapp.ai.garments.blazer.catalog.colour import align_portrait_colour, jacket_midtone, profile_midtone
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
@@ -103,6 +106,10 @@ def build_config(data, shot, seed, *, style='casual', detail_framing=DETAIL_FRAM
         prompt.append('Keep the face completely hidden and the jacket back continuously visible. '
                       'Show the rear seam and any actual rear vent. Front lapels, pockets, buttons '
                       'and buttonholes stay on the front of the jacket.')
+    if style == 'casual' and shot.key == 'side':
+        prompt.append('Use a broad neutral fill over the whole jacket, including the far shoulder, front panel '
+                      'and both sleeves. Keep only soft shadows at folds and seams. Avoid hard dark bands, '
+                      'coloured reflections and isolated bright spots across the cloth.')
     prompt.append('Use diffuse neutral white light, consistent jacket midtones and natural seam and fold '
                   'shadows. Preserve the actual pattern scale and motif colours. Plain fabric stays plain.')
 
@@ -118,19 +125,36 @@ def build_config(data, shot, seed, *, style='casual', detail_framing=DETAIL_FRAM
         if target is not None:
             shade = '#%02X%02X%02X' % tuple(round(float(channel)) for channel in target)
             config['prompt'] += f' Match the common swatch jacket midtone {shade}.'
-    version = 'v2' if style == 'casual' else 'v1'
+    version = 'v3' if style == 'casual' else 'v1'
     config['prompt_version'] = f'blazer-{style}-catalog-{"ready" if ready else "swatch"}-{version}-{shot.key}'
     return config
 
 
 def finish_shot(data, shot, generation):
-    return align_portrait_colour(generation, shot.key, jacket_midtone(data),
-                                 region=DETAIL_REGIONS.get(shot.key), soft_edges=True)
+    if shot.operation == 'swatch_composite':
+        return generation
+    crop = data.get('options', {}).get('fabric_crop_box')
+    profile = measure_fabric_colours(data['fabric_image'], crop, palette_size=24, min_coverage=.005)
+    return align_portrait_colour(generation, shot.key, profile_midtone(profile),
+                                 region=DETAIL_REGIONS.get(shot.key), soft_edges=True,
+                                 local_exposure=shot.key == 'side',
+                                 even_exposure=shot.key == 'side' and has_uniform_swatch(profile))
 
 
-DEFINITION = CatalogDefinition('blazer', 'casual-v1', SHOTS, build_config, layout,
-                               validate_request=validate_request, finish_shot=finish_shot)
-READY_MADE_DEFINITION = replace(DEFINITION, finish_shot=None, shots=(
+# The pocket photograph is byte-identical to the Business pocket reference.
+DETAIL_ASSETS = {'lapel': REFERENCES, 'pocket': BUSINESS_REFERENCES}
+SWATCH_SHOTS = tuple(
+    replace(shot, operation='swatch_composite', swatch_original_orientation=True,
+            natural_swatch_shading=True,
+            reference_mask=DETAIL_ASSETS[shot.key] / f'{shot.reference.stem}_mask.png',
+            composite_relief=DETAIL_ASSETS[shot.key] / f'{shot.reference.stem}_relief.png')
+    if shot.key in DETAIL_ASSETS else shot
+    for shot in SHOTS
+)
+DEFINITION = CatalogDefinition('blazer', 'casual-v1', SWATCH_SHOTS, build_config, layout,
+                               validate_request=validate_request, finish_shot=finish_shot,
+                               swatch_colour=jacket_midtone)
+READY_MADE_DEFINITION = replace(DEFINITION, finish_shot=None, swatch_colour=None, shots=(
     *SHOTS[:3],
     *(replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
       for shot in SHOTS[3:] for anchor, crop in (READY_DETAIL_SOURCES[shot.key],)),

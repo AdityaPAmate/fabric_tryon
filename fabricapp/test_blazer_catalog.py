@@ -191,6 +191,22 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
 
 
 class CasualBlazerCatalogTests(SimpleTestCase):
+    def test_casual_closeups_preserve_reference_neck_and_jacket_silhouette(self):
+        from PIL import ImageChops
+        from fabricapp.ai.garments.blazer.catalog.casual import DEFINITION
+        from fabricapp.catalog_engine.runner import Services, generate_shot
+
+        data = {'fabric_image': io.BytesIO(picture())}
+        for shot in (shot for shot in DEFINITION.shots if shot.key in ('lapel', 'pocket')):
+            result = generate_shot(data, shot, DEFINITION, {}, {}, Services(None, None, None))
+            with Image.open(io.BytesIO(result.image_bytes)) as output, Image.open(shot.reference) as reference, \
+                    Image.open(shot.reference_mask) as mask:
+                self.assertEqual(output.size, reference.size)
+                difference = ImageChops.difference(output, reference.convert('RGB'))
+                outside = mask.point(lambda value: 255 if value == 0 else 0)
+                self.assertIsNone(Image.composite(difference, Image.new('RGB', output.size), outside).getbbox())
+                self.assertIsNotNone(difference.getbbox())
+
     def test_dark_side_jacket_moves_towards_swatch_without_colour_spilling_into_scene(self):
         import numpy as np
         from PIL import ImageDraw
@@ -226,13 +242,14 @@ class CasualBlazerCatalogTests(SimpleTestCase):
                 self.assertEqual(events[0]['views'], VIEWS)
                 self.assertEqual(events[-1]['status'], 'completed')
                 self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
-                composited = style == 'wedding' and source_key == 'fabric_image'
-                generated_views = VIEWS[:4] if composited else VIEWS
+                local_views = ({'wedding': {'cuff', 'pocket'}, 'casual': {'lapel', 'pocket'}}[style]
+                               if source_key == 'fabric_image' else set())
+                generated_views = [view for view in VIEWS if view not in local_views]
                 self.assertEqual(provider.call_count, len(generated_views))
-                if composited:
-                    self.assertEqual([item['operation'] for item in events[-1]['images'][-2:]],
-                                     ['swatch_composite', 'swatch_composite'])
-                for index, (view, call) in enumerate(zip(generated_views, provider.call_args_list), 1):
+                self.assertEqual({item['view'] for item in events[-1]['images']
+                                  if item['operation'] == 'swatch_composite'}, local_views)
+                for view, call in zip(generated_views, provider.call_args_list):
+                    index = VIEWS.index(view) + 1
                     reference = styles[style] / f'{index:02}_{view}.png'
                     self.assertEqual(reference.name, f'{index:02}_{view}.png')
                     self.assertEqual(call.kwargs['person_image'].getvalue(), reference.read_bytes())
