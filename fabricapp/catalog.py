@@ -65,8 +65,8 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
         if data.pop('garment_as_swatch', False):
             edition = STYLE_EDITIONS.get((data.get('garment_type'), data.get('garment_style')))
             if (data.get('garment_image') is None or data.get('fabric_image') is not None or
-                    data.get('garment_type') != 'kurta' or not edition):
-                raise serializers.ValidationError({'garment_as_swatch': 'Choose a ready garment photo and a supported Kurta catalog style.'})
+                    not edition):
+                raise serializers.ValidationError({'garment_as_swatch': 'Choose a ready garment photo and a supported catalog style.'})
             if data.get('catalog_edition') not in (None, edition):
                 raise serializers.ValidationError({'catalog_edition': f'Garment fabric extraction requires {edition}.'})
             from PIL import Image, ImageOps
@@ -78,7 +78,7 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
             options = data.setdefault('options', {})
             box = options.pop('fabric_crop_box', None)
             if box is None:
-                if data['garment_style'] == 'jodhpuri':
+                if data['garment_type'] == 'blazer' or data['garment_style'] == 'jodhpuri':
                     # Sample the jacket chest off-centre, below its welt pocket.
                     box = [round(image.width * .55), round(image.height * .31),
                            round(image.width * .70), round(image.height * .43)]

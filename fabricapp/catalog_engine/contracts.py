@@ -26,6 +26,7 @@ class Shot:
     composite_backdrop: Path | None = None
     natural_swatch_shading: bool = False
     composite_relief: Path | None = None
+    swatch_original_orientation: bool = False
 
 
 @dataclass(frozen=True)

@@ -19,7 +19,8 @@ def render_swatch_shot(data, shot, target_rgb=None):
     source = data['fabric_image']
     source.seek(0)
     with Image.open(source) as image:
-        swatch = ImageOps.exif_transpose(image).convert('RGB')
+        # Some definitions share raw crop coordinates with provider input and palette measurement.
+        swatch = (image if shot.swatch_original_orientation else ImageOps.exif_transpose(image)).convert('RGB')
     crop = (select_body_fabric_region(data)[0] if shot.swatch_body_only else options.get('fabric_crop_box'))
     if crop:
         left, top, right, bottom = crop

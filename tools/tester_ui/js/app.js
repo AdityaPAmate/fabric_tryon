@@ -82,8 +82,10 @@ function setGenerationMode() {
   generateButton.textContent = catalog ? 'Generate Catalog' : 'Generate image';
   document.querySelector('#mode-help').textContent = catalog
     ? (fabric
-      ? 'Generate the garment’s catalog views and a finished collage. Plain Kurta, Sherwani, Jodhpuri, Saree and Kurti + Pant use a 3:4 collage.'
-      : 'Choose a Kurta style to use its catalog references.')
+      ? (garmentType.value === 'blazer' && garmentStyle.value === 'business'
+        ? 'Business Blazer produces three full-length views, three close-ups and a 3:4 collage.'
+        : 'Generate the garment’s catalog views and a finished collage.')
+      : 'Choose a catalog layout and how to use the uploaded garment.')
     : 'Generate one image with your selected pose and camera view.';
   setReferencePoseAvailability();
 }
@@ -372,7 +374,7 @@ async function saveOutputLocally(url, format) {
 
 gender.addEventListener("change", setFaces);
 garmentType.addEventListener("change", () => { setGarmentStyles(); setGenerationMode(); });
-garmentStyle.addEventListener("change", setGarmentDetails);
+garmentStyle.addEventListener("change", () => { setGarmentDetails(); setGenerationMode(); });
 garmentSource.addEventListener("change", setGarmentSourceMode);
 personImage.addEventListener("change", setPersonMode);
 
