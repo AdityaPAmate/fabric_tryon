@@ -143,3 +143,33 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
         with Image.open(io.BytesIO(result.image_bytes)) as image:
             self.assertEqual(image.getpixel((32, 40)), MIDTONE)
             self.assertEqual(image.getpixel((1, 1)), (65, 112, 137))
+
+
+class CasualBlazerCatalogTests(SimpleTestCase):
+    def test_each_view_passes_its_casual_photo_to_the_model(self):
+        for source_key in ('fabric_image', 'garment_image'):
+            with self.subTest(source=source_key):
+                with patch('fabricapp.catalog.generate_edit',
+                           return_value=GenerationResult(picture(), 42)) as provider, patch(
+                    'fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/catalog.png'},
+                ):
+                    response = APIClient().post('/api/generate-catalog/', {
+                        'garment_type': 'blazer', 'garment_style': 'casual', 'gender': 'men',
+                        source_key: upload(),
+                    }, format='multipart')
+                    self.assertEqual(response.status_code, 200, response.content if not response.streaming else '')
+                    events = [json.loads(line) for line in response.streaming_content]
+
+                self.assertEqual(events[0]['catalog_edition'], 'casual-v1')
+                self.assertEqual(events[0]['views'], VIEWS)
+                self.assertEqual(events[-1]['status'], 'completed')
+                self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
+                self.assertEqual(provider.call_count, 6)
+                for index, (view, call) in enumerate(zip(VIEWS, provider.call_args_list), 1):
+                    reference = call.kwargs['pose_reference_path']
+                    self.assertEqual(reference.parent.name, 'casual')
+                    self.assertEqual(reference.name, f'{index:02}_{view}.png')
+                    self.assertEqual(call.kwargs['person_image'].getvalue(), reference.read_bytes())
+                    self.assertIn(source_key, call.kwargs)
+                for call in provider.call_args_list[3:]:
+                    self.assertEqual(call.kwargs['face_image'].getvalue(), picture())

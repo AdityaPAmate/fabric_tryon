@@ -11,6 +11,7 @@ CUSTOM = {
     ('kurta', 'jodhpuri-v1'): 'fabricapp.ai.garments.kurta.catalog.jodhpuri',
     ('kurta', 'pathani-v1'): 'fabricapp.ai.garments.kurta.catalog.pathani',
     ('blazer', 'business-v1'): 'fabricapp.ai.garments.blazer.catalog.business',
+    ('blazer', 'casual-v1'): 'fabricapp.ai.garments.blazer.catalog.casual',
     ('ready_made', 'ready-made-v1'): 'fabricapp.catalog_engine.ready_made',
 }
 DEFAULTS = {'shirt': 'classic-v1', 'saree': 'editorial-v1',
@@ -18,7 +19,7 @@ DEFAULTS = {'shirt': 'classic-v1', 'saree': 'editorial-v1',
             'kurti_pant': 'editorial-v1', 'pant': 'classic-v1'}
 STYLE_EDITIONS = {('kurta', 'plain'): 'plain-v1', ('kurta', 'sherwani'): 'sherwani-v1',
                   ('kurta', 'jodhpuri'): 'jodhpuri-v1', ('kurta', 'pathani'): 'pathani-v1',
-                  ('blazer', 'business'): 'business-v1'}
+                  ('blazer', 'business'): 'business-v1', ('blazer', 'casual'): 'casual-v1'}
 
 
 def get_definition(garment, edition=None):
