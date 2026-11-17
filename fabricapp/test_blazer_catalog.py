@@ -1,5 +1,6 @@
 import io
 import json
+from itertools import product
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -8,6 +9,7 @@ from PIL import Image
 from rest_framework.test import APIClient
 
 from fabricapp.ai.garments.blazer.catalog.casual import REFERENCES as CASUAL_REFERENCES
+from fabricapp.ai.garments.blazer.catalog.wedding import REFERENCES as WEDDING_REFERENCES
 from fabricapp.ai.garments.blazer.catalog.colour import align_portrait_colour, jacket_midtone
 from fabricapp.ai.fabric.fabric_material import FABRIC_TYPES
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
@@ -163,31 +165,43 @@ class CasualBlazerCatalogTests(SimpleTestCase):
             self.assertEqual(output.getpixel((38, 160)), image.getpixel((38, 160)))
             self.assertEqual(output.getpixel((127, 270)), image.getpixel((127, 270)))
 
-    def test_each_view_passes_its_casual_photo_to_the_model(self):
-        for source_key in ('fabric_image', 'garment_image'):
-            with self.subTest(source=source_key):
+    def test_each_view_passes_its_style_reference_to_the_model(self):
+        styles = {'casual': CASUAL_REFERENCES, 'wedding': WEDDING_REFERENCES}
+        for style, source_key in product(styles, ('fabric_image', 'garment_image')):
+            with self.subTest(style=style, source=source_key):
                 with patch('fabricapp.catalog.generate_edit',
                            return_value=GenerationResult(picture(), 42)) as provider, patch(
                     'fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/catalog.png'},
                 ):
                     response = APIClient().post('/api/generate-catalog/', {
-                        'garment_type': 'blazer', 'garment_style': 'casual', 'gender': 'men',
+                        'garment_type': 'blazer', 'garment_style': style, 'gender': 'men',
                         source_key: upload(),
                     }, format='multipart')
                     self.assertEqual(response.status_code, 200, response.content if not response.streaming else '')
                     events = [json.loads(line) for line in response.streaming_content]
 
-                self.assertEqual(events[0]['catalog_edition'], 'casual-v1')
+                self.assertEqual(events[0]['catalog_edition'], f'{style}-v1')
                 self.assertEqual(events[0]['views'], VIEWS)
                 self.assertEqual(events[-1]['status'], 'completed')
                 self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
-                self.assertEqual(provider.call_count, 6)
-                for index, (view, call) in enumerate(zip(VIEWS, provider.call_args_list), 1):
-                    reference = CASUAL_REFERENCES / f'{index:02}_{view}.png'
-                    self.assertEqual(reference.parent.name, 'casual')
+                composited = style == 'wedding' and source_key == 'fabric_image'
+                generated_views = VIEWS[:4] if composited else VIEWS
+                self.assertEqual(provider.call_count, len(generated_views))
+                if composited:
+                    self.assertEqual([item['operation'] for item in events[-1]['images'][-2:]],
+                                     ['swatch_composite', 'swatch_composite'])
+                for index, (view, call) in enumerate(zip(generated_views, provider.call_args_list), 1):
+                    reference = styles[style] / f'{index:02}_{view}.png'
                     self.assertEqual(reference.name, f'{index:02}_{view}.png')
                     self.assertEqual(call.kwargs['person_image'].getvalue(), reference.read_bytes())
                     self.assertIn(source_key, call.kwargs)
+                    prompt = call.kwargs['prompt_config']['prompt']
+                    self.assertIn(f'{style.title()} Blazer', prompt)
+                    if style == 'wedding' and source_key == 'fabric_image':
+                        if view == 'lapel':
+                            self.assertIn('gold chain', prompt)
+                        if index <= 3:
+                            self.assertIn('matching trousers in the same swatch cloth', prompt)
                     if index <= 3:
                         self.assertEqual(call.kwargs['pose_reference_path'], reference)
                     else:

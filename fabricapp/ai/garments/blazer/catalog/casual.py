@@ -51,11 +51,13 @@ def layout(product):
     return replace(blazer_layout(product), version='blazer-casual-six-panel-3x4-v1')
 
 
-def build_config(data, shot, seed):
+def build_config(data, shot, seed, *, style='casual', detail_framing=DETAIL_FRAMING,
+                 cut='Keep the soft, unstructured notch-lapel cut and the open front wherever visible.',
+                 outfit='Keep the casual crew-neck shirt, dark trousers and clean white sneakers as separate garments.'):
     ready = data.get('garment_image') is not None
     portrait = shot.key in PORTRAIT_VIEWS
     prompt = [
-        f'Edit image 0 to make one Casual Blazer catalog photograph: {shot.description}.',
+        f'Edit image 0 to make one {style.title()} Blazer catalog photograph: {shot.description}.',
         'Preserve its camera angle, crop, pose and subject scale. Fill the frame with the photograph.',
     ]
     if ready and portrait:
@@ -72,10 +74,10 @@ def build_config(data, shot, seed):
         prompt.append(
             'Image 1 is the swatch. Apply its exact colour, weave and pattern only to the blazer cloth, '
             'including visible lapel, sleeve and pocket flap. Preserve seams, buttons, skin and backdrop. '
-            'Keep the soft, unstructured notch-lapel cut and the open front wherever visible.'
+            + cut
         )
     if portrait:
-        prompt.append('Keep the casual crew-neck shirt, dark trousers and clean white sneakers as separate garments.')
+        prompt.append(outfit)
         if data.get('gender'):
             prompt.append('Subject: ' + _person_description(data['gender'], data.get('body_type')) + '.')
         if shot.identity_from == 'request' and shot.key == 'back' and (
@@ -94,7 +96,7 @@ def build_config(data, shot, seed):
         if data.get('additional_style_note'):
             prompt.append(f"Styling: {data['additional_style_note']}. Preserve the jacket, fabric and crop.")
     else:
-        prompt.append(DETAIL_FRAMING[shot.key])
+        prompt.append(detail_framing[shot.key])
         prompt.append('Edit the jacket in place. Continue the source weave and print around folds and '
                       'under the seams. Keep natural depth and shading in one continuous photograph.')
     if shot.key == 'back':
@@ -110,13 +112,14 @@ def build_config(data, shot, seed):
         'classified_recovery': True, 'safety_retry_count': 0,
     }
     if not ready:
-        config = apply_fabric_conditioning(config, data, 'blazer', 'casual',
+        config = apply_fabric_conditioning(config, data, 'blazer', style,
                                            match_pattern_colours=True, lead_with_edit=True)
         target = profile_midtone(config['fabric_colour_reference']) if 'fabric_colour_reference' in config else None
         if target is not None:
             shade = '#%02X%02X%02X' % tuple(round(float(channel)) for channel in target)
             config['prompt'] += f' Match the common swatch jacket midtone {shade}.'
-    config['prompt_version'] = f'blazer-casual-catalog-{"ready" if ready else "swatch"}-v2-{shot.key}'
+    version = 'v2' if style == 'casual' else 'v1'
+    config['prompt_version'] = f'blazer-{style}-catalog-{"ready" if ready else "swatch"}-{version}-{shot.key}'
     return config
 
 
