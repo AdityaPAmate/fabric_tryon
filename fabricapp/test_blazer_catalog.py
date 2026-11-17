@@ -7,6 +7,7 @@ from django.test import SimpleTestCase
 from PIL import Image
 from rest_framework.test import APIClient
 
+from fabricapp.ai.garments.blazer.catalog.casual import REFERENCES as CASUAL_REFERENCES
 from fabricapp.ai.garments.blazer.catalog.colour import align_portrait_colour, jacket_midtone
 from fabricapp.ai.fabric.fabric_material import FABRIC_TYPES
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
@@ -146,6 +147,22 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
 
 
 class CasualBlazerCatalogTests(SimpleTestCase):
+    def test_dark_side_jacket_moves_towards_swatch_without_colour_spilling_into_scene(self):
+        import numpy as np
+        from PIL import ImageDraw
+
+        image = Image.new('RGB', (200, 480), (230, 223, 204))
+        ImageDraw.Draw(image).rectangle((74, 83, 163, 248), fill=(104, 95, 114))
+        encoded = io.BytesIO()
+        image.save(encoded, 'PNG')
+        target = np.array([209, 193, 217])
+        source = GenerationResult(encoded.getvalue(), 42)
+        corrected = align_portrait_colour(source, 'side', target, soft_edges=True)
+        with Image.open(io.BytesIO(corrected.image_bytes)) as output:
+            self.assertLess(np.linalg.norm(np.array(output.getpixel((127, 162))) - target), 60)
+            self.assertEqual(output.getpixel((38, 160)), image.getpixel((38, 160)))
+            self.assertEqual(output.getpixel((127, 270)), image.getpixel((127, 270)))
+
     def test_each_view_passes_its_casual_photo_to_the_model(self):
         for source_key in ('fabric_image', 'garment_image'):
             with self.subTest(source=source_key):
@@ -166,10 +183,16 @@ class CasualBlazerCatalogTests(SimpleTestCase):
                 self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
                 self.assertEqual(provider.call_count, 6)
                 for index, (view, call) in enumerate(zip(VIEWS, provider.call_args_list), 1):
-                    reference = call.kwargs['pose_reference_path']
+                    reference = CASUAL_REFERENCES / f'{index:02}_{view}.png'
                     self.assertEqual(reference.parent.name, 'casual')
                     self.assertEqual(reference.name, f'{index:02}_{view}.png')
                     self.assertEqual(call.kwargs['person_image'].getvalue(), reference.read_bytes())
                     self.assertIn(source_key, call.kwargs)
-                for call in provider.call_args_list[3:]:
-                    self.assertEqual(call.kwargs['face_image'].getvalue(), picture())
+                    if index <= 3:
+                        self.assertEqual(call.kwargs['pose_reference_path'], reference)
+                    else:
+                        self.assertEqual(call.kwargs['scenario'], 'person_photo')
+                        self.assertNotIn('face_image', call.kwargs)
+                        self.assertNotIn('pose_reference_path', call.kwargs)
+                        if source_key == 'garment_image':
+                            self.assertNotEqual(call.kwargs[source_key].getvalue(), picture())

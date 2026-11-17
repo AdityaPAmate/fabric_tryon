@@ -4,7 +4,7 @@ from io import BytesIO
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
-from scipy.ndimage import binary_propagation
+from scipy.ndimage import binary_propagation, distance_transform_edt, gaussian_filter
 
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 
@@ -41,6 +41,8 @@ def jacket_midtone(data):
 
 def profile_midtone(profile):
     colours = profile['colours']
+    if not colours:
+        return None
     pixels = np.asarray([colour['rgb'] for colour in colours], dtype=np.float32)
     weights = np.asarray([colour['coverage'] for colour in colours])
     family = (np.linalg.norm(_chroma(pixels) - _chroma(pixels[0]), axis=1) <= 24)
@@ -50,24 +52,27 @@ def profile_midtone(profile):
     return None
 
 
-def align_portrait_colour(generation, view, target):
+def align_portrait_colour(generation, view, target, *, region=None, soft_edges=False):
     if target is None:
         return generation
     with Image.open(BytesIO(generation.image_bytes)) as source:
         image = source.convert('RGB')
     pixels = np.asarray(image, dtype=np.float32)
-    box, polygon = PORTRAIT_REGIONS[view]
+    box, polygon = region or PORTRAIT_REGIONS[view]
     width, height = image.size
     x0, y0, x1, y1 = (round(value * extent) for value, extent in zip(box, (width, height) * 2))
     area = Image.new('1', image.size)
     ImageDraw.Draw(area).polygon([(round(x * width), round(y * height)) for x, y in polygon], fill=1)
     eligible = (np.linalg.norm(_chroma(pixels) - _chroma(target), axis=2) <= 32)
-    eligible &= (np.abs((pixels - target) @ LUMA) <= 64) & np.asarray(area)
+    area = np.asarray(area)
+    lightness_range = 120 if soft_edges and view == 'side' else 64
+    eligible &= (np.abs((pixels - target) @ LUMA) <= lightness_range) & area
     sample_selection = eligible[y0:y1, x0:x1]
     if sample_selection.mean() < .55:
         return generation
     measured = np.median(pixels[y0:y1, x0:x1][sample_selection], axis=0)
-    shift = np.clip(target - measured, -36, 36)
+    limit = 76 if soft_edges and view == 'side' else 36
+    shift = np.clip(target - measured, -limit, limit)
     if np.max(np.abs(shift)) < 4:
         return generation
 
@@ -76,8 +81,24 @@ def align_portrait_colour(generation, view, target):
     seeds = np.zeros_like(matching)
     seeds[y0:y1, x0:x1] = matching[y0:y1, x0:x1]
     connected = binary_propagation(seeds, mask=matching)
-    matte = Image.fromarray(connected.astype(np.uint8) * 255).filter(ImageFilter.GaussianBlur(1))
-    corrected = Image.fromarray(np.rint(np.clip(pixels + shift, 0, 255)).astype(np.uint8))
+    weight = connected.astype(np.float32)
+    if soft_edges:
+        # A safety polygon may cross an actual fold. Taper there to prevent its
+        # outline from appearing as a colour patch on the photograph.
+        feather = max(3, min(image.size) * .12)
+        weight *= np.clip(distance_transform_edt(area) / feather, 0, 1)
+    matte = Image.fromarray(np.rint(weight * 255).astype(np.uint8)).filter(
+        ImageFilter.GaussianBlur(max(1, width / 190) if soft_edges else 1))
+    if soft_edges and view == 'side':
+        # The side pose can put most of the chest in shadow while the sleeve
+        # is well lit. Adjust the broad exposure locally and keep fine detail.
+        sigma = max(3, width / 20)
+        support = np.maximum(gaussian_filter(connected.astype(np.float32), sigma), .001)
+        local = gaussian_filter(pixels * connected[:, :, None], (sigma, sigma, 0)) / support[:, :, None]
+        shift_field = np.clip((target - local) * .82, -limit, limit)
+    else:
+        shift_field = shift
+    corrected = Image.fromarray(np.rint(np.clip(pixels + shift_field, 0, 255)).astype(np.uint8))
     result = BytesIO()
     Image.composite(corrected, image, matte).save(result, 'PNG')
     return replace(generation, image_bytes=result.getvalue(), diagnostics={

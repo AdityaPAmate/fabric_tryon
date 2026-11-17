@@ -6,7 +6,7 @@ from fabricapp.ai.garments.blazer.catalog.business import layout as blazer_layou
 from fabricapp.ai.garments.blazer.catalog.colour import align_portrait_colour, jacket_midtone, profile_midtone
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
-from fabricapp.ai.scene.backgrounds import BACKGROUND_DESCRIPTIONS
+from fabricapp.ai.garments.kurta.catalog.sherwani import SCENERY
 from fabricapp.catalog_engine.contracts import CatalogDefinition, Shot
 
 
@@ -20,10 +20,29 @@ VIEWS = (
     ('pocket', 'pocket_detail', 'tight lower jacket pocket close-up showing its flap, opening and stitching'),
 )
 PORTRAIT_VIEWS = {'front', 'side', 'back'}
+DETAIL_FRAMING = {
+    'lapel': 'Keep the chin and neck at the top edge, the notch lapel and chest in frame, '
+             'and the dark crew-neck shirt visible inside the opening. The eyes, hands and waist are outside the frame.',
+    'cuff': 'Keep one diagonal sleeve, the row of cuff buttons and a small bare wrist at the left edge. '
+            'Preserve the plain studio backdrop and soft contact shadow. The face, torso and other sleeve are outside the frame.',
+    'pocket': 'Frame only the lower jacket cloth, side seam and flap pocket. Keep the flap shape, '
+              'opening and shadow underneath at the same scale. The face, hands, shirt and trousers are outside the frame.',
+}
+DETAIL_REGIONS = {
+    'lapel': ((.69, .50, .88, .68), ((.48, .34), (.64, .13), (.93, .24), (1, .98), (.38, .98))),
+    'cuff': ((.58, .36, .77, .48), ((.29, .45), (.90, .09), (.99, .04), (1, .39), (.91, .64),
+                                    (.30, .87), (.21, .65))),
+    'pocket': ((.28, .62, .70, .82), ((.04, .04), (.89, .04), (.94, .96), (.02, .96))),
+}
+READY_DETAIL_SOURCES = {
+    'lapel': ('front', (.44, .215, .83, .38)),
+    'cuff': ('side', (.52, .36, .79, .48)),
+    'pocket': ('side', (.37, .34, .62, .46)),
+}
 SHOTS = tuple(
     Shot(key, description, 'template_edit', framing, reference=REFERENCES / f'{index:02}_{key}.png',
-         dependencies=() if key in PORTRAIT_VIEWS else ('front',),
-         identity_from='request' if key in PORTRAIT_VIEWS else 'front', scenario='pose_reference')
+         identity_from='request' if key in PORTRAIT_VIEWS else None,
+         scenario='pose_reference' if key in PORTRAIT_VIEWS else 'person_photo')
     for index, (key, framing, description) in enumerate(VIEWS, 1)
 )
 
@@ -39,12 +58,16 @@ def build_config(data, shot, seed):
         f'Edit image 0 to make one Casual Blazer catalog photograph: {shot.description}.',
         'Preserve its camera angle, crop, pose and subject scale. Fill the frame with the photograph.',
     ]
-    if ready:
+    if ready and portrait:
         prompt.append(
             'Image 1 is the finished garment. Use its actual cut, lapels, pockets, fastenings, '
             'stitching, pattern, fabric and colour. Continue the observed material over unseen areas. '
             'The display wearer, hanger or mannequin from image 1 stays out of the photograph.'
         )
+    elif ready:
+        prompt.append('Image 1 is a tight crop of the finished jacket as worn in this catalog. Copy its '
+                      'actual cloth, colour and construction. Preserve buttons and pocket or cuff details '
+                      'that exist on the garment. Keep image 0 for camera position and crop.')
     else:
         prompt.append(
             'Image 1 is the swatch. Apply its exact colour, weave and pattern only to the blazer cloth, '
@@ -65,17 +88,21 @@ def build_config(data, shot, seed):
             prompt.append('Use image 2 for the wearer’s identity and build in the pose from image 0.')
         elif shot.identity_from == 'request' and (data.get('face_image') or data.get('face_choice')):
             prompt.append('Use image 2 for the wearer’s facial features, hair and skin tone.')
-        if data.get('background'):
-            prompt.append(f"Background: {BACKGROUND_DESCRIPTIONS[data['background']]}")
+        scene = SCENERY.get(data.get('background'))
+        if scene:
+            prompt.append(f'Use {scene} behind the wearer, with diffuse neutral white light on the outfit.')
         if data.get('additional_style_note'):
             prompt.append(f"Styling: {data['additional_style_note']}. Preserve the jacket, fabric and crop.")
     else:
-        prompt.append('Keep the close-up from image 0 tight. Image 2 supplies the established jacket midtone and fabric appearance.')
-    if portrait and shot.identity_from == 'front':
-        prompt.append('Match the wearer, outfit and jacket midtone established in image 2 while keeping the pose from image 0.')
+        prompt.append(DETAIL_FRAMING[shot.key])
+        prompt.append('Edit the jacket in place. Continue the source weave and print around folds and '
+                      'under the seams. Keep natural depth and shading in one continuous photograph.')
     if shot.key == 'back':
-        prompt.append('Keep the face completely hidden and the jacket back continuously visible.')
-    prompt.append('Use soft neutral light and consistent jacket midtones with natural seam and fold shadows.')
+        prompt.append('Keep the face completely hidden and the jacket back continuously visible. '
+                      'Show the rear seam and any actual rear vent. Front lapels, pockets, buttons '
+                      'and buttonholes stay on the front of the jacket.')
+    prompt.append('Use diffuse neutral white light, consistent jacket midtones and natural seam and fold '
+                  'shadows. Preserve the actual pattern scale and motif colours. Plain fabric stays plain.')
 
     config = {
         'prompt': ' '.join(prompt), 'seed': seed, 'guidance': data.get('guidance', 7),
@@ -85,22 +112,23 @@ def build_config(data, shot, seed):
     if not ready:
         config = apply_fabric_conditioning(config, data, 'blazer', 'casual',
                                            match_pattern_colours=True, lead_with_edit=True)
-        target = profile_midtone(config['fabric_colour_reference'])
+        target = profile_midtone(config['fabric_colour_reference']) if 'fabric_colour_reference' in config else None
         if target is not None:
             shade = '#%02X%02X%02X' % tuple(round(float(channel)) for channel in target)
             config['prompt'] += f' Match the common swatch jacket midtone {shade}.'
-    config['prompt_version'] = f'blazer-casual-catalog-{"ready" if ready else "swatch"}-v1-{shot.key}'
+    config['prompt_version'] = f'blazer-casual-catalog-{"ready" if ready else "swatch"}-v2-{shot.key}'
     return config
 
 
 def finish_shot(data, shot, generation):
-    if shot.key in PORTRAIT_VIEWS:
-        return align_portrait_colour(generation, shot.key, jacket_midtone(data))
-    return generation
+    return align_portrait_colour(generation, shot.key, jacket_midtone(data),
+                                 region=DETAIL_REGIONS.get(shot.key), soft_edges=True)
 
 
 DEFINITION = CatalogDefinition('blazer', 'casual-v1', SHOTS, build_config, layout,
                                validate_request=validate_request, finish_shot=finish_shot)
 READY_MADE_DEFINITION = replace(DEFINITION, finish_shot=None, shots=(
-    SHOTS[0], *(replace(shot, dependencies=('front',), identity_from='front') for shot in SHOTS[1:]),
+    *SHOTS[:3],
+    *(replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
+      for shot in SHOTS[3:] for anchor, crop in (READY_DETAIL_SOURCES[shot.key],)),
 ))
