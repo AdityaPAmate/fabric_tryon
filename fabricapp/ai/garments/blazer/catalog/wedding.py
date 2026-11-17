@@ -75,12 +75,28 @@ def build_config(data, shot, seed):
         data, shot, seed, style='wedding', detail_framing=DETAIL_FRAMING, outfit=outfit,
         cut=cut,
     )
+    if shot.key in casual.PORTRAIT_VIEWS:
+        config['prompt'] += (' Keep any gold chain pinned to the breast pocket only. '
+                             'Show the shirt collar and neck free of jewellery.')
     if not ready and shot.key in casual.PORTRAIT_VIEWS:
         config['prompt'] += (
             ' The jacket and trousers are cut from one bolt of image 1 fabric. Match their base colour '
             'and texture from shoulders to ankles. The white shirt is visible only inside the jacket '
             'opening and at the wrists. Match the closure and accessories in image 0 exactly.'
         )
+        if shot.identity_from == 'front':
+            angle = ('three-quarter side angle with the near shoulder forward and one hand in a trouser pocket'
+                     if shot.key == 'side' else 'straight rear angle with both shoulders visible and the face hidden')
+            config['prompt'] = (
+                f'Camera priority: keep image 0’s exact {angle}, outline and head-to-shoes crop. '
+                'Image 2 is a tight cloth crop from the already photographed suit in this catalog. '
+                'Use it for the established fabric appearance only. Use image 1 for the exact material, '
+                'colour and pattern across both garments. Keep the pose and head orientation from image 0. '
+                'Keep both garments uniformly in the same source shade, with soft natural fold shadows. '
+                + config['prompt']
+            )
+    if not ready:
+        config['prompt_version'] = f'blazer-wedding-catalog-swatch-v2-{shot.key}'
     return config
 
 
@@ -106,7 +122,9 @@ SWATCH_SHOTS = tuple(
             reference_mask=shot.reference.with_stem(f'{shot.reference.stem}_mask'),
             composite_relief=shot.reference.with_stem(f'{shot.reference.stem}_relief'),
             swatch_original_orientation=True, natural_swatch_shading=True)
-    if shot.key in ('cuff', 'pocket') else shot
+    if shot.key in ('cuff', 'pocket') else
+    replace(shot, dependencies=('front',), identity_from='front', identity_crop=(.24, .25, .40, .36))
+    if shot.key in ('side', 'back') else shot
     for shot in wedding_shots(casual.SHOTS)
 )
 DEFINITION = replace(casual.DEFINITION, edition='wedding-v1', shots=SWATCH_SHOTS,

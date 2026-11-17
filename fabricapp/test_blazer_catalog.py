@@ -202,6 +202,10 @@ class CasualBlazerCatalogTests(SimpleTestCase):
                             self.assertIn('gold chain', prompt)
                         if index <= 3:
                             self.assertIn('matching trousers in the same swatch cloth', prompt)
+                        if view in ('side', 'back'):
+                            self.assertNotEqual(call.kwargs['face_image'].getvalue(), picture())
+                            self.assertIn('image 0’s exact', prompt)
+                            self.assertIn('already photographed suit', prompt)
                     if index <= 3:
                         self.assertEqual(call.kwargs['pose_reference_path'], reference)
                     else:
