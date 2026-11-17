@@ -151,6 +151,26 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
             self.assertEqual(image.getpixel((32, 40)), MIDTONE)
             self.assertEqual(image.getpixel((1, 1)), (65, 112, 137))
 
+    def test_even_exposure_reduces_a_trouser_patch_and_keeps_background(self):
+        import numpy as np
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.blazer.catalog.business_details import TROUSER_REGIONS
+
+        image = Image.new('RGB', (160, 480), '#ebe9e3')
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((48, 248, 113, 446), fill='#d1bfcf')
+        draw.ellipse((67, 273, 101, 303), fill='#a48397')
+        data = io.BytesIO()
+        image.save(data, 'PNG')
+        generation = GenerationResult(data.getvalue(), 42)
+        target = np.array([209, 191, 207])
+        result = align_portrait_colour(generation, 'trousers', target, region=TROUSER_REGIONS['back'],
+                                       soft_edges=True, local_exposure=True, even_exposure=True)
+        with Image.open(io.BytesIO(result.image_bytes)) as output:
+            patch = np.array(output.getpixel((84, 288)))
+            self.assertLess(np.linalg.norm(patch - target), 20)
+            self.assertEqual(output.getpixel((20, 285)), image.getpixel((20, 285)))
+
 
 class CasualBlazerCatalogTests(SimpleTestCase):
     def test_dark_side_jacket_moves_towards_swatch_without_colour_spilling_into_scene(self):

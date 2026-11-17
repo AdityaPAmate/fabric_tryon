@@ -4,7 +4,7 @@ from io import BytesIO
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
-from scipy.ndimage import binary_propagation, distance_transform_edt, gaussian_filter
+from scipy.ndimage import binary_fill_holes, binary_propagation, distance_transform_edt, gaussian_filter
 
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 
@@ -52,7 +52,8 @@ def profile_midtone(profile):
     return None
 
 
-def align_portrait_colour(generation, view, target, *, region=None, soft_edges=False, local_exposure=False):
+def align_portrait_colour(generation, view, target, *, region=None, soft_edges=False,
+                          local_exposure=False, even_exposure=False):
     if target is None:
         return generation
     with Image.open(BytesIO(generation.image_bytes)) as source:
@@ -82,6 +83,12 @@ def align_portrait_colour(generation, view, target, *, region=None, soft_edges=F
     seeds = np.zeros_like(matching)
     seeds[y0:y1, x0:x1] = matching[y0:y1, x0:x1]
     connected = binary_propagation(seeds, mask=matching)
+    if even_exposure:
+        # Exposure can change the apparent hue enough to leave holes inside a
+        # solid garment. Recover cloth-like pixels surrounded by the garment.
+        interior = binary_fill_holes(connected) & ~connected
+        plausible = np.linalg.norm(_chroma(pixels) - _chroma(measured), axis=2) < 43
+        connected |= interior & plausible
     weight = connected.astype(np.float32)
     if soft_edges:
         # A safety polygon may cross an actual fold. Taper there to prevent its
@@ -93,10 +100,11 @@ def align_portrait_colour(generation, view, target, *, region=None, soft_edges=F
     if adjust_local:
         # The side pose can put most of the chest in shadow while the sleeve
         # is well lit. Adjust the broad exposure locally and keep fine detail.
-        sigma = max(3, width / 20)
+        sigma = max(3, width / (48 if even_exposure else 20))
         support = np.maximum(gaussian_filter(connected.astype(np.float32), sigma), .001)
         local = gaussian_filter(pixels * connected[:, :, None], (sigma, sigma, 0)) / support[:, :, None]
-        shift_field = np.clip((target - local) * .82, -limit, limit)
+        strength = .96 if even_exposure else .82
+        shift_field = np.clip((target - local) * strength, -limit, limit)
     else:
         shift_field = shift
     corrected = Image.fromarray(np.rint(np.clip(pixels + shift_field, 0, 255)).astype(np.uint8))

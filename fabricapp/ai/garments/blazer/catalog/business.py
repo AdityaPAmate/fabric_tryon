@@ -2,11 +2,12 @@
 from dataclasses import replace
 
 from PIL import Image
+import numpy as np
 
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.fabric.body_region import select_body_fabric_region
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
-from fabricapp.ai.garments.blazer.catalog.colour import align_portrait_colour, profile_midtone
+from fabricapp.ai.garments.blazer.catalog.colour import LUMA, align_portrait_colour, profile_midtone
 from fabricapp.ai.garments.blazer.catalog.business_details import (
     TROUSER_REGIONS, clean_trouser_motifs, colour_lapel_tie, colour_portrait_tie,
 )
@@ -110,7 +111,10 @@ def build_config(data, shot, seed):
         prompt.append(f'Use {background} behind the wearer. Light the outfit like a softly lit studio portrait.')
     if data.get('additional_style_note'):
         prompt.append(f"Styling: {data['additional_style_note']}. Preserve the jacket, fabric and framing.")
-    prompt.append(WHITE_LIGHT + ' Keep the shoulders, sleeves and trousers evenly lit. Output one photograph.')
+    prompt.append(WHITE_LIGHT + ' Keep the shoulders, sleeves and trousers evenly lit. '
+                  'The garments are clean, freshly pressed and dry. Keep uniform cloth between seams, '
+                  'with soft fold shadows and a consistent neutral exposure. Avoid mottled light, '
+                  'muddy patches, faded areas and sharp dark bands. Output one photograph.')
     config.update(prompt=' '.join(prompt), seed=seed, guidance=data.get('guidance', 7),
                   fabric_source_format='PNG', classified_recovery=True, safety_retry_count=0)
     if not ready:
@@ -130,7 +134,7 @@ def build_config(data, shot, seed):
                 outfit += f'The plain solid tie and plain solid trousers share the swatch base {shade}. '
             config['prompt'] = outfit + config['prompt']
             config['prompt'] += f' Match the swatch jacket midtone {shade} under diffuse white light.'
-    config['prompt_version'] = f'blazer-business-catalog-{"ready" if ready else "swatch"}-v2-{shot.key}'
+    config['prompt_version'] = f'blazer-business-catalog-{"ready" if ready else "swatch"}-v3-{shot.key}'
     return config
 
 
@@ -150,6 +154,18 @@ def business_midtone(data):
     return profile_midtone(business_profile(data))
 
 
+def has_uniform_swatch(profile):
+    colours = profile['colours']
+    if not colours or sum(item['coverage'] for item in colours) < .90:
+        return False
+    rgb = np.array([item['rgb'] for item in colours], dtype=np.float32)
+    light = rgb @ LUMA
+    chroma = rgb - light[:, None]
+    # A plain fabric photo can include considerable exposure variation while
+    # its chroma remains tightly grouped. Preserve higher-contrast woven prints.
+    return np.ptp(light) <= 70 and np.linalg.norm(np.ptp(chroma, axis=0)) <= 15
+
+
 def finish_shot(data, shot, generation):
     if shot.key == 'lapel':
         return colour_lapel_tie(generation, REFERENCES / '04_lapel_tie_mask.png',
@@ -158,10 +174,12 @@ def finish_shot(data, shot, generation):
         return generation
     profile = business_profile(data)
     generation = align_portrait_colour(generation, shot.key, profile_midtone(profile),
-                                       soft_edges=True, local_exposure=True)
+                                       soft_edges=True, local_exposure=True,
+                                       even_exposure=has_uniform_swatch(profile))
     target = business_base_colour(profile)
     generation = align_portrait_colour(generation, 'trousers', target,
-                                       region=TROUSER_REGIONS[shot.key], soft_edges=True, local_exposure=True)
+                                       region=TROUSER_REGIONS[shot.key], soft_edges=True,
+                                       local_exposure=True, even_exposure=True)
     generation = clean_trouser_motifs(generation, shot.key, target)
     return colour_portrait_tie(generation, shot.key, target)
 
