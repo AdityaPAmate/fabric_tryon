@@ -29,21 +29,32 @@ DETAIL_FRAMING = {
 }
 DETAIL_REGIONS = {
     **casual.DETAIL_REGIONS,
+    'side': ((.54, .29, .68, .40), ((.48, .21), (.64, .19), (.76, .24), (.79, .37),
+                                   (.72, .47), (.70, .53), (.58, .55), (.46, .56),
+                                   (.36, .53), (.32, .47), (.34, .36), (.40, .32))),
     'lapel': ((.77, .45, .89, .56), ((.65, .28), (.87, .19), (.99, .35), (.99, .63), (.65, .58))),
 }
-SIDE_TROUSER_REGION = (
-    (.45, .58, .56, .67),
-    ((.30, .53), (.73, .51), (.74, .63), (.68, .90), (.48, .92), (.33, .86), (.28, .64)),
-)
+TROUSER_REGIONS = {
+    'front': ((.38, .56, .61, .64),
+              ((.23, .52), (.77, .52), (.76, .68), (.74, .93), (.56, .94), (.50, .61),
+               (.44, .93), (.23, .93), (.21, .68))),
+    'side': ((.45, .58, .56, .67),
+             ((.35, .54), (.67, .55), (.69, .68), (.72, .86), (.70, .935), (.56, .934),
+              (.51, .90), (.43, .90), (.38, .77), (.34, .66))),
+    'back': ((.39, .55, .62, .64),
+             ((.23, .49), (.77, .49), (.83, .67), (.78, .94), (.55, .95), (.50, .69),
+              (.45, .95), (.23, .94), (.17, .68))),
+}
 
 
 def layout(product):
-    base = casual.layout(product)
-    # Fit the nearly square cuff reference without cropping away the wrist.
-    return replace(base, version='blazer-wedding-six-panel-3x4-v1', panels=base.panels[:3] + (
-        Panel('lapel', (1288, 0, 1800, 1000), 'cover'),
-        Panel('cuff', (1288, 1012, 1800, 1464), 'cover'),
-        Panel('pocket', (1288, 1476, 1800, 2400), 'cover'),
+    return replace(casual.layout(product), version='blazer-wedding-six-panel-3x4-v2', panels=(
+        Panel('front', (0, 0, 780, 2400), 'cover'),
+        Panel('side', (792, 0, 1158, 1194), 'cover'),
+        Panel('back', (792, 1206, 1158, 2400), 'cover'),
+        Panel('lapel', (1170, 0, 1800, 1006), 'cover'),
+        Panel('cuff', (1170, 1018, 1800, 1574), 'cover'),
+        Panel('pocket', (1170, 1586, 1800, 2400), 'cover'),
     ))
 
 
@@ -78,10 +89,10 @@ def finish_shot(data, shot, generation):
         return generation
     target = jacket_midtone(data)
     generation = align_portrait_colour(generation, shot.key, target,
-                                       region=DETAIL_REGIONS.get(shot.key), soft_edges=True)
-    if shot.key == 'side':
+                                       region=DETAIL_REGIONS.get(shot.key), soft_edges=True, local_exposure=True)
+    if shot.key in TROUSER_REGIONS:
         generation = align_portrait_colour(generation, 'trousers', target,
-                                           region=SIDE_TROUSER_REGION, soft_edges=True)
+                                           region=TROUSER_REGIONS[shot.key], soft_edges=True, local_exposure=True)
     return generation
 
 
@@ -93,11 +104,13 @@ def wedding_shots(shots):
 SWATCH_SHOTS = tuple(
     replace(shot, operation='swatch_composite',
             reference_mask=shot.reference.with_stem(f'{shot.reference.stem}_mask'),
-            swatch_body_only=True)
+            composite_relief=shot.reference.with_stem(f'{shot.reference.stem}_relief'),
+            swatch_original_orientation=True, natural_swatch_shading=True)
     if shot.key in ('cuff', 'pocket') else shot
     for shot in wedding_shots(casual.SHOTS)
 )
 DEFINITION = replace(casual.DEFINITION, edition='wedding-v1', shots=SWATCH_SHOTS,
-                     build_config=build_config, layout=layout, finish_shot=finish_shot)
+                     build_config=build_config, layout=layout, finish_shot=finish_shot,
+                     swatch_colour=jacket_midtone)
 READY_MADE_DEFINITION = replace(DEFINITION, finish_shot=None,
-                                shots=wedding_shots(casual.READY_MADE_DEFINITION.shots))
+                                shots=wedding_shots(casual.READY_MADE_DEFINITION.shots), swatch_colour=None)

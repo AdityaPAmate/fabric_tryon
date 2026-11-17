@@ -52,7 +52,7 @@ def profile_midtone(profile):
     return None
 
 
-def align_portrait_colour(generation, view, target, *, region=None, soft_edges=False):
+def align_portrait_colour(generation, view, target, *, region=None, soft_edges=False, local_exposure=False):
     if target is None:
         return generation
     with Image.open(BytesIO(generation.image_bytes)) as source:
@@ -65,16 +65,16 @@ def align_portrait_colour(generation, view, target, *, region=None, soft_edges=F
     ImageDraw.Draw(area).polygon([(round(x * width), round(y * height)) for x, y in polygon], fill=1)
     eligible = (np.linalg.norm(_chroma(pixels) - _chroma(target), axis=2) <= 32)
     area = np.asarray(area)
-    local_exposure = soft_edges and view in ('side', 'trousers')
-    lightness_range = 120 if local_exposure else 64
+    adjust_local = local_exposure or (soft_edges and view == 'side')
+    lightness_range = 120 if adjust_local else 64
     eligible &= (np.abs((pixels - target) @ LUMA) <= lightness_range) & area
     sample_selection = eligible[y0:y1, x0:x1]
     if sample_selection.mean() < .55:
         return generation
     measured = np.median(pixels[y0:y1, x0:x1][sample_selection], axis=0)
-    limit = 76 if local_exposure else 36
+    limit = 100 if local_exposure else (76 if adjust_local else 36)
     shift = np.clip(target - measured, -limit, limit)
-    if np.max(np.abs(shift)) < 4:
+    if np.max(np.abs(shift)) < 4 and not local_exposure:
         return generation
 
     # Correct connected cloth of the measured shade. Preserve folds and other print hues.
@@ -90,7 +90,7 @@ def align_portrait_colour(generation, view, target, *, region=None, soft_edges=F
         weight *= np.clip(distance_transform_edt(area) / feather, 0, 1)
     matte = Image.fromarray(np.rint(weight * 255).astype(np.uint8)).filter(
         ImageFilter.GaussianBlur(max(1, width / 190) if soft_edges else 1))
-    if local_exposure:
+    if adjust_local:
         # The side pose can put most of the chest in shadow while the sleeve
         # is well lit. Adjust the broad exposure locally and keep fine detail.
         sigma = max(3, width / 20)
