@@ -1,6 +1,6 @@
 """Public AI entry point used by the API view."""
 
-from fabricapp.ai.scene.garment_lighting import apply_garment_lighting
+from fabricapp.ai.scene.garment_lighting import append_garment_lighting, apply_garment_lighting
 from fabricapp.timing import timed_stage
 from fabricapp.ai.providers.cloudflare_engine import (
     CloudflareGenerationError,
@@ -105,8 +105,11 @@ def generate_tryon_image(
     except PromptRoutingError as exc:
         raise CloudflareGenerationError(str(exc)) from exc
 
-    prompt_config = apply_garment_lighting(prompt_config, garment_type)
-    catalog_config = options.get('_catalog_config')
+    catalog_config = options.get('_catalog_config') or {}
+    if 'lighting' not in catalog_config:
+        prompt_config = apply_garment_lighting(prompt_config, garment_type)
+    elif catalog_config['lighting']:
+        prompt_config = append_garment_lighting(prompt_config, *catalog_config['lighting'])
     if catalog_config:
         prompt_config = dict(prompt_config)
         if 'output_dimensions' in catalog_config:

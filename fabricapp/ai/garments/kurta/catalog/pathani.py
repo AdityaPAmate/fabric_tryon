@@ -1,18 +1,22 @@
 """Six-panel Pathani catalog for fabric swatches and finished garments."""
 from dataclasses import replace
 
+from PIL import Image
+
 from fabricapp.ai.fabric.body_region import select_body_fabric_region
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
-from fabricapp.ai.garments.kurta.catalog import plain
+from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
 from fabricapp.ai.garments.kurta.catalog.pathani_colour import match_cloth_exposure
-from fabricapp.ai.garments.kurta.catalog.sherwani import SCENERY, WHITE_LIGHT
-from fabricapp.ai.garments.kurta.catalog.sherwani_colour import solid_swatch_rgb
+from fabricapp.ai.fabric.solid_swatch import solid_swatch_rgb
 from fabricapp.ai.garments.kurta.details import SLEEVES_FOLDED
 from fabricapp.ai.pipeline.scenario_composer import _person_description
+from fabricapp.ai.scene.catalog_backgrounds import CATALOG_SCENERY
 from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel, Shot
 
-REFERENCES = plain.REFERENCES.parent / 'pathani'
+REFERENCES = CATALOG_REFERENCE_DIR / 'kurta' / 'pathani'
+IDENTITY_VIEWS = {'front', 'side'}
+PORTRAITS = IDENTITY_VIEWS | {'back'}
 FRAMING = {
     'front': 'Keep the full-length front pose, from head to shoes, and show the chest and the knee-length hem.',
     'side': 'Keep the full-length side pose, including both shoes. Keep the side seam and hem visible. '
@@ -47,8 +51,8 @@ READY_CROPS = {
 }
 SHOTS = tuple(
     Shot(key, description, 'template_edit', framing, reference=REFERENCES / f'{index:02}_{key}.png',
-         identity_from='request' if key in plain.IDENTITY_VIEWS else None,
-         scenario='pose_reference' if key in plain.IDENTITY_VIEWS else 'person_photo')
+         identity_from='request' if key in IDENTITY_VIEWS else None,
+         scenario='pose_reference' if key in IDENTITY_VIEWS else 'person_photo')
     for index, (key, framing, description) in enumerate((
         ('front', 'full_body', 'full-length front view'),
         ('side', 'side_full_body', 'full-length side view'),
@@ -57,6 +61,14 @@ SHOTS = tuple(
         ('cuff', 'cuff_detail', 'diagonal sleeve and cuff'),
         ('pocket', 'pocket_detail', 'chest flap pocket'),
     ), start=1)
+)
+
+
+WHITE_LIGHT = (
+    ' FINAL LIGHTING: Illuminate the subject and setting only with broad, diffused neutral white light '
+    'and neutral camera white balance. No direct sunlight, warm light, golden-hour glow or coloured reflections. '
+    'Match the source fabric hue, saturation, midtone brightness and motif contrast. '
+    'Keep natural soft fold shadows and the selected fabric finish. No saturation boost or orange colour cast.'
 )
 
 
@@ -71,9 +83,17 @@ def layout(_product):
     ))
 
 
+def reference_output_dimensions(data, shot):
+    with Image.open(shot.reference) as reference:
+        width, height = reference.size
+    max_side = 768 if data.get('options', {}).get('draft_mode') else 1536
+    scale = max_side / max(width, height)
+    return tuple(max(256, round(side * scale / 32) * 32) for side in (width, height))
+
+
 def build_config(data, shot, seed):
     ready = data.get('garment_image') is not None
-    portrait = shot.key in plain.PORTRAITS
+    portrait = shot.key in PORTRAITS
     details = data.get('garment_details') or ()
     prompt = ['Edit image 0 in place. Keep its camera angle, perspective and subject scale.', FRAMING[shot.key]]
     if ready and portrait:
@@ -111,14 +131,14 @@ def build_config(data, shot, seed):
             prompt.append('Drape the requested lightweight matching stole clear of the collar and chest pockets.')
         elif 'no_dupatta' in details or not ready:
             prompt.append('Keep the shoulders and chest free of a stole or scarf.')
-        scene = SCENERY.get(data.get('background'))
+        scene = CATALOG_SCENERY.get(data.get('background'))
         if scene:
             prompt.append(f'Use {scene} behind the subject.')
         if data.get('additional_style_note'):
             prompt.append(f"Styling direction: {data['additional_style_note']}. Preserve source cloth and framing.")
 
     config = {'prompt': ' '.join(prompt), 'seed': seed, 'guidance': data.get('guidance', 7),
-              'output_dimensions': plain.reference_output_dimensions(data, shot),
+              'output_dimensions': reference_output_dimensions(data, shot),
               'fabric_source_format': 'PNG', 'classified_recovery': True, 'safety_retry_count': 0}
     if not ready:
         crop, selection = select_body_fabric_region(data)

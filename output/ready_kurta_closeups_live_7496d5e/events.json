@@ -1,0 +1,116 @@
+[
+  {
+    "view": "collar",
+    "file": "collar.jpeg",
+    "trace": {
+      "version": "kurta-trace-v1",
+      "garment_type": "kurta",
+      "garment_style": "plain",
+      "prompt_version": "kurta-plain-catalog-ready-v4-collar",
+      "request_id": "30c4b35930574401bc0b64748dfdb64f",
+      "created_at": "2026-11-13T10:50:29.385116+00:00",
+      "deployment_revision": "unknown",
+      "model": "@cf/black-forest-labs/flux-2-klein-4b",
+      "scenario": "person_photo",
+      "requested_seed": 42,
+      "effective_seed": 42,
+      "guidance": 7,
+      "width": 1088,
+      "height": 1536,
+      "input_hashes": {
+        "input_image_0": "ebfdbb23afbe869330ad4cd208774812fe88bd469491b4acd1a87a3f95b838fa",
+        "input_image_1": "be10979a53b0e1758161543125aa862e245bdce43f4c20e4aa10348b67a9fad9"
+      },
+      "attempts": [
+        {
+          "seed": 42,
+          "network_attempt": 1,
+          "fallback_prompt": false,
+          "prompt_sha256": "2225705408d0594d0179f1369431e52ab1ad484e44803f2d4f4a8ab21f6c8f5b",
+          "request_sha256": "23de9cff469c1c650e476b840c01d4bd776e77c62a32748cb80a39849fa9ce4a",
+          "http_status": 200,
+          "cf_ray": "a59d3918f81447d2-BOM",
+          "provider_date": "Fri, 13 Nov 2026 10:51:50 GMT",
+          "duration_ms": 5281,
+          "outcome": "provider_success"
+        }
+      ]
+    }
+  },
+  {
+    "view": "cuff",
+    "file": "cuff.jpeg",
+    "trace": {
+      "version": "kurta-trace-v1",
+      "garment_type": "kurta",
+      "garment_style": "plain",
+      "prompt_version": "kurta-plain-catalog-ready-v4-cuff",
+      "request_id": "5252d113fa4e4dfa9a7d0ebbb9187c75",
+      "created_at": "2026-11-13T10:50:34.854490+00:00",
+      "deployment_revision": "unknown",
+      "model": "@cf/black-forest-labs/flux-2-klein-4b",
+      "scenario": "person_photo",
+      "requested_seed": 42,
+      "effective_seed": 42,
+      "guidance": 7,
+      "width": 1216,
+      "height": 1536,
+      "input_hashes": {
+        "input_image_0": "f9b75ca8ed8f55f55564d2647aba6db35fd920cea2129e9f8ed860c9920611be",
+        "input_image_1": "65b6744279f5b6b73376f753cdce58c55ec93346191ce3b111623590068c6b19"
+      },
+      "attempts": [
+        {
+          "seed": 42,
+          "network_attempt": 1,
+          "fallback_prompt": false,
+          "prompt_sha256": "995ef171fa42cc7643881fa69f3bdc716d56fac3d2218c9e32071ef3cbba2c56",
+          "request_sha256": "ad9fc4dbbeea197b0c5d7d3193c727da9c5a49c75c55025600db5122712f5fc3",
+          "http_status": 200,
+          "cf_ray": "a59d393aaa333ffb-BOM",
+          "provider_date": "Fri, 13 Nov 2026 10:51:56 GMT",
+          "duration_ms": 6406,
+          "outcome": "provider_success"
+        }
+      ]
+    }
+  },
+  {
+    "view": "side_slit",
+    "file": "side_slit.jpeg",
+    "trace": {
+      "version": "kurta-trace-v1",
+      "garment_type": "kurta",
+      "garment_style": "plain",
+      "prompt_version": "kurta-plain-catalog-ready-v4-side_slit",
+      "request_id": "4a39bb7011d645fe944acecb83b73e08",
+      "created_at": "2026-11-13T10:50:41.503586+00:00",
+      "deployment_revision": "unknown",
+      "model": "@cf/black-forest-labs/flux-2-klein-4b",
+      "scenario": "person_photo",
+      "requested_seed": 42,
+      "effective_seed": 42,
+      "guidance": 7,
+      "width": 992,
+      "height": 1536,
+      "input_hashes": {
+        "input_image_0": "bab7f45700cb224865e4709173672a9a738bb0b5ed0f0d3032833342801ced42",
+        "input_image_1": "9a2bfa14aed514b28a605292888f5dc1dc1eb01e6f253b646b37205083428bd7"
+      },
+      "attempts": [
+        {
+          "seed": 42,
+          "network_attempt": 1,
+          "fallback_prompt": false,
+          "prompt_sha256": "5afbd4a0629fb4cec0aa11bc79ff07208c8986b76245927958d7352500c2c5c0",
+          "request_sha256": "668fef993fe323029df45c859231228afca9f2121faa3ce31272804164a6c8a6",
+          "http_status": 200,
+          "cf_ray": "a59d39644a555644-BOM",
+          "provider_date": "Fri, 13 Nov 2026 10:52:02 GMT",
+          "duration_ms": 5672,
+          "outcome": "provider_success"
+        }
+      ]
+    }
+  }
+]

@@ -1,16 +1,16 @@
 """Casual Blazer catalog with one model reference per photograph."""
 from dataclasses import replace
 
+import numpy as np
+from PIL import Image
+
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
-from fabricapp.ai.garments.blazer.catalog.business import (
-    REFERENCES as BUSINESS_REFERENCES, has_uniform_swatch, layout as blazer_layout, output_dimensions, validate_request,
-)
-from fabricapp.ai.garments.blazer.catalog.colour import align_portrait_colour, jacket_midtone, profile_midtone
+from fabricapp.ai.garments.blazer.catalog.colour import LUMA, align_portrait_colour, jacket_midtone, profile_midtone
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
-from fabricapp.ai.garments.kurta.catalog.sherwani import SCENERY
-from fabricapp.catalog_engine.contracts import CatalogDefinition, Shot
+from fabricapp.ai.scene.catalog_backgrounds import CATALOG_SCENERY
+from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel, Shot
 
 
 REFERENCES = CATALOG_REFERENCE_DIR / 'blazer' / 'casual'
@@ -50,17 +50,61 @@ SHOTS = tuple(
 )
 
 
-def layout(product):
-    return replace(blazer_layout(product), version='blazer-casual-six-panel-3x4-v1')
+def layout(_product):
+    return Layout('blazer-casual-six-panel-3x4-v1', (1800, 2400), (
+        Panel('front', (0, 0, 800, 2400), 'cover'),
+        Panel('side', (812, 0, 1276, 1194), 'cover'),
+        Panel('back', (812, 1206, 1276, 2400), 'cover'),
+        Panel('lapel', (1288, 0, 1800, 940), 'cover'),
+        Panel('cuff', (1288, 952, 1800, 1592), 'cover'),
+        Panel('pocket', (1288, 1604, 1800, 2400), 'cover'),
+    ))
 
 
-def build_config(data, shot, seed, *, style='casual', detail_framing=DETAIL_FRAMING,
-                 cut='Keep the soft, unstructured notch-lapel cut and the open front wherever visible.',
-                 outfit='Keep the casual crew-neck shirt, dark trousers and clean white sneakers as separate garments.'):
+def output_dimensions(data, shot):
+    limit = 768 if data.get('options', {}).get('draft_mode') else 1536
+    if shot.operation == 'crop':
+        left, top, right, bottom = next(panel.box for panel in layout({}).panels if panel.shot == shot.key)
+        width, height = right - left, bottom - top
+    else:
+        with Image.open(shot.reference) as image:
+            width, height = image.size
+    scale = limit / max(width, height)
+    return tuple(max(256, round(side * scale / 32) * 32) for side in (width, height))
+
+
+def validate_request(data):
+    crop = data.get('options', {}).get('fabric_crop_box')
+    if crop:
+        source = data['fabric_image']
+        position = source.tell()
+        try:
+            source.seek(0)
+            with Image.open(source) as image:
+                if crop[2] > image.width or crop[3] > image.height:
+                    return {'options': {'fabric_crop_box': 'Choose a crop inside the original fabric image.'}}
+        finally:
+            source.seek(position)
+    return None
+
+
+def has_uniform_swatch(profile):
+    colours = profile['colours']
+    if not colours or sum(item['coverage'] for item in colours) < .90:
+        return False
+    rgb = np.array([item['rgb'] for item in colours], dtype=np.float32)
+    light = rgb @ LUMA
+    chroma = rgb - light[:, None]
+    # A plain fabric photo can include considerable exposure variation while
+    # its chroma remains tightly grouped. Preserve higher-contrast woven prints.
+    return np.ptp(light) <= 70 and np.linalg.norm(np.ptp(chroma, axis=0)) <= 15
+
+
+def build_config(data, shot, seed):
     ready = data.get('garment_image') is not None
     portrait = shot.key in PORTRAIT_VIEWS
     prompt = [
-        f'Edit image 0 to make one {style.title()} Blazer catalog photograph: {shot.description}.',
+        f'Edit image 0 to make one Casual Blazer catalog photograph: {shot.description}.',
         'Preserve its camera angle, crop, pose and subject scale. Fill the frame with the photograph.',
     ]
     if ready and portrait:
@@ -77,10 +121,10 @@ def build_config(data, shot, seed, *, style='casual', detail_framing=DETAIL_FRAM
         prompt.append(
             'Image 1 is the swatch. Apply its exact colour, weave and pattern only to the blazer cloth, '
             'including visible lapel, sleeve and pocket flap. Preserve seams, buttons, skin and backdrop. '
-            + cut
+            'Keep the soft, unstructured notch-lapel cut and the open front wherever visible.'
         )
     if portrait:
-        prompt.append(outfit)
+        prompt.append('Keep the casual crew-neck shirt, dark trousers and clean white sneakers as separate garments.')
         if data.get('gender'):
             prompt.append('Subject: ' + _person_description(data['gender'], data.get('body_type')) + '.')
         if shot.identity_from == 'request' and shot.key == 'back' and (
@@ -93,20 +137,20 @@ def build_config(data, shot, seed, *, style='casual', detail_framing=DETAIL_FRAM
             prompt.append('Use image 2 for the wearer’s identity and build in the pose from image 0.')
         elif shot.identity_from == 'request' and (data.get('face_image') or data.get('face_choice')):
             prompt.append('Use image 2 for the wearer’s facial features, hair and skin tone.')
-        scene = SCENERY.get(data.get('background'))
+        scene = CATALOG_SCENERY.get(data.get('background'))
         if scene:
             prompt.append(f'Use {scene} behind the wearer, with diffuse neutral white light on the outfit.')
         if data.get('additional_style_note'):
             prompt.append(f"Styling: {data['additional_style_note']}. Preserve the jacket, fabric and crop.")
     else:
-        prompt.append(detail_framing[shot.key])
+        prompt.append(DETAIL_FRAMING[shot.key])
         prompt.append('Edit the jacket in place. Continue the source weave and print around folds and '
                       'under the seams. Keep natural depth and shading in one continuous photograph.')
     if shot.key == 'back':
         prompt.append('Keep the face completely hidden and the jacket back continuously visible. '
                       'Show the rear seam and any actual rear vent. Front lapels, pockets, buttons '
                       'and buttonholes stay on the front of the jacket.')
-    if style == 'casual' and shot.key == 'side':
+    if shot.key == 'side':
         prompt.append('Use a broad neutral fill over the whole jacket, including the far shoulder, front panel '
                       'and both sleeves. Keep only soft shadows at folds and seams. Avoid hard dark bands, '
                       'coloured reflections and isolated bright spots across the cloth.')
@@ -119,14 +163,13 @@ def build_config(data, shot, seed, *, style='casual', detail_framing=DETAIL_FRAM
         'classified_recovery': True, 'safety_retry_count': 0,
     }
     if not ready:
-        config = apply_fabric_conditioning(config, data, 'blazer', style,
+        config = apply_fabric_conditioning(config, data, 'blazer', 'casual',
                                            match_pattern_colours=True, lead_with_edit=True)
         target = profile_midtone(config['fabric_colour_reference']) if 'fabric_colour_reference' in config else None
         if target is not None:
             shade = '#%02X%02X%02X' % tuple(round(float(channel)) for channel in target)
             config['prompt'] += f' Match the common swatch jacket midtone {shade}.'
-    version = 'v3' if style == 'casual' else 'v1'
-    config['prompt_version'] = f'blazer-{style}-catalog-{"ready" if ready else "swatch"}-{version}-{shot.key}'
+    config['prompt_version'] = f'blazer-casual-catalog-{"ready" if ready else "swatch"}-v3-{shot.key}'
     return config
 
 
@@ -141,14 +184,13 @@ def finish_shot(data, shot, generation):
                                  even_exposure=shot.key == 'side' and has_uniform_swatch(profile))
 
 
-# The pocket photograph is byte-identical to the Business pocket reference.
-DETAIL_ASSETS = {'lapel': REFERENCES, 'pocket': BUSINESS_REFERENCES}
+COMPOSITE_VIEWS = {'lapel', 'pocket'}
 SWATCH_SHOTS = tuple(
     replace(shot, operation='swatch_composite', swatch_original_orientation=True,
             natural_swatch_shading=True,
-            reference_mask=DETAIL_ASSETS[shot.key] / f'{shot.reference.stem}_mask.png',
-            composite_relief=DETAIL_ASSETS[shot.key] / f'{shot.reference.stem}_relief.png')
-    if shot.key in DETAIL_ASSETS else shot
+            reference_mask=REFERENCES / f'{shot.reference.stem}_mask.png',
+            composite_relief=REFERENCES / f'{shot.reference.stem}_relief.png')
+    if shot.key in COMPOSITE_VIEWS else shot
     for shot in SHOTS
 )
 DEFINITION = CatalogDefinition('blazer', 'casual-v1', SWATCH_SHOTS, build_config, layout,

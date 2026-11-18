@@ -1,0 +1,35 @@
+{
+  "version": "kurti_pant-trace-v1",
+  "garment_type": "kurti_pant",
+  "garment_style": null,
+  "prompt_version": "kurti-pant-catalog-v3-front",
+  "request_id": "2bb90fcb368748ca854fa7322db584b8",
+  "created_at": "2026-11-12T08:28:25.882674+00:00",
+  "deployment_revision": "unknown",
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "scenario": "pose_reference",
+  "requested_seed": 42,
+  "effective_seed": 42,
+  "guidance": 7,
+  "width": 608,
+  "height": 1536,
+  "input_hashes": {
+    "input_image_0": "dd7c30d6b25c993a90b10e2fc8a662303009146933bd630a229e0795a631712a",
+    "input_image_1": "58d78f964d73da737e78d3c86529f4074576dd57ea1c15b48d2c0634591f2ff1",
+    "input_image_2": "0f7e69ac7835fb27bc84358e575b9b9f139fe8ca748cad40dda15804f3978b3e"
+  },
+  "attempts": [
+    {
+      "seed": 42,
+      "network_attempt": 1,
+      "fallback_prompt": false,
+      "prompt_sha256": "8956861cef71c69514269ba3dd60d49dacbd849c77ac5c2fd5849f02ee0d331f",
+      "request_sha256": "795a6338b1e619e79db98482eb4e30ce1536c6167bcfdaba19084b70096ed803",
+      "http_status": 200,
+      "cf_ray": "a5942b9c6c9c3b4c-BOM",
+      "provider_date": "Thu, 12 Nov 2026 08:29:49 GMT",
+      "duration_ms": 8656,
+      "outcome": "provider_success"
+    }
+  ]
+}

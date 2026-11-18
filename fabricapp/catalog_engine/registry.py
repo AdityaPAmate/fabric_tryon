@@ -1,6 +1,5 @@
 """Explicit allowlist: request data never becomes an import path."""
 from importlib import import_module
-from fabricapp.catalog_engine.legacy import make_definition
 
 CUSTOM = {
     ('shirt', 'classic-v1'): 'fabricapp.ai.garments.shirt.catalog.definition',
@@ -13,6 +12,11 @@ CUSTOM = {
     ('blazer', 'business-v1'): 'fabricapp.ai.garments.blazer.catalog.business',
     ('blazer', 'casual-v1'): 'fabricapp.ai.garments.blazer.catalog.casual',
     ('blazer', 'wedding-v1'): 'fabricapp.ai.garments.blazer.catalog.wedding',
+    ('blazer', 'classic-v1'): 'fabricapp.ai.garments.blazer.catalog.classic',
+    ('kurta', 'classic-v1'): 'fabricapp.ai.garments.kurta.catalog.classic',
+    ('kurti_pant', 'classic-v1'): 'fabricapp.ai.garments.kurti_pant.catalog.classic',
+    ('pant', 'classic-v1'): 'fabricapp.ai.garments.pant.catalog.classic',
+    ('saree', 'classic-v1'): 'fabricapp.ai.garments.saree.catalog.classic',
     ('ready_made', 'ready-made-v1'): 'fabricapp.catalog_engine.ready_made',
 }
 DEFAULTS = {'shirt': 'classic-v1', 'saree': 'editorial-v1',
@@ -29,8 +33,6 @@ def get_definition(garment, edition=None):
     module = CUSTOM.get((garment, edition))
     if module:
         return import_module(module).DEFINITION
-    if garment in DEFAULTS and garment != 'shirt' and edition == 'classic-v1':
-        return make_definition(garment)
     raise ValueError(f"Unsupported catalog edition '{edition}' for '{garment}'")
 
 

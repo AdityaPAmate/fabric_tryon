@@ -1,0 +1,194 @@
+{
+  "prompt": "COLOUR REFERENCE: use image 1 as the colour authority for the kurti. Anchor the dominant cloth midtone to warm ivory-cream (#E7DCC8). Sampled colours from image 1: #817A75, #505C66, #2F353D, #BDB2A5. Use the swatch pixels to keep each colour in its original motifs, checks, stripes or borders. Match the swatch lightness and saturation in diffuse midtones across the garment. Keep natural fold shadows and highlights while avoiding a colour cast from the scene. Edit image 0 into one product photograph: full-length rear view with the head and torso facing away, showing the entire back and pant hems. Use image 0 for the garment cut, camera angle, pose and fold geometry. Image 1 is the sole source for the kurti base cloth. Apply its real base colour, weave, motifs and repeat scale across all visible kurti fabric, including the neckline, sleeves, cuffs, side seams and hem wherever visible. Replace the template textile completely, including pale patches in folds. Preserve the sewn floral embroidery shown at the neckline and cuffs of image 0 as garment construction, using image 1 for the cloth underneath. Keep any visible pants plain opaque solid white, separate from the printed kurti. Keep the sleeve length shown in image 0. Retain the reference model and viewing angle. Keep the outfit free of a dupatta. Include the complete kurti hem, both ankles and shoes in the frame. Retain the reference setting. Use natural cloth shading. Produce one opaque clothing photograph without text, a watermark or a collage. FINAL BACK VIEW LIGHTING: keep the setting and pose in image 0. Light the back of the kurti with soft, neutral daylight from the camera side. The broad cloth areas between folds should match the lightness, hue and saturation of image 1. Reserve darker shading for individual folds and seams. Keep the ambient background warmth out of the kurti fabric.",
+  "seed": 42,
+  "guidance": 7,
+  "output_dimensions": [
+    928,
+    1536
+  ],
+  "fabric_source_format": "PNG",
+  "classified_recovery": true,
+  "safety_retry_count": 0,
+  "fabric_type": "unspecified",
+  "fabric_colour_reference": {
+    "sample_size": [
+      252,
+      256
+    ],
+    "crop_box": null,
+    "method": "original RGB, nearest sampling, median-cut palette",
+    "colours": [
+      {
+        "rgb": [
+          232,
+          221,
+          201
+        ],
+        "hex": "#E8DDC9",
+        "name": "warm ivory-cream",
+        "coverage": 0.1338
+      },
+      {
+        "rgb": [
+          233,
+          222,
+          202
+        ],
+        "hex": "#E9DECA",
+        "name": "warm ivory-cream",
+        "coverage": 0.1187
+      },
+      {
+        "rgb": [
+          231,
+          220,
+          200
+        ],
+        "hex": "#E7DCC8",
+        "name": "warm ivory-cream",
+        "coverage": 0.1047
+      },
+      {
+        "rgb": [
+          234,
+          223,
+          203
+        ],
+        "hex": "#EADFCB",
+        "name": "warm ivory-cream",
+        "coverage": 0.0796
+      },
+      {
+        "rgb": [
+          227,
+          216,
+          197
+        ],
+        "hex": "#E3D8C5",
+        "name": "light orange-brown",
+        "coverage": 0.0714
+      },
+      {
+        "rgb": [
+          230,
+          219,
+          199
+        ],
+        "hex": "#E6DBC7",
+        "name": "warm ivory-cream",
+        "coverage": 0.0703
+      },
+      {
+        "rgb": [
+          129,
+          122,
+          117
+        ],
+        "hex": "#817A75",
+        "name": "muted orange-brown",
+        "coverage": 0.0664
+      },
+      {
+        "rgb": [
+          80,
+          92,
+          102
+        ],
+        "hex": "#505C66",
+        "name": "muted blue",
+        "coverage": 0.0662
+      },
+      {
+        "rgb": [
+          223,
+          213,
+          194
+        ],
+        "hex": "#DFD5C2",
+        "name": "light orange-brown",
+        "coverage": 0.0657
+      },
+      {
+        "rgb": [
+          47,
+          53,
+          61
+        ],
+        "hex": "#2F353D",
+        "name": "deep muted blue",
+        "coverage": 0.0555
+      },
+      {
+        "rgb": [
+          229,
+          218,
+          198
+        ],
+        "hex": "#E5DAC6",
+        "name": "light orange-brown",
+        "coverage": 0.0477
+      },
+      {
+        "rgb": [
+          235,
+          225,
+          206
+        ],
+        "hex": "#EBE1CE",
+        "name": "warm ivory-cream",
+        "coverage": 0.0297
+      },
+      {
+        "rgb": [
+          189,
+          178,
+          165
+        ],
+        "hex": "#BDB2A5",
+        "name": "muted orange-brown",
+        "coverage": 0.028
+      },
+      {
+        "rgb": [
+          233,
+          222,
+          204
+        ],
+        "hex": "#E9DECC",
+        "name": "warm ivory-cream",
+        "coverage": 0.0102
+      },
+      {
+        "rgb": [
+          228,
+          220,
+          203
+        ],
+        "hex": "#E4DCCB",
+        "name": "warm ivory-cream",
+        "coverage": 0.0094
+      },
+      {
+        "rgb": [
+          230,
+          222,
+          204
+        ],
+        "hex": "#E6DECC",
+        "name": "warm ivory-cream",
+        "coverage": 0.0081
+      },
+      {
+        "rgb": [
+          232,
+          221,
+          203
+        ],
+        "hex": "#E8DDCB",
+        "name": "warm ivory-cream",
+        "coverage": 0.0073
+      }
+    ]
+  },
+  "prompt_version": "kurti-pant-catalog-v4-back"
+}

@@ -11,7 +11,7 @@ from rest_framework.test import APIClient
 from fabricapp.ai.garments.blazer.catalog.casual import REFERENCES as CASUAL_REFERENCES
 from fabricapp.ai.garments.blazer.catalog.wedding import REFERENCES as WEDDING_REFERENCES
 from fabricapp.ai.garments.blazer.catalog.colour import align_portrait_colour, jacket_midtone
-from fabricapp.ai.garments.kurta.catalog.sherwani import SCENERY
+from fabricapp.ai.scene.catalog_backgrounds import CATALOG_SCENERY
 from fabricapp.ai.fabric.fabric_material import FABRIC_TYPES
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
 from fabricapp.catalog import CatalogRequestSerializer
@@ -75,7 +75,7 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
             self.assertEqual(call.kwargs['face_choice'], 'vihaan')
             self.assertIn('plus-size', config['prompt'])
             self.assertIn('dense short plush pile', config['prompt'])
-            self.assertIn(SCENERY['royal_courtyard'], config['prompt'])
+            self.assertIn(CATALOG_SCENERY['royal_courtyard'], config['prompt'])
             self.assertIn('Keep a formal tie', config['prompt'])
             self.assertIn('Replace the original reference trousers', config['prompt'])
             self.assertIn('diffused neutral white light', config['prompt'])
@@ -128,7 +128,7 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
     def test_supported_material_background_and_uploaded_face_options(self):
         definition = get_definition('blazer', 'business-v1')
         for material, (background, scenery), gender in zip(
-            FABRIC_TYPES, SCENERY.items(), ('women', 'men', 'boy', 'girl'),
+            FABRIC_TYPES, CATALOG_SCENERY.items(), ('women', 'men', 'boy', 'girl'),
         ):
             with self.subTest(material=material, background=background, gender=gender):
                 serializer = CatalogRequestSerializer(data={

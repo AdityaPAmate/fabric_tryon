@@ -1,0 +1,144 @@
+[
+  {
+    "view": "collar",
+    "file": "collar.jpeg",
+    "size": [
+      1088,
+      1536
+    ],
+    "trace": {
+      "version": "kurta-trace-v1",
+      "garment_type": "kurta",
+      "garment_style": "plain",
+      "prompt_version": "kurta-plain-catalog-v3-collar",
+      "request_id": "4d5447d564814987bd582aa683416a08",
+      "created_at": "2026-11-13T07:24:52.651051+00:00",
+      "deployment_revision": "unknown",
+      "model": "@cf/black-forest-labs/flux-2-klein-4b",
+      "scenario": "person_photo",
+      "requested_seed": 42,
+      "effective_seed": 42,
+      "guidance": 7,
+      "width": 1088,
+      "height": 1536,
+      "input_hashes": {
+        "input_image_0": "ebfdbb23afbe869330ad4cd208774812fe88bd469491b4acd1a87a3f95b838fa",
+        "input_image_1": "ec205e72e78472d73a51c1efea61b9f2dad62b1b328c9d863402076396b75c27"
+      },
+      "attempts": [
+        {
+          "seed": 42,
+          "network_attempt": 1,
+          "fallback_prompt": false,
+          "prompt_sha256": "27b43f0e600a93df40cc4a65ae914f029026bd02c35afc8b789d6888bce0b101",
+          "request_sha256": "9deb0296ad185ca18546388b50c89bb68ab52806a7fc33a23fc76da4154b251e",
+          "http_status": 200,
+          "cf_ray": "a59c0be6eaf346c0-BOM",
+          "provider_date": "Fri, 13 Nov 2026 07:26:16 GMT",
+          "duration_ms": 7922,
+          "outcome": "provider_success"
+        }
+      ],
+      "fabric_region": "body",
+      "fabric_region_selection": "detected_body_crop",
+      "fabric_crop_box": [
+        0,
+        0,
+        1200,
+        1422
+      ]
+    }
+  },
+  {
+    "view": "cuff",
+    "file": "cuff.jpeg",
+    "size": [
+      1216,
+      1536
+    ],
+    "trace": {
+      "version": "kurta-trace-v1",
+      "garment_type": "kurta",
+      "garment_style": "plain",
+      "prompt_version": "kurta-plain-catalog-v3-cuff",
+      "request_id": "a160817dc27442ad9d4955b529de2668",
+      "created_at": "2026-11-13T07:25:00.955525+00:00",
+      "deployment_revision": "unknown",
+      "model": "@cf/black-forest-labs/flux-2-klein-4b",
+      "scenario": "person_photo",
+      "requested_seed": 42,
+      "effective_seed": 42,
+      "guidance": 7,
+      "width": 1216,
+      "height": 1536,
+      "input_hashes": {
+        "input_image_0": "f9b75ca8ed8f55f55564d2647aba6db35fd920cea2129e9f8ed860c9920611be",
+        "input_image_1": "ec205e72e78472d73a51c1efea61b9f2dad62b1b328c9d863402076396b75c27"
+      },
+      "attempts": [
+        {
+          "seed": 42,
+          "network_attempt": 1,
+          "fallback_prompt": false,
+          "prompt_sha256": "3bafa6d4b9883581810662de9bec0635486db18df96a279b0fac138a8dfef359",
+          "request_sha256": "383547beab4c7c3985bb424e4dd8af3cef81a069cdbe7d125dc68a7bb1270fde",
+          "http_status": 200,
+          "cf_ray": "a59c0c1a592284d1-BOM",
+          "provider_date": "Fri, 13 Nov 2026 07:26:23 GMT",
+          "duration_ms": 6859,
+          "outcome": "provider_success"
+        }
+      ],
+      "fabric_region": "body",
+      "fabric_region_selection": "detected_body_crop",
+      "fabric_crop_box": [
+        0,
+        0,
+        1200,
+        1422
+      ]
+    }
+  },
+  {
+    "view": "side_slit",
+    "file": "side_slit.jpeg",
+    "size": [
+      992,
+      1536
+    ],
+    "trace": {
+      "version": "kurta-trace-v1",
+      "garment_type": "kurta",
+      "garment_style": "plain",
+      "prompt_version": "kurta-plain-catalog-v3-side_slit",
+      "request_id": "19a4888ff03144e59d0c7166b6c8e11d",
+      "created_at": "2026-11-13T07:25:08.132077+00:00",
+      "deployment_revision": "unknown",
+      "model": "@cf/black-forest-labs/flux-2-klein-4b",
+      "scenario": "person_photo",
+      "requested_seed": 42,
+      "effective_seed": 42,
+      "guidance": 7,
+      "width": 992,
+      "height": 1536,
+      "input_hashes": {
+        "input_image_0": "bab7f45700cb224865e4709173672a9a738bb0b5ed0f0d3032833342801ced42",
+        "input_image_1": "0712daa22eb86051dc7c39be71299778520c2dd6d58d5e5857b3c8ab0a56dde3"
+      },
+      "attempts": [
+        {
+          "seed": 42,
+          "network_attempt": 1,
+          "fallback_prompt": false,
+          "prompt_sha256": "b66a08b6e7a47419c5a172c7a314dffe1fb485def1437354e0c1e48d11aa3c93",
+          "request_sha256": "f1da70a1dd86c60b8b67249637d3cd578b73a5222ac0bb20e65e6e94f56dfb24",
+          "http_status": 200,
+          "cf_ray": "a59c0c47393e4543-BOM",
+          "provider_date": "Fri, 13 Nov 2026 07:26:30 GMT",
+          "duration_ms": 7422,
+          "outcome": "provider_success"
+        }
+      ]
+    }
+  }
+]

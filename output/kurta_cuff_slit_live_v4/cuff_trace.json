@@ -1,0 +1,37 @@
+{
+  "version": "kurta-trace-v1",
+  "garment_type": "kurta",
+  "garment_style": "plain",
+  "prompt_version": "kurta-plain-catalog-v4-cuff",
+  "request_id": "130dbc68bf0c44cbaeab291a2721131f",
+  "created_at": "2026-11-13T08:03:49.381980+00:00",
+  "deployment_revision": "unknown",
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "scenario": "person_photo",
+  "requested_seed": 42,
+  "effective_seed": 42,
+  "guidance": 7,
+  "width": 1216,
+  "height": 1536,
+  "input_hashes": {
+    "input_image_0": "f9b75ca8ed8f55f55564d2647aba6db35fd920cea2129e9f8ed860c9920611be",
+    "input_image_1": "16a4a7275839d75046beb999ba28cd0a529a6379ae4db859e5ee45ec8130cdcc"
+  },
+  "attempts": [
+    {
+      "seed": 42,
+      "network_attempt": 1,
+      "fallback_prompt": false,
+      "prompt_sha256": "3fef3fd8f383aff4b54cd08519816acccfb2e310aa9d5d65b6600666d985d3cb",
+      "request_sha256": "888d60d6dba171f00c439732bb7d3c3715da1f841895e3985620fa8b4d36001b",
+      "http_status": 200,
+      "cf_ray": "a59c44f3d9714427-BOM",
+      "provider_date": "Fri, 13 Nov 2026 08:05:12 GMT",
+      "duration_ms": 7828,
+      "outcome": "provider_success"
+    }
+  ],
+  "fabric_region": "body",
+  "fabric_region_selection": "full_source",
+  "fabric_crop_box": null
+}

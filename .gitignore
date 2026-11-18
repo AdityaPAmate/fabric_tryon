@@ -15,3 +15,7 @@ htmlcov/
 tools/tester_ui/outputs/
 tools/tester_ui/reports/
 *.log
+
+# Local generated artifacts and scratch files
+/outputs/
+/tmp/

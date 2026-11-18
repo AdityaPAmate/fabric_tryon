@@ -1,3 +1,24 @@
+# Catalog edition ownership
+
+The catalog endpoint validates the request and the registry resolves an explicit
+garment and edition. Each edition provides its shot plan, reference paths,
+prompt builder and layout through `CatalogDefinition`. Editions with both swatch
+and ready-made modes declare their plans in the same module. The runner
+executes that plan and the renderer builds the final collage.
+
+Edit the module selected in `fabricapp/catalog_engine/registry.py` to change a
+catalog pose, prompt, crop or lighting rule. Business, Casual and Wedding Blazer
+have separate modules. Plain, Sherwani, Jodhpuri and Pathani Kurta do too. Each
+classic compatibility edition, including Pant, declares its own shots and
+prompts. Its 9:16 canvas is shared.
+
+The runner, compositor, image-processing helpers and background descriptions
+are shared. For reference-based catalogs, reusable scene descriptions live in
+`fabricapp/ai/scene/catalog_backgrounds.py`. An edition chooses how it lights the
+subject against that scene. Changes to shared helpers should be tested across
+their callers. A catalog test checks that editions do not import another
+garment or a sibling edition.
+
 # Current saree revision: 3:4
 
 Saree exports 1800 x 2400 using `saree-six-panel-3x4-v4`. Other garment layouts

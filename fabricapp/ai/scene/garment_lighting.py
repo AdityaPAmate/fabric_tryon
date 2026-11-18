@@ -42,7 +42,6 @@ SHIRT_LIGHTING = (
 def apply_garment_lighting(config, garment_type, *, reference_detail=False):
     if garment_type not in TARGETS:
         return config
-    result = dict(config)
     lighting = (SHIRT_LIGHTING if garment_type == 'shirt'
                 else BALANCED_LIGHTING.format(target=TARGETS[garment_type]))
     if garment_type == 'shirt' and reference_detail:
@@ -57,6 +56,13 @@ def apply_garment_lighting(config, garment_type, *, reference_detail=False):
             'under collar points, cuff overlaps, seams and the turned hem',
             'at the existing seams, folds and fabric overlaps',
         )
+    version = ('-lighting-v3-open-shade' if garment_type == 'shirt' else '-lighting-v1')
+    return append_garment_lighting(config, lighting, version)
+
+
+def append_garment_lighting(config, lighting, version):
+    """Append an edition’s lighting text to its prompt and safety fallback."""
+    result = dict(config)
     original_primary = config.get('prompt', '')
     original_fallback = config.get('safety_fallback_prompt', '')
     appended_retry = bool(original_primary and original_fallback.startswith(original_primary))
@@ -70,5 +76,5 @@ def apply_garment_lighting(config, garment_type, *, reference_detail=False):
             result[key] = original + lighting
     if appended_retry:
         result['safety_fallback_prompt'] = result['prompt'] + original_fallback[len(original_primary):]
-    result['prompt_version'] = result.get('prompt_version', 'garment') + ('-lighting-v3-open-shade' if garment_type == 'shirt' else '-lighting-v1')
+    result['prompt_version'] = result.get('prompt_version', 'garment') + version
     return result

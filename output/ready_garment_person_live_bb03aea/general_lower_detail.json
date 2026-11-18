@@ -1,0 +1,1 @@
+{"kind": "derived_crop", "source_view": "front", "source_image_sha256": "2252ec8745a08e26adc03bd748fbe5033aa0c79a41f045dfbab12b6a25da161a", "source_crop": [0.2, 0.48, 0.8, 0.72], "output_dimensions": [480, 792], "no_new_ai_generation": true}

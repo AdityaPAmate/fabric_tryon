@@ -11,9 +11,9 @@ from fabricapp.ai.garments.blazer.catalog.colour import LUMA, align_portrait_col
 from fabricapp.ai.garments.blazer.catalog.business_details import (
     TROUSER_REGIONS, clean_trouser_motifs, colour_lapel_tie, colour_portrait_tie, neutralize_dress_shirt,
 )
-from fabricapp.ai.garments.kurta.catalog.sherwani import SCENERY, WHITE_LIGHT
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
+from fabricapp.ai.scene.catalog_backgrounds import CATALOG_SCENERY
 from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel, Shot
 
 
@@ -30,6 +30,14 @@ DETAILS = (
     ('lapel', 'lapel and upper chest', 'front', (.24, .17, .83, .36)),
     ('cuff', 'sleeve and cuff', 'side', (.44, .38, .77, .52)),
     ('pocket', 'lower jacket pocket', 'side', (.35, .335, .62, .463)),
+)
+
+
+WHITE_LIGHT = (
+    ' FINAL LIGHTING: Illuminate the subject and setting only with broad, diffused neutral white light '
+    'and neutral camera white balance. No direct sunlight, warm light, golden-hour glow or coloured reflections. '
+    'Match the source fabric hue, saturation, midtone brightness and motif contrast. '
+    'Keep natural soft fold shadows and the selected fabric finish. No saturation boost or orange colour cast.'
 )
 
 
@@ -114,7 +122,7 @@ def build_config(data, shot, seed):
         prompt.append('Image 2 supplies the wearer’s identity and build. Keep the catalog pose in image 0.')
     elif shot.identity_from == 'request' and (data.get('face_choice') or data.get('face_image')):
         prompt.append('Use the face, hair and skin tone of image 2 with the requested body build.')
-    background = SCENERY.get(data.get('background'))
+    background = CATALOG_SCENERY.get(data.get('background'))
     if background:
         prompt.append(f'Use {background} behind the wearer. Light the outfit like a softly lit studio portrait.')
     if data.get('additional_style_note'):

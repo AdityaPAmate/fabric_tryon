@@ -1,4 +1,5 @@
 """Catalog contracts, seven-view streaming, dependency isolation and provider inputs."""
+import ast
 import io
 import json
 import threading
@@ -8,6 +9,8 @@ from unittest.mock import patch, Mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from email.parser import BytesParser
 from email.policy import default
+from importlib.util import find_spec, resolve_name
+from pathlib import Path
 
 from django.test import SimpleTestCase, override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -16,7 +19,7 @@ from PIL import Image
 
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult, CloudflareGenerationError
 from fabricapp.catalog import generate_catalog
-from fabricapp.catalog_engine.registry import get_definition, DEFAULTS
+from fabricapp.catalog_engine.registry import CUSTOM, DEFAULTS, get_definition
 from fabricapp.catalog_engine.validation import validate_definition
 from fabricapp.catalog_engine.renderer import render_catalog
 from fabricapp.catalog_engine.contracts import CatalogDefinition, Shot, Panel, Layout
@@ -41,6 +44,32 @@ def post(**extra):
 
 
 class CatalogDefinitionTests(SimpleTestCase):
+    def test_catalog_editions_own_their_garment_imports(self):
+        garment_root = 'fabricapp.ai.garments.'
+        editions = set(CUSTOM.values())
+        catalogs = {module.rpartition('.')[0] for module in editions if module.startswith(garment_root)}
+        for catalog in sorted(catalogs):
+            garment = catalog.removeprefix(garment_root).split('.', 1)[0]
+            directory = Path(find_spec(catalog).submodule_search_locations[0])
+            for file in directory.glob('*.py'):
+                current = f'{catalog}.{file.stem}'
+                for node in ast.walk(ast.parse(file.read_text(encoding='utf-8-sig'))):
+                    if isinstance(node, ast.Import):
+                        imports = [alias.name for alias in node.names]
+                    elif isinstance(node, ast.ImportFrom):
+                        parent = resolve_name('.' * node.level + (node.module or ''), catalog)
+                        imports = [parent, *(f'{parent}.{alias.name}' for alias in node.names)]
+                    else:
+                        continue
+                    for dependency in imports:
+                        with self.subTest(file=file.name, dependency=dependency):
+                            if dependency.startswith(garment_root):
+                                self.assertEqual(garment, dependency.removeprefix(garment_root).split('.')[0])
+                            self.assertFalse(any(
+                                dependency == edition or dependency.startswith(edition + '.')
+                                for edition in editions - {current}
+                            ))
+
     def test_all_registered_defaults_and_legacy_editions_validate(self):
         for garment in DEFAULTS:
             definition = get_definition(garment)

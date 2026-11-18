@@ -2,8 +2,38 @@
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours, has_single_colour_family, colour_reference_prompt, SHIRT_COLOUR_PRIORITY
 from fabricapp.ai.fabric.fabric_material import material_prompt, fabric_target
 from fabricapp.ai.garments.shirt.prompts import PRESSED_FINISH
-from fabricapp.ai.scene.garment_lighting import apply_garment_lighting
+from fabricapp.ai.scene.garment_lighting import append_garment_lighting
 from fabricapp.ai.scene.backgrounds import get_background_description
+
+SHIRT_LIGHTING = (
+    "FINAL GARMENT LIGHTING: photograph the shirt in open shade with soft, "
+    "colour-neutral ambient daylight, evenly reaching both shoulders, both sleeves, "
+    "collar, chest and hem. Keep the same diffuse fabric midtones across both sides. "
+    "Use low-contrast illumination with gentle contact shadows under collar points, "
+    "cuff overlaps, seams and the turned hem. Keep smooth, shallow transitions that "
+    "show the existing fabric volume, weave and original colour contrast naturally. "
+    "Image 1 is the fabric colour reference: preserve its hue, saturation and midtone "
+    "lightness, including every printed colour separately. Keep white fabric white, "
+    "cream fabric cream and dark fabric dark. No direct sunlight on the shirt, "
+    "dramatic key light, bright patches, yellow cast, background colour spill or "
+    "artificial brightening of the cloth. Preserve the material's natural matte, "
+    "silk or velvet surface response without glaring highlights. "
+)
+
+
+DETAIL_LIGHTING = (
+    'FINAL GARMENT LIGHTING: photograph the shirt in open shade with soft, colour-neutral ambient '
+    'daylight, evenly reaching only the visible cloth within the existing crop. Preserve the '
+    'reference composition. Use low-contrast illumination with gentle contact shadows at the '
+    'existing seams, folds and fabric overlaps. Keep smooth, shallow transitions that show the '
+    'existing fabric volume, weave and original colour contrast naturally. Image 1 is the fabric '
+    'colour reference: preserve its hue, saturation and midtone lightness, including every printed '
+    'colour separately. Keep white fabric white, cream fabric cream and dark fabric dark. No direct '
+    'sunlight on the shirt, dramatic key light, bright patches, yellow cast, background colour spill '
+    "or artificial brightening of the cloth. Preserve the material's natural matte, silk or velvet "
+    'surface response without glaring highlights. '
+)
+
 
 def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
     target = fabric_target(data['garment_type'], data.get('garment_style'), data.get('garment_details'))
@@ -124,4 +154,5 @@ def edit_config(data, shot, anchor_seed, *, reference_template=None, view=None):
         from fabricapp.ai.images.catalog_collage import SHIRT_OUTPUT_SIZES
         config['output_dimensions'] = SHIRT_OUTPUT_SIZES[view]
         config['prompt_version'] += '-catalog-panel-v2'
-    return apply_garment_lighting(config, data['garment_type'], reference_detail=bool(reference_template))
+    lighting = DETAIL_LIGHTING if reference_template else SHIRT_LIGHTING
+    return append_garment_lighting(config, lighting, '-lighting-v3-open-shade')

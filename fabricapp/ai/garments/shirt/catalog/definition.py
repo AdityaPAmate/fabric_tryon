@@ -1,7 +1,7 @@
 """Shirt catalog adapter. The runner contains no shirt-specific decisions."""
 from fabricapp.catalog_engine.contracts import CatalogDefinition, Shot
 from fabricapp.ai.garments.shirt.catalog.layout import get_layout, OUTPUT_SIZES
-from fabricapp.ai.garments.shirt.catalog.prompts import edit_config
+from fabricapp.ai.garments.shirt.catalog.prompts import SHIRT_LIGHTING, edit_config
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
 
 
@@ -23,7 +23,8 @@ def _pipeline_options(view):
         'natural body proportions. The frame ends at the hips, not at the knees or shoes. '
     )
     return {'_catalog_config': {'output_dimensions': OUTPUT_SIZES[view], 'framing': framing,
-                                'version_suffix': '-catalog-panel-v2'}}
+                                'version_suffix': '-catalog-panel-v2',
+                                'lighting': (SHIRT_LIGHTING, '-lighting-v3-open-shade')}}
 
 
 SHOTS = (

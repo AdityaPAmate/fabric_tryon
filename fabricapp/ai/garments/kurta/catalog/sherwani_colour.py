@@ -6,9 +6,6 @@ import numpy as np
 from PIL import Image, ImageFilter
 from scipy.ndimage import label
 
-from fabricapp.ai.fabric.fabric_colour import has_single_colour_family
-
-
 # Central garment areas used to measure each pose without sampling the scenery.
 SAMPLE_BOXES = {
     'front': (.40, .29, .60, .46),
@@ -18,17 +15,6 @@ SAMPLE_BOXES = {
 }
 COAT_BOX = (.08, .18, .94, .75)
 COLLAR_BOX = (0, .25, 1, 1)
-
-
-def solid_swatch_rgb(profile):
-    """Recognise solid hues with shading while leaving multicolour prints alone."""
-    if not has_single_colour_family(profile):
-        return None
-    colours = profile['colours']
-    if sum(c['coverage'] for c in colours) < .85:
-        return None
-    return np.average([c['rgb'] for c in colours], axis=0,
-                      weights=[c['coverage'] for c in colours])
 
 
 def match_solid_cloth(generation, view, target):

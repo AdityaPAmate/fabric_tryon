@@ -1,17 +1,35 @@
 """Sherwani catalog with dedicated framing and cloth instructions for each view."""
 from dataclasses import replace
 
+from PIL import Image
+
 from fabricapp.ai.fabric.body_region import select_body_fabric_region
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
-from fabricapp.ai.garments.kurta.catalog import plain
-from fabricapp.ai.garments.kurta.catalog.sherwani_colour import match_solid_cloth, solid_swatch_rgb
+from fabricapp.ai.fabric.solid_swatch import solid_swatch_rgb
+from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
+from fabricapp.ai.garments.kurta.catalog.sherwani_colour import match_solid_cloth
 from fabricapp.ai.garments.kurta.details import DUPATTA_REMOVE, KURTA_DUPATTA_ADD
 from fabricapp.ai.pipeline.scenario_composer import _person_description
-from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel
+from fabricapp.ai.scene.catalog_backgrounds import CATALOG_SCENERY
+from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel, Shot
 
-REFERENCES = plain.REFERENCES.parent / 'sherwani'
-SHOTS = tuple(replace(shot, reference=REFERENCES / shot.reference.name) for shot in plain.SHOTS)
+REFERENCES = CATALOG_REFERENCE_DIR / 'kurta' / 'sherwani'
+IDENTITY_VIEWS = {'front', 'side'}
+PORTRAITS = IDENTITY_VIEWS | {'back'}
+SHOTS = tuple(
+    Shot(key, description, 'template_edit', framing, reference=REFERENCES / f'{index:02}_{key}.png',
+         identity_from='request' if key in IDENTITY_VIEWS else None,
+         scenario='pose_reference' if key in IDENTITY_VIEWS else 'person_photo')
+    for index, (key, framing, description) in enumerate((
+        ('front', 'full_body', 'front view from head to shoes, with both hands and the entire kurta visible'),
+        ('side', 'side_full_body', 'full-length side view matching the angle and stance in image 0'),
+        ('back', 'rear_full_body', 'full-length straight rear view, with the head facing away'),
+        ('collar', 'collar_detail', 'tight collar and front opening crop, with only the chin at the top edge'),
+        ('cuff', 'cuff_detail', 'tight sleeve-end crop showing the cuff and adjacent cloth'),
+        ('side_slit', 'side_slit_detail', 'tight lower-side crop showing the hem and its side opening if present'),
+    ), start=1)
+)
 
 FRAMING = {
     'front': 'Show the full-length front pose, including head, hands and shoes. Keep the long fitted coat and centred closure.',
@@ -47,13 +65,6 @@ READY_CROPS = {
     'side_slit': ('side', (.44, .49, .80, .72)),
 }
 
-SCENERY = {
-    'white_marble_terrace': 'a carved white marble terrace overlooking a lake and distant hills',
-    'festive_street': 'an Indian heritage street with carved balconies, marigolds and decorative lanterns',
-    'royal_courtyard': 'a palace courtyard with carved arches, columns and a central fountain',
-    'riverside_ghat': 'a riverside ghat with stone steps and distant temple spires',
-}
-
 WHITE_LIGHT = (
     ' FINAL LIGHTING: Illuminate the subject and setting only with broad, diffused neutral white light '
     'and neutral camera white balance. No direct sunlight, warm light, golden-hour glow or coloured reflections. '
@@ -73,9 +84,17 @@ def layout(_product):
     ))
 
 
+def reference_output_dimensions(data, shot):
+    with Image.open(shot.reference) as reference:
+        width, height = reference.size
+    max_side = 768 if data.get('options', {}).get('draft_mode') else 1536
+    scale = max_side / max(width, height)
+    return tuple(max(256, round(side * scale / 32) * 32) for side in (width, height))
+
+
 def build_config(data, shot, seed):
     ready = data.get('garment_image') is not None
-    portrait = shot.key in plain.PORTRAITS
+    portrait = shot.key in PORTRAITS
     prompt = ['Edit image 0 in place for this Sherwani catalog view. Keep its camera angle, zoom and frame boundaries.',
               FRAMING[shot.key]]
     if ready:
@@ -106,14 +125,14 @@ def build_config(data, shot, seed):
                 prompt.append('Keep any distinct decorative swatch border at the lower hem only.')
 
     if portrait:
-        if shot.key in plain.IDENTITY_VIEWS and data.get('person_image'):
+        if shot.key in IDENTITY_VIEWS and data.get('person_image'):
             prompt.append('Image 2 supplies the same human face, hairstyle, facial hair and body build in every view. '
                           'Match those features and skin tone exactly. Use image 0 for the pose and camera framing.')
         elif data.get('gender'):
             prompt.append('Subject: ' + _person_description(data['gender'], data.get('body_type')) + '.')
-            if shot.key in plain.IDENTITY_VIEWS and (data.get('face_choice') or data.get('face_image')):
+            if shot.key in IDENTITY_VIEWS and (data.get('face_choice') or data.get('face_image')):
                 prompt.append('Image 2 supplies the face and hairstyle. Keep the requested body build.')
-        background = SCENERY.get(data.get('background'))
+        background = CATALOG_SCENERY.get(data.get('background'))
         if background:
             prompt.append(f'Use {background} behind the subject.')
         if data.get('additional_style_note'):
@@ -121,7 +140,7 @@ def build_config(data, shot, seed):
 
     prompt.append('Output one photograph.')
     config = {'prompt': ' '.join(prompt), 'seed': seed, 'guidance': data.get('guidance', 7),
-              'output_dimensions': plain.reference_output_dimensions(data, shot),
+              'output_dimensions': reference_output_dimensions(data, shot),
               'fabric_source_format': 'PNG', 'classified_recovery': True, 'safety_retry_count': 0}
     if not ready:
         crop, selection = select_body_fabric_region(data)
@@ -168,8 +187,10 @@ SWATCH_SHOTS = tuple(
     replace(shot, operation='swatch_composite', reference_mask=REFERENCES / '05_cuff_mask.png',
             swatch_body_only=True, composite_backdrop=REFERENCES / '05_cuff_neutral.png',
             natural_swatch_shading=True)
-    if shot.key == 'cuff' else replace(shot, natural_swatch_shading=True)
-    if shot.key == 'side_slit' else shot for shot in plain.swatch_shots(SHOTS)
+    if shot.key == 'cuff' else
+    replace(shot, operation='swatch_composite', reference_mask=REFERENCES / '06_side_slit_mask.png',
+            natural_swatch_shading=True)
+    if shot.key == 'side_slit' else shot for shot in SHOTS
 )
 DEFINITION = CatalogDefinition('kurta', 'sherwani-v1', SWATCH_SHOTS, build_config, layout,
                                finish_shot=finish_shot, swatch_colour=swatch_colour)

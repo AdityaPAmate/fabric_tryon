@@ -1,17 +1,21 @@
 """Jodhpuri bandhgala catalog with separate collar, cuff and pocket photographs."""
 from dataclasses import replace
 
+from PIL import Image
+
 from fabricapp.ai.fabric.body_region import select_body_fabric_region
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
-from fabricapp.ai.garments.kurta.catalog import plain
+from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
 from fabricapp.ai.garments.kurta.catalog.jodhpuri_colour import align_jacket_colour
-from fabricapp.ai.garments.kurta.catalog.sherwani import SCENERY, WHITE_LIGHT
-from fabricapp.ai.garments.kurta.catalog.sherwani_colour import solid_swatch_rgb
+from fabricapp.ai.fabric.solid_swatch import solid_swatch_rgb
 from fabricapp.ai.pipeline.scenario_composer import _person_description
+from fabricapp.ai.scene.catalog_backgrounds import CATALOG_SCENERY
 from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel, Shot
 
-REFERENCES = plain.REFERENCES.parent / 'jodhpuri'
+REFERENCES = CATALOG_REFERENCE_DIR / 'kurta' / 'jodhpuri'
+IDENTITY_VIEWS = {'front', 'side'}
+PORTRAITS = IDENTITY_VIEWS | {'back'}
 FRAMING = {
     'front': 'Keep the head-to-shoes front view and the fitted, hip-length bandhgala jacket.',
     'side': 'Keep the head-to-shoes side angle and show the short tailored jacket hem above the trousers.',
@@ -33,8 +37,8 @@ SWATCH_DETAILS = {
 
 SHOTS = tuple(
     Shot(key, description, 'template_edit', framing, reference=REFERENCES / f'{index:02}_{key}.png',
-         identity_from='request' if key in plain.IDENTITY_VIEWS else None,
-         scenario='pose_reference' if key in plain.IDENTITY_VIEWS else 'person_photo')
+         identity_from='request' if key in IDENTITY_VIEWS else None,
+         scenario='pose_reference' if key in IDENTITY_VIEWS else 'person_photo')
     for index, (key, framing, description) in enumerate((
         ('front', 'full_body', 'full-length front view'),
         ('side', 'side_full_body', 'full-length side view'),
@@ -43,6 +47,14 @@ SHOTS = tuple(
         ('cuff', 'cuff_detail', 'diagonal sleeve and cuff'),
         ('pocket', 'pocket_detail', 'breast welt pocket'),
     ), start=1)
+)
+
+
+WHITE_LIGHT = (
+    ' FINAL LIGHTING: Illuminate the subject and setting only with broad, diffused neutral white light '
+    'and neutral camera white balance. No direct sunlight, warm light, golden-hour glow or coloured reflections. '
+    'Match the source fabric hue, saturation, midtone brightness and motif contrast. '
+    'Keep natural soft fold shadows and the selected fabric finish. No saturation boost or orange colour cast.'
 )
 
 
@@ -57,9 +69,17 @@ def layout(_product):
     ))
 
 
+def reference_output_dimensions(data, shot):
+    with Image.open(shot.reference) as reference:
+        width, height = reference.size
+    max_side = 768 if data.get('options', {}).get('draft_mode') else 1536
+    scale = max_side / max(width, height)
+    return tuple(max(256, round(side * scale / 32) * 32) for side in (width, height))
+
+
 def build_config(data, shot, seed):
     ready = data.get('garment_image') is not None
-    portrait = shot.key in plain.PORTRAITS
+    portrait = shot.key in PORTRAITS
     prompt = ['Edit image 0 in place. Keep its exact camera angle, framing and subject scale.', FRAMING[shot.key]]
     if ready and portrait:
         prompt.append('Image 1 supplies the finished Jodhpuri jacket and its actual cut, cloth, fasteners and trim. '
@@ -96,20 +116,20 @@ def build_config(data, shot, seed):
         prompt.append('The frame shows only the jacket chest and welt detail. Keep the face, hands, trousers and lower hem outside the crop.')
 
     if portrait:
-        if shot.key in plain.IDENTITY_VIEWS and data.get('person_image'):
+        if shot.key in IDENTITY_VIEWS and data.get('person_image'):
             prompt.append('Image 2 supplies the wearer’s face, hairstyle, facial hair, skin tone and build. Keep the pose from image 0.')
         elif data.get('gender'):
             prompt.append('Subject: ' + _person_description(data['gender'], data.get('body_type')) + '.')
-            if shot.key in plain.IDENTITY_VIEWS and (data.get('face_image') or data.get('face_choice')):
+            if shot.key in IDENTITY_VIEWS and (data.get('face_image') or data.get('face_choice')):
                 prompt.append('Copy the face and hairstyle from image 2 while keeping the requested body build.')
-        scene = SCENERY.get(data.get('background'))
+        scene = CATALOG_SCENERY.get(data.get('background'))
         if scene:
             prompt.append(f'Use {scene} behind the subject.')
         if data.get('additional_style_note'):
             prompt.append(f"Styling direction: {data['additional_style_note']}. Preserve the garment and camera framing.")
 
     config = {'prompt': ' '.join(prompt), 'seed': seed, 'guidance': data.get('guidance', 7),
-              'output_dimensions': plain.reference_output_dimensions(data, shot),
+              'output_dimensions': reference_output_dimensions(data, shot),
               'fabric_source_format': 'PNG', 'classified_recovery': True, 'safety_retry_count': 0}
     if not ready:
         crop, selection = select_body_fabric_region(data)
