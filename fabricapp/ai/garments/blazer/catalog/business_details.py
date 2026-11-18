@@ -1,12 +1,13 @@
 """Apply a solid source colour to the tie while keeping its knot and folds."""
-from dataclasses import replace
 from io import BytesIO
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from scipy.ndimage import (
-    binary_dilation, binary_fill_holes, binary_propagation, distance_transform_edt, gaussian_filter, label,
+    binary_dilation, binary_fill_holes, binary_propagation, distance_transform_edt, label,
 )
+
+from fabricapp.ai.garments.blazer.catalog.colour import encode_portrait, masked_local_mean
 
 
 TROUSER_REGIONS = {
@@ -28,13 +29,18 @@ SHIRT_OPENINGS = {
 
 
 def neutralize_dress_shirt(generation, view, target):
+    with Image.open(BytesIO(generation.image_bytes)) as source:
+        original = source.convert('RGB')
+    image, diagnostics = clean_shirt_image(original, view, target)
+    return encode_portrait(generation, original, image, diagnostics)
+
+
+def clean_shirt_image(image, view, target):
     if view not in SHIRT_OPENINGS or target is None:
-        return generation
+        return image, {}
     target = np.asarray(target, dtype=np.float32)
     if target.mean() > 222 and np.ptp(target) < 16:
-        return generation
-    with Image.open(BytesIO(generation.image_bytes)) as source:
-        image = source.convert('RGB')
+        return image, {}
     width, height = image.size
     bounds = Image.new('1', image.size)
     ImageDraw.Draw(bounds).polygon([(round(x * width), round(y * height))
@@ -48,28 +54,21 @@ def neutralize_dress_shirt(generation, view, target):
     seeds = candidate & (light > 214) & (np.ptp(pixels, axis=2) < 23)
     shirt = binary_propagation(seeds, mask=candidate)
     if not shirt.any():
-        return generation
+        return image, {}
 
     # Lift broad shadows on the white cotton and keep folds, seams and the
     # exact tie boundary. Only pixels connected to a bright shirt seed qualify.
     sigma = max(2, width / 70)
-    support = np.maximum(gaussian_filter(shirt.astype(np.float32), sigma), .001)
-    local = gaussian_filter(pixels * shirt[:, :, None], (sigma, sigma, 0)) / support[:, :, None]
+    local, _ = masked_local_mean(pixels, shirt, sigma, reduced=True)
     shift = np.clip((242 - local) * .70, -8, 56)
     weight = np.clip(distance_transform_edt(shirt) / max(2, width / 165), 0, 1)
     corrected = np.rint(np.clip(pixels + shift * weight[:, :, None], 0, 255)).astype(np.uint8)
-    output = BytesIO()
-    Image.fromarray(corrected).save(output, 'PNG')
-    return replace(generation, image_bytes=output.getvalue(), diagnostics={
-        **(generation.diagnostics or {}), 'business_shirt_neutralized': True,
-    })
+    return Image.fromarray(corrected), {'business_shirt_neutralized': True}
 
 
-def clean_trouser_motifs(generation, view, target):
+def clean_trouser_motifs(image, view, target):
     if target is None:
-        return generation
-    with Image.open(BytesIO(generation.image_bytes)) as source:
-        image = source.convert('RGB')
+        return image
     pixels = np.asarray(image, dtype=np.float32)
     width, height = image.size
     sample, outline = TROUSER_REGIONS[view]
@@ -92,17 +91,13 @@ def clean_trouser_motifs(generation, view, target):
     counts = np.bincount(parts.ravel())
     defects = (parts > 0) & (counts[parts] <= width * height * .002)
     if not defects.any():
-        return generation
+        return image
     sigma = max(2, width / 55)
-    support = gaussian_filter(cloth.astype(np.float32), sigma)
-    local = gaussian_filter(pixels * cloth[:, :, None], (sigma, sigma, 0))
-    local /= np.maximum(support[:, :, None], .001)
+    local, support = masked_local_mean(pixels, cloth, sigma, reduced=True)
     replace_region = defects & (support > .10)
     corrected = pixels.copy()
     corrected[replace_region] = local[replace_region]
-    output = BytesIO()
-    Image.fromarray(np.rint(corrected).astype(np.uint8)).save(output, 'PNG')
-    return replace(generation, image_bytes=output.getvalue())
+    return Image.fromarray(np.rint(corrected).astype(np.uint8))
 
 
 def colour_lapel_tie(generation, mask_path, target):
@@ -111,21 +106,20 @@ def colour_lapel_tie(generation, mask_path, target):
     with Image.open(BytesIO(generation.image_bytes)) as source, Image.open(mask_path) as mask:
         image = source.convert('RGB')
         matte = mask.convert('L').resize(image.size, Image.Resampling.LANCZOS)
-    return _colour_tie(generation, image, matte, target)
+    corrected, diagnostics = _colour_tie(image, matte, target)
+    return encode_portrait(generation, image, corrected, diagnostics)
 
 
-def colour_portrait_tie(generation, view, target):
+def colour_portrait_tie(image, view, target):
     if target is None or view == 'back':
-        return generation
-    with Image.open(BytesIO(generation.image_bytes)) as source:
-        image = source.convert('RGB')
+        return image, {}
     rgb = np.asarray(image, dtype=np.float32)
     width, height = image.size
     bounds = (.438, .19, .562, .365) if view == 'front' else (.29, .19, .50, .34)
     left, top, right, bottom = (round(value * extent) for value, extent in zip(bounds, (width, height) * 2))
     patch = rgb[top:bottom, left:right]
     if not patch.size:
-        return generation
+        return image, {}
     # The fallback navy tie is distinct from the white shirt and the cloth.
     navy = (patch[:, :, 2] - patch[:, :, 0] > 10) & (patch.max(axis=2) < 135)
     if view == 'side':
@@ -138,24 +132,20 @@ def colour_portrait_tie(generation, view, target):
     seeds[:knot_height] = navy[:knot_height]
     connected = binary_propagation(seeds, mask=navy)
     if connected.mean() < (.10 if view == 'front' else .005):
-        return generation
+        return image, {}
     matte = Image.new('L', image.size)
     matte.paste(Image.fromarray(connected.astype(np.uint8) * 255), (left, top))
-    return _colour_tie(generation, image, matte.filter(ImageFilter.GaussianBlur(1.4)), target)
+    return _colour_tie(image, matte.filter(ImageFilter.GaussianBlur(1.4)), target)
 
 
-def _colour_tie(generation, image, matte, target):
+def _colour_tie(image, matte, target):
     target = np.asarray(target, dtype=np.float32)
     inside = np.asarray(matte) > 240
     if not inside.any():
-        return generation
+        return image, {}
     # Read real lighting at the knot and blade but suppress the original weave pattern.
     light = np.asarray(image.convert('L').filter(ImageFilter.GaussianBlur(2)), dtype=np.float32)
     midpoint = np.median(light[inside])
     shade = np.clip(1 + (light - midpoint) / 145, .72, 1.16)
     solid = Image.fromarray(np.rint(np.clip(target * shade[:, :, None], 0, 255)).astype(np.uint8))
-    output = BytesIO()
-    Image.composite(solid, image, matte).save(output, 'PNG')
-    return replace(generation, image_bytes=output.getvalue(), diagnostics={
-        **(generation.diagnostics or {}), 'business_tie_rgb': np.rint(target).astype(int).tolist(),
-    })
+    return Image.composite(solid, image, matte), {'business_tie_rgb': np.rint(target).astype(int).tolist()}

@@ -1,10 +1,12 @@
 """Wedding Blazer catalog using the six wedding pose and close-up references."""
 from dataclasses import replace
+from io import BytesIO
 
 from PIL import Image
 
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
-from fabricapp.ai.garments.blazer.catalog.colour import align_portrait_colour, jacket_midtone, profile_midtone
+from fabricapp.ai.fabric.fabric_colour import has_single_colour_family, measure_fabric_colours
+from fabricapp.ai.garments.blazer.catalog.colour import align_cloth, encode_portrait, jacket_midtone, profile_midtone
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
 from fabricapp.ai.scene.catalog_backgrounds import CATALOG_SCENERY
@@ -23,14 +25,10 @@ DETAIL_FRAMING = {
               'The flap, its opening and the lower side seam are the only details in frame. '
               'Keep the breast pocket, gold chain, shirt opening and front buttons outside the crop.',
 }
-DETAIL_REGIONS = {
-    'cuff': ((.58, .36, .77, .48), ((.29, .45), (.90, .09), (.99, .04), (1, .39), (.91, .64),
-                                    (.30, .87), (.21, .65))),
-    'pocket': ((.28, .62, .70, .82), ((.04, .04), (.89, .04), (.94, .96), (.02, .96))),
+JACKET_REGIONS = {
     'side': ((.54, .29, .68, .40), ((.48, .21), (.64, .19), (.76, .24), (.79, .37),
                                    (.72, .47), (.70, .53), (.58, .55), (.46, .56),
                                    (.36, .53), (.32, .47), (.34, .36), (.40, .32))),
-    'lapel': ((.77, .45, .89, .56), ((.65, .28), (.87, .19), (.99, .35), (.99, .63), (.65, .58))),
 }
 TROUSER_REGIONS = {
     'front': ((.38, .56, .61, .64),
@@ -63,6 +61,7 @@ READY_DETAIL_SOURCES = {
     'cuff': ('side', (.52, .36, .79, .48)),
     'pocket': ('side', (.37, .34, .62, .46)),
 }
+FRONT_CLOTH_CROP = (.24, .25, .40, .36)
 
 
 SHOTS = tuple(
@@ -209,6 +208,11 @@ def build_config(data, shot, seed):
             'and texture from shoulders to ankles. The white shirt is visible only inside the jacket '
             'opening and at the wrists. Match the closure and accessories in image 0 exactly.'
         )
+        config['prompt'] += (
+            ' Photograph the suit with clear studio optics and white frontal fill. Preserve the swatch’s '
+            'true saturation, weave contrast and midtone. Keep atmospheric haze and scenery light behind '
+            'the wearer. Keep natural, soft shadows at seams and folds.'
+        )
         if shot.identity_from == 'front':
             angle = ('three-quarter side angle with the near shoulder forward and one hand in a trouser pocket'
                      if shot.key == 'side' else 'straight rear angle with both shoulders visible and the face hidden')
@@ -220,21 +224,37 @@ def build_config(data, shot, seed):
                 'Keep both garments uniformly in the same source shade, with soft natural fold shadows. '
                 + config['prompt']
             )
+    if not ready and shot.key == 'lapel':
+        config['prompt'] = (
+            'Image 0 fixes the close-up, jacket construction, white shirt and accessories. '
+            'Image 2 is only the exposed jacket cloth cropped from this catalog’s front photograph. '
+            'Match its diffuse midtone and use the exact fabric texture, saturation and motifs from image 1. '
+            'Use neutral white frontal fill and a clear, crisp view of the weave, lapel and pocket edge. '
+            + config['prompt']
+        )
     if not ready:
-        config['prompt_version'] = f'blazer-wedding-catalog-swatch-v2-{shot.key}'
+        config['prompt_version'] = f'blazer-wedding-catalog-swatch-v3-{shot.key}'
     return config
 
 
 def finish_shot(data, shot, generation):
-    if shot.operation == 'swatch_composite':
+    if shot.key not in PORTRAIT_VIEWS:
         return generation
-    target = jacket_midtone(data)
-    generation = align_portrait_colour(generation, shot.key, target,
-                                       region=DETAIL_REGIONS.get(shot.key), soft_edges=True, local_exposure=True)
-    if shot.key in TROUSER_REGIONS:
-        generation = align_portrait_colour(generation, 'trousers', target,
-                                           region=TROUSER_REGIONS[shot.key], soft_edges=True, local_exposure=True)
-    return generation
+    crop = data.get('options', {}).get('fabric_crop_box')
+    profile = measure_fabric_colours(data['fabric_image'], crop, palette_size=24, min_coverage=.005)
+    target = profile_midtone(profile)
+    if target is None:
+        return generation
+    with Image.open(BytesIO(generation.image_bytes)) as source:
+        original = source.convert('RGB')
+    solid = has_single_colour_family(profile)
+    local_fill = shot.key == 'side' and solid
+    image, jacket = align_cloth(original, shot.key, target, region=JACKET_REGIONS.get(shot.key),
+                               soft_edges=True, local_exposure=local_fill, reduced_exposure=True)
+    image, trousers = align_cloth(image, 'trousers', target, region=TROUSER_REGIONS[shot.key],
+                                 soft_edges=True, local_exposure=local_fill, reduced_exposure=True)
+    jacket.update(trousers)
+    return encode_portrait(generation, original, image, jacket)
 
 
 SWATCH_SHOTS = tuple(
@@ -243,8 +263,8 @@ SWATCH_SHOTS = tuple(
             composite_relief=shot.reference.with_stem(f'{shot.reference.stem}_relief'),
             swatch_original_orientation=True, natural_swatch_shading=True)
     if shot.key in ('cuff', 'pocket') else
-    replace(shot, dependencies=('front',), identity_from='front', identity_crop=(.24, .25, .40, .36))
-    if shot.key in ('side', 'back') else shot
+    replace(shot, dependencies=('front',), identity_from='front', identity_crop=FRONT_CLOTH_CROP)
+    if shot.key in ('side', 'back', 'lapel') else shot
     for shot in SHOTS
 )
 DEFINITION = CatalogDefinition('blazer', 'wedding-v1', SWATCH_SHOTS, build_config, layout,

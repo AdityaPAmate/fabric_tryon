@@ -10,6 +10,7 @@ from fabricapp.catalog_engine.registry import get_request_definition
 from fabricapp.catalog_engine.validation import validate_definition
 from fabricapp.catalog_engine.renderer import render_catalog
 from fabricapp.ai.providers.cloudflare_engine import CloudflareGenerationError, GenerationResult
+from fabricapp.timing import timed_stage
 
 logger = logging.getLogger('fabricapp')
 
@@ -100,6 +101,7 @@ def generate_catalog(data, stopped, services):
     layout = validate_definition(definition, data.get('catalog_product'))
     plan = definition.shots
     catalog_id = uuid4().hex
+    timings = {'catalog_id': catalog_id, 'catalog_edition': definition.edition}
     views = [shot.key for shot in plan]
     yield {'event': 'started', 'catalog_id': catalog_id, 'total': len(plan), 'views': views,
            'catalog_edition': definition.edition, 'layout': layout.version}
@@ -125,13 +127,18 @@ def generate_catalog(data, stopped, services):
             continue
         yield {'event': 'generating', 'view': shot.key, 'index': index + 1, 'total': len(plan)}
         try:
-            generation = generate_shot(data, shot, definition, shot_bytes, seeds, services)
+            shot_timings = {**timings, 'view': shot.key, 'operation': shot.operation}
+            with timed_stage('catalog_shot_generate', **shot_timings):
+                generation = generate_shot(data, shot, definition, shot_bytes, seeds, services)
             if definition.finish_shot:
-                generation = definition.finish_shot(data, shot, generation)
+                with timed_stage('catalog_shot_finish', **shot_timings):
+                    generation = definition.finish_shot(data, shot, generation)
             # A generated dependency survives even if its delivery upload fails.
             shot_bytes[shot.key] = generation.image_bytes
             seeds[shot.key] = generation.effective_seed
-            image = {'view': shot.key, **services.upload(generation.image_bytes),
+            with timed_stage('catalog_shot_upload', **shot_timings):
+                uploaded = services.upload(generation.image_bytes)
+            image = {'view': shot.key, **uploaded,
                      'operation': shot.operation,
                      'generation_seed': generation.effective_seed, 'generation': generation.diagnostics,
                      'framing': shot.framing,
@@ -154,8 +161,11 @@ def generate_catalog(data, stopped, services):
     if not failed:
         yield {'event': 'composing'}
         try:
-            payload = render_catalog(shot_bytes, swatch_bytes, layout)
-            collage = {**services.upload(payload), 'view': 'catalog', 'layout': layout.version,
+            with timed_stage('catalog_collage_render', **timings):
+                payload = render_catalog(shot_bytes, swatch_bytes, layout)
+            with timed_stage('catalog_collage_upload', **timings):
+                uploaded = services.upload(payload)
+            collage = {**uploaded, 'view': 'catalog', 'layout': layout.version,
                        'width': layout.size[0], 'height': layout.size[1],
                        'aspect_ratio': f'{layout.size[0] // gcd(*layout.size)}:{layout.size[1] // gcd(*layout.size)}',
                        'source_views': views, 'includes_original_swatch': layout.swatch_box is not None}

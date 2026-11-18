@@ -189,6 +189,23 @@ class BusinessBlazerCatalogTests(SimpleTestCase):
             self.assertEqual(result.getpixel((101, 129)), image.getpixel((101, 129)))
             self.assertEqual(result.getpixel((64, 124)), image.getpixel((64, 124)))
 
+    def test_business_exposure_correction_reaches_the_back_hem(self):
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.blazer.catalog.business import DEFINITION, finish_shot
+
+        image = Image.new('RGB', (256, 640), '#e8e8e8')
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((61, 145, 197, 349), fill='#d1c1d9')
+        draw.rectangle((61, 314, 197, 349), fill='#a99ab1')
+        encoded = io.BytesIO()
+        image.save(encoded, 'PNG')
+        shot = next(shot for shot in DEFINITION.shots if shot.key == 'back')
+        result = finish_shot({'fabric_image': io.BytesIO(picture((209, 193, 217)))}, shot,
+                             GenerationResult(encoded.getvalue(), 42))
+        with Image.open(io.BytesIO(result.image_bytes)) as output:
+            self.assertGreater(output.getpixel((128, 325))[0], image.getpixel((128, 325))[0] + 8)
+            self.assertEqual(output.getpixel((30, 325)), image.getpixel((30, 325)))
+
 
 class CasualBlazerCatalogTests(SimpleTestCase):
     def test_casual_closeups_preserve_reference_neck_and_jacket_silhouette(self):
@@ -259,6 +276,7 @@ class CasualBlazerCatalogTests(SimpleTestCase):
                     if style == 'wedding' and source_key == 'fabric_image':
                         if view == 'lapel':
                             self.assertIn('gold chain', prompt)
+                            self.assertIn('Image 2 is only the exposed jacket cloth', prompt)
                         if index <= 3:
                             self.assertIn('matching trousers in the same swatch cloth', prompt)
                         if view in ('side', 'back'):
@@ -269,7 +287,11 @@ class CasualBlazerCatalogTests(SimpleTestCase):
                         self.assertEqual(call.kwargs['pose_reference_path'], reference)
                     else:
                         self.assertEqual(call.kwargs['scenario'], 'person_photo')
-                        self.assertNotIn('face_image', call.kwargs)
+                        if style == 'wedding' and source_key == 'fabric_image' and view == 'lapel':
+                            with Image.open(call.kwargs['face_image']) as anchor:
+                                self.assertLess(anchor.width, Image.open(io.BytesIO(picture())).width)
+                        else:
+                            self.assertNotIn('face_image', call.kwargs)
                         self.assertNotIn('pose_reference_path', call.kwargs)
                         if source_key == 'garment_image':
                             self.assertNotEqual(call.kwargs[source_key].getvalue(), picture())

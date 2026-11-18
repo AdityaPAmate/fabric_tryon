@@ -53,30 +53,83 @@ def profile_midtone(profile):
 
 
 def align_portrait_colour(generation, view, target, *, region=None, soft_edges=False,
-                          local_exposure=False, even_exposure=False):
+                          local_exposure=None, even_exposure=False):
     if target is None:
         return generation
     with Image.open(BytesIO(generation.image_bytes)) as source:
         image = source.convert('RGB')
-    pixels = np.asarray(image, dtype=np.float32)
+    corrected, diagnostics = align_cloth(image, view, target, region=region, soft_edges=soft_edges,
+                                         local_exposure=local_exposure, even_exposure=even_exposure)
+    return encode_portrait(generation, image, corrected, diagnostics)
+
+
+def encode_portrait(generation, original, image, diagnostics):
+    if image is original:
+        return generation
+    output = BytesIO()
+    image.save(output, 'PNG')
+    return replace(generation, image_bytes=output.getvalue(), diagnostics={
+        **(generation.diagnostics or {}), **diagnostics,
+    })
+
+
+def masked_local_mean(pixels, mask, sigma, *, reduced=False):
+    """Estimate broad illumination while keeping the original pixels at full size."""
+    support = mask.astype(np.float32)
+    colour = pixels * support[:, :, None]
+    if reduced and sigma >= 6:
+        height, width = mask.shape
+        factor = min(4, int(sigma // 3))
+        size = ((width + factor - 1) // factor, (height + factor - 1) // factor)
+        scale = (size[1] / height, size[0] / width)
+
+        def smooth(plane):
+            reduced_plane = Image.fromarray(plane).resize(size, Image.Resampling.BOX)
+            blurred = gaussian_filter(np.asarray(reduced_plane), tuple(sigma * value for value in scale))
+            return np.asarray(Image.fromarray(blurred).resize((width, height), Image.Resampling.BILINEAR))
+
+        support = smooth(support)
+        colour = np.stack([smooth(channel) for channel in np.moveaxis(colour, -1, 0)], axis=2)
+    else:
+        support = gaussian_filter(support, sigma)
+        colour = gaussian_filter(colour, (sigma, sigma, 0))
+    return colour / np.maximum(support[:, :, None], .001), support
+
+
+def align_cloth(image, view, target, *, region=None, soft_edges=False,
+                local_exposure=None, even_exposure=False, reduced_exposure=False):
+    if target is None:
+        return image, {}
     box, polygon = region or PORTRAIT_REGIONS[view]
     width, height = image.size
     x0, y0, x1, y1 = (round(value * extent) for value, extent in zip(box, (width, height) * 2))
     area = Image.new('1', image.size)
     ImageDraw.Draw(area).polygon([(round(x * width), round(y * height)) for x, y in polygon], fill=1)
+    working = image
+    # The final matte is zero outside the polygon, apart from a small feathered margin.
+    # Keep that margin and the colour sample in the working crop.
+    if reduced_exposure:
+        left, top, right, bottom = area.getbbox()
+        margin = max(8, round(width / 38))
+        left, top = max(0, min(left, x0) - margin), max(0, min(top, y0) - margin)
+        right, bottom = min(width, max(right, x1) + margin), min(height, max(bottom, y1) + margin)
+        crop = (left, top, right, bottom)
+        working, area = image.crop(crop), area.crop(crop)
+        x0, y0, x1, y1 = x0 - left, y0 - top, x1 - left, y1 - top
+    pixels = np.asarray(working, dtype=np.float32)
     eligible = (np.linalg.norm(_chroma(pixels) - _chroma(target), axis=2) <= 32)
     area = np.asarray(area)
-    adjust_local = local_exposure or (soft_edges and view == 'side')
+    adjust_local = local_exposure or (local_exposure is None and soft_edges and view == 'side')
     lightness_range = 120 if adjust_local else 64
     eligible &= (np.abs((pixels - target) @ LUMA) <= lightness_range) & area
     sample_selection = eligible[y0:y1, x0:x1]
     if sample_selection.mean() < .55:
-        return generation
+        return image, {}
     measured = np.median(pixels[y0:y1, x0:x1][sample_selection], axis=0)
     limit = 100 if local_exposure else (76 if adjust_local else 36)
     shift = np.clip(target - measured, -limit, limit)
     if np.max(np.abs(shift)) < 4 and not local_exposure:
-        return generation
+        return image, {}
 
     # Correct connected cloth of the measured shade. Preserve folds and other print hues.
     matching = eligible & (np.linalg.norm(_chroma(pixels) - _chroma(measured), axis=2) <= 21)
@@ -101,17 +154,20 @@ def align_portrait_colour(generation, view, target, *, region=None, soft_edges=F
         # The side pose can put most of the chest in shadow while the sleeve
         # is well lit. Adjust the broad exposure locally and keep fine detail.
         sigma = max(3, width / (48 if even_exposure else 20))
-        support = np.maximum(gaussian_filter(connected.astype(np.float32), sigma), .001)
-        local = gaussian_filter(pixels * connected[:, :, None], (sigma, sigma, 0)) / support[:, :, None]
+        local, support = masked_local_mean(pixels, connected, sigma, reduced=reduced_exposure)
         strength = .96 if even_exposure else .82
         shift_field = np.clip((target - local) * strength, -limit, limit)
+        if reduced_exposure:
+            shift_field = np.where(support[:, :, None] > .10, shift_field, shift)
     else:
         shift_field = shift
     corrected = Image.fromarray(np.rint(np.clip(pixels + shift_field, 0, 255)).astype(np.uint8))
-    result = BytesIO()
-    Image.composite(corrected, image, matte).save(result, 'PNG')
-    return replace(generation, image_bytes=result.getvalue(), diagnostics={
-        **(generation.diagnostics or {}),
+    corrected = Image.composite(corrected, working, matte)
+    if reduced_exposure:
+        result = image.copy()
+        result.paste(corrected, crop)
+        corrected = result
+    return corrected, {
         'blazer_cloth_midtone_rgb': np.rint(target).astype(int).tolist(),
         'blazer_cloth_rgb_shift': np.rint(shift).astype(int).tolist(),
-    })
+    }

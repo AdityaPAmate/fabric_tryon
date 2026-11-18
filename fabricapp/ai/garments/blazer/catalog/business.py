@@ -1,5 +1,6 @@
 """Six-panel Business Blazer catalog for swatches and finished jackets."""
 from dataclasses import replace
+from io import BytesIO
 
 from PIL import Image
 import numpy as np
@@ -7,9 +8,9 @@ import numpy as np
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.fabric.body_region import select_body_fabric_region
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
-from fabricapp.ai.garments.blazer.catalog.colour import LUMA, align_portrait_colour, profile_midtone
+from fabricapp.ai.garments.blazer.catalog.colour import LUMA, align_cloth, encode_portrait, profile_midtone
 from fabricapp.ai.garments.blazer.catalog.business_details import (
-    TROUSER_REGIONS, clean_trouser_motifs, colour_lapel_tie, colour_portrait_tie, neutralize_dress_shirt,
+    TROUSER_REGIONS, clean_shirt_image, clean_trouser_motifs, colour_lapel_tie, colour_portrait_tie,
 )
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
@@ -18,6 +19,17 @@ from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel,
 
 
 REFERENCES = CATALOG_REFERENCE_DIR / 'blazer' / 'business'
+JACKET_REGIONS = {
+    'side': ((.58, .30, .73, .40), (
+        (.37, .28), (.49, .18), (.65, .17), (.79, .22), (.82, .37),
+        (.82, .48), (.77, .55), (.70, .57), (.61, .54), (.50, .58),
+        (.40, .55), (.37, .50), (.35, .40),
+    )),
+    'back': ((.34, .27, .65, .39), (
+        (.13, .25), (.31, .17), (.56, .16), (.77, .20), (.87, .25),
+        (.92, .50), (.79, .51), (.76, .55), (.26, .55), (.23, .51), (.10, .50),
+    )),
+}
 PORTRAITS = (
     Shot('front', 'full-length front view', 'template_edit', 'full_body',
          reference=REFERENCES / '01_front.png', identity_from='request', scenario='pose_reference'),
@@ -137,6 +149,10 @@ def build_config(data, shot, seed):
                   'The garments are clean, freshly pressed and dry. Keep uniform cloth between seams, '
                   'with soft fold shadows and a consistent neutral exposure. Avoid mottled light, '
                   'muddy patches, faded areas and sharp dark bands. Output one photograph.')
+    if not ready:
+        prompt.append('Keep the camera exposure fixed for the cloth even against a bright backdrop. '
+                      'Use broad frontal white fill across the chest, both sleeves and both trouser legs. '
+                      'Keep a clear optical image with clean fabric between the natural seam and fold shadows.')
     config.update(prompt=' '.join(prompt), seed=seed, guidance=data.get('guidance', 7),
                   fabric_source_format='PNG', classified_recovery=True, safety_retry_count=0)
     if not ready:
@@ -156,7 +172,7 @@ def build_config(data, shot, seed):
                 outfit += f'The plain solid tie and plain solid trousers share the swatch base {shade}. '
             config['prompt'] = outfit + config['prompt']
             config['prompt'] += f' Match the swatch jacket midtone {shade} under diffuse white light.'
-    config['prompt_version'] = f'blazer-business-catalog-{"ready-v3" if ready else "swatch-v4"}-{shot.key}'
+    config['prompt_version'] = f'blazer-business-catalog-{"ready-v3" if ready else "swatch-v5"}-{shot.key}'
     return config
 
 
@@ -195,16 +211,20 @@ def finish_shot(data, shot, generation):
     if shot.operation != 'template_edit':
         return generation
     profile = business_profile(data)
-    generation = align_portrait_colour(generation, shot.key, profile_midtone(profile),
-                                       soft_edges=True, local_exposure=True,
-                                       even_exposure=has_uniform_swatch(profile))
     target = business_base_colour(profile)
-    generation = align_portrait_colour(generation, 'trousers', target,
-                                       region=TROUSER_REGIONS[shot.key], soft_edges=True,
-                                       local_exposure=True, even_exposure=True)
-    generation = clean_trouser_motifs(generation, shot.key, target)
-    generation = colour_portrait_tie(generation, shot.key, target)
-    return neutralize_dress_shirt(generation, shot.key, target)
+    if target is None:
+        return generation
+    with Image.open(BytesIO(generation.image_bytes)) as source:
+        original = source.convert('RGB')
+    solid = has_uniform_swatch(profile)
+    image, jacket = align_cloth(original, shot.key, profile_midtone(profile), region=JACKET_REGIONS.get(shot.key),
+                               soft_edges=True, local_exposure=solid, even_exposure=solid, reduced_exposure=True)
+    image, trousers = align_cloth(image, 'trousers', target, region=TROUSER_REGIONS[shot.key],
+                                 soft_edges=True, local_exposure=True, even_exposure=True, reduced_exposure=True)
+    image = clean_trouser_motifs(image, shot.key, target)
+    image, tie = colour_portrait_tie(image, shot.key, target)
+    image, shirt = clean_shirt_image(image, shot.key, target)
+    return encode_portrait(generation, original, image, {**jacket, **trousers, **tie, **shirt})
 
 
 def validate_request(data):
