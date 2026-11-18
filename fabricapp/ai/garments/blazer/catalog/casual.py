@@ -62,7 +62,13 @@ def layout(_product):
 
 
 def output_dimensions(data, shot):
-    limit = 768 if data.get('options', {}).get('draft_mode') else 1536
+    draft = data.get('options', {}).get('draft_mode')
+    if draft:
+        limit = 768
+    elif shot.key in ('lapel', 'cuff', 'pocket'):
+        limit = 1024
+    else:
+        limit = 1536
     if shot.operation == 'crop':
         left, top, right, bottom = next(panel.box for panel in layout({}).panels if panel.shot == shot.key)
         width, height = right - left, bottom - top

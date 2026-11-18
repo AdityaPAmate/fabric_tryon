@@ -86,7 +86,13 @@ def layout(_product):
 def reference_output_dimensions(data, shot):
     with Image.open(shot.reference) as reference:
         width, height = reference.size
-    max_side = 768 if data.get('options', {}).get('draft_mode') else 1536
+    draft = data.get('options', {}).get('draft_mode')
+    if draft:
+        max_side = 768
+    elif shot.key in ('collar', 'cuff', 'pocket', 'side_slit', 'hem'):
+        max_side = 1024
+    else:
+        max_side = 1536
     scale = max_side / max(width, height)
     return tuple(max(256, round(side * scale / 32) * 32) for side in (width, height))
 
