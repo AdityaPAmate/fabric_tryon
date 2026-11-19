@@ -32,6 +32,46 @@ def request_catalog():
 
 
 class ShirtEditorialCatalogTests(SimpleTestCase):
+    def test_detail_edits_stay_local_and_selected_options_replace_reference_treatments(self):
+        def config(view, details=()):
+            data = {'fabric_image': io.BytesIO(image_bytes()), 'garment_type': 'shirt',
+                    'garment_details': details, 'options': {}}
+            shot = next(shot for shot in DEFINITION.shots if shot.key == view)
+            return build_config(data, shot, 71)['prompt']
+
+        cuff = config('cuff')
+        self.assertIn('isolated wrist-level close-up', cuff)
+        self.assertNotIn('collar', cuff)
+        self.assertNotIn('hem', cuff)
+        self.assertNotIn('trousers', cuff)
+        self.assertNotIn('Image 2', cuff)
+        folded = config('cuff', ['folded_sleeves'])
+        self.assertIn('rolled fabric cuff', folded)
+        self.assertNotIn('broad horizontal buttoned cuff', folded)
+        tucked = config('hem', ['tucked'])
+        self.assertIn('bottom hem concealed', tucked)
+        self.assertNotIn('curved stitched hem', tucked)
+        front = config('front')
+        self.assertIn('covers both forearms continuously down to the wrists', front)
+        self.assertNotIn('covers both forearms continuously down to the wrists',
+                         config('front', ['folded_sleeves']))
+
+    def test_all_views_measure_the_requested_fabric_crop_without_a_named_colour_override(self):
+        for rgb in ('#233d7b', '#8d2463', '#71811e'):
+            # The contrasting half lies outside the crop and must never anchor colour.
+            source = Image.new('RGB', (96, 128), '#f5ca26')
+            source.paste(rgb, (48, 0, 96, 128))
+            payload = io.BytesIO()
+            source.save(payload, 'PNG')
+            data = {'garment_type': 'shirt', 'fabric_image': payload,
+                    'options': {'fabric_crop_box': [48, 0, 96, 128]}}
+            for shot in DEFINITION.shots:
+                config = build_config(data, shot, 71)
+                self.assertEqual(config['fabric_colour_reference']['colours'][0]['hex'], rgb.upper())
+                self.assertIn(rgb.upper(), config['prompt'])
+                self.assertNotIn('yellow', config['prompt'])
+                self.assertEqual(config['fabric_colour_reference']['crop_box'], [48, 0, 96, 128])
+
     def test_default_layout_and_dimensions_keep_all_six_references(self):
         self.assertEqual(get_definition('shirt').edition, 'editorial-v1')
         layout = validate_definition(DEFINITION)

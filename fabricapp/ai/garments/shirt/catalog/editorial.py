@@ -1,8 +1,10 @@
 """Reference-based 3:4 Shirt catalog with independent pose and detail shots."""
 from PIL import Image
 
-from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
-from fabricapp.ai.garments.shirt.details import get_shirt_detail_prompt, SLEEVES_FOLDED, SHIRT_TUCKED
+from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
+from fabricapp.ai.fabric.fabric_material import validate_fabric_type
+from fabricapp.ai.garments.shirt.details import get_shirt_detail_prompt
+from fabricapp.ai.pipeline.router import PromptRoutingError
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
 from fabricapp.ai.scene.backgrounds import get_background_description
@@ -11,6 +13,33 @@ from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel,
 
 REFERENCES = CATALOG_REFERENCE_DIR / 'shirt'
 PORTRAITS = {'front', 'close_up', 'back'}
+MATERIAL = {
+    'unspecified': 'Retain the actual textile surface of image 1.',
+    'cotton': 'Use a fine cotton weave with a matte surface and soft diffuse highlights.',
+    'silk': 'Use a fine silk surface with restrained lustre, retaining the source colour.',
+    'velvet': 'Use a short velvet pile with soft diffuse nap, retaining the source colour.',
+}
+DETAIL_EDITS = {
+    'collar': (
+        'Retexture only the existing collar, collar stand and visible upper-chest cloth in image 0 '
+        'with the fabric in image 1. Keep the two pointed collar leaves, their opening, both white '
+        'buttons, the neck and lower chin exactly where they are. '
+        'The photograph ends at the upper chest; preserve this close camera distance.'
+    ),
+    'cuff': (
+        'Retexture only the single vertical sleeve, pointed sleeve placket and broad horizontal '
+        'buttoned cuff in image 0 with the fabric in image 1. Keep the single white cuff button, '
+        'stitched cuff edges and bare wrist below it at their exact positions. The grey area on '
+        'either side is background. Keep this isolated wrist-level close-up, with the sleeve '
+        'entering the top edge and the wrist leaving the bottom edge.'
+    ),
+    'hem': (
+        'Retexture only the existing lower shirt panels, front placket and curved stitched hem '
+        'in image 0 with the fabric in image 1. Keep the white button, small opening between '
+        'the front panels, dark trousers beneath the hem and grey background unchanged. '
+        'Preserve this tight waist-level crop, with shirt cloth entering the top edge.'
+    ),
+}
 SHOTS = tuple(
     Shot(key, description, 'template_edit', framing, reference=REFERENCES / filename,
          identity_from='request' if key in PORTRAITS else None,
@@ -49,17 +78,64 @@ def output_dimensions(data, shot):
     return tuple(max(256, round(side * scale / 32) * 32) for side in (width, height))
 
 
+def condition_fabric(config, data):
+    """A compact Shirt-edition contract; numerical sampling remains shared."""
+    fabric_type = data.get('fabric_type', 'unspecified')
+    error = validate_fabric_type(fabric_type, 'shirt')
+    if error:
+        raise PromptRoutingError(error)
+    profile = measure_fabric_colours(data['fabric_image'],
+                                    data.get('options', {}).get('fabric_crop_box'),
+                                    palette_size=24, min_coverage=.005)
+    colours = profile['colours']
+    # One stable measured sample across shots. Names such as "yellow" can
+    # reinterpret an olive/green source; the uploaded pixels define its hue.
+    colour = (f"The largest sampled cloth colour is {colours[0]['hex']}. " if colours else '')
+    distinct = []
+    for sample in colours:
+        if all(sum((a - b) ** 2 for a, b in zip(sample['rgb'], other['rgb'])) > 24 ** 2
+               for other in distinct):
+            distinct.append(sample)
+        if len(distinct) == 6:
+            break
+    if len(distinct) > 1:
+        colour += 'Keep the sampled colours in their original pattern: ' + ', '.join(
+            sample['hex'] for sample in distinct) + '. '
+    config = {**config, 'fabric_type': fabric_type, 'fabric_colour_reference': profile}
+    config['prompt'] += (' ' + colour + 'Image 1 defines every actual cloth colour, pattern and '
+                         'weave. Keep the same diffuse cloth midtone across all views. Copy its '
+                         'printed pattern faithfully, keeping photographic glare off the cloth. '
+                         'If a reference garment looks faded, use the original swatch colours instead. '
+                         + MATERIAL[fabric_type])
+    return config
+
+
 def build_config(data, shot, seed):
     portrait = shot.key in PORTRAITS
     details = data.get('garment_details') or ()
-    prompt = [
-        f'Edit image 0 in place to make one Shirt catalog photograph: {shot.description}.',
-        'Image 0 fixes the exact pose, camera angle, crop, shirt outline, seams and button positions.',
-        'Image 1 supplies only the fabric. Replace every visible shirt panel, collar, sleeve, cuff, '
-        'placket and hem with its actual colour, weave and pattern at the original scale. '
-        'Keep plain cloth plain. Preserve all buttons, skin, accessories and separate trousers.',
-    ]
+    detail_edit = DETAIL_EDITS.get(shot.key)
+    if shot.key == 'cuff' and 'folded_sleeves' in details:
+        detail_edit = (
+            'Keep the isolated vertical sleeve and wrist-level camera angle of image 0. '
+            'Apply image 1’s fabric only to this sleeve and its rolled fabric cuff, with '
+            'the selected fold just below the elbow. Keep the exposed forearm and grey '
+            'background unchanged. Preserve visible stitching and natural overlapping folds.'
+        )
+    if shot.key == 'hem' and 'tucked' in details:
+        detail_edit = (
+            'Keep the waist-level close camera distance of image 0. Apply image 1’s '
+            'fabric only to the shirt cloth above the trouser waistband. Show both shirt '
+            'fronts entering the waistband evenly, with the bottom hem concealed. '
+            'Keep the separate trousers and grey background unchanged.'
+        )
+    prompt = []
     if portrait:
+        prompt.extend([
+            f'Edit the reference photograph in image 0: {shot.description}.',
+            'Keep its exact pose, crop and shirt construction. Replace only the shirt cloth '
+            'with the actual colour, weave and print from image 1, including the collar, '
+            'sleeves, cuffs and hem. Preserve buttons, skin and separate clothing.',
+        ])
         prompt.append(get_shirt_detail_prompt(details))
         prompt.append('Keep the reference shirt length and the trousers separate and plain white.')
         if data.get('gender'):
@@ -80,29 +156,29 @@ def build_config(data, shot, seed):
         if data.get('additional_style_note'):
             prompt.append(f"Styling: {data['additional_style_note']}. Preserve the reference pose and crop.")
     else:
-        detail = {
-            'collar': 'Keep the chin, neck and existing collar opening. Keep the collar points and top buttons in place.',
-            'cuff': 'Keep one vertical sleeve, its broad cuff, pointed sleeve placket and single cuff button. '
-                    'Keep the wrist bare and the studio background plain grey.',
-            'hem': 'Keep the curved untucked hem, its stitching, small front opening and existing button. '
-                   'Keep the trousers and grey backdrop unchanged.',
-        }
-        prompt.append(detail[shot.key])
-        if shot.key == 'cuff' and 'folded_sleeves' in details:
-            prompt.append(SLEEVES_FOLDED.format(noun='shirt') + ' Preserve this sleeve-detail camera angle.')
-        if shot.key == 'hem' and 'tucked' in details:
-            prompt.append(SHIRT_TUCKED + ' Show the selected tucked waist treatment at this close-up scale.')
-        prompt.append('Keep this exact close-up. The face, full torso and full outfit are outside the crop.')
-    prompt.append('Use even neutral white light with natural seam and fold shadows. Preserve the source '
-                  'midtone and every printed colour. Keep sunlight, warm casts and bright patches off the cloth. '
-                  'Output one photograph with no text or collage.')
+        prompt.append(detail_edit)
+    prompt.append('Keep plain fabric plain. Use soft, even neutral white light, with shallow '
+                  'natural seam and fold shadows. Output one photograph.')
     config = {
         'prompt': ' '.join(prompt), 'seed': seed, 'guidance': data.get('guidance', 7),
         'output_dimensions': output_dimensions(data, shot), 'output_size_multiple': 32,
         'fabric_source_format': 'PNG', 'classified_recovery': True, 'safety_retry_count': 0,
     }
-    config = apply_fabric_conditioning(config, data, 'shirt', match_pattern_colours=True, lead_with_edit=True)
-    config['prompt_version'] = f'shirt-editorial-swatch-v1-{shot.key}'
+    config = condition_fabric(config, data)
+    # Colour/material helpers must not have the last word over this shot's camera
+    # and construction. A detail edit never describes invisible garment parts.
+    if portrait:
+        config['prompt'] += (' FINAL REFERENCE LOCK: keep image 0’s camera view and body pose. '
+                             + get_shirt_detail_prompt(details))
+        if 'folded_sleeves' not in details:
+            config['prompt'] += (' Buttoned wrist cuffs end directly against the hands, as in image 0. '
+                                 'The sleeve fabric covers both forearms continuously down to the wrists.')
+        if shot.key == 'back':
+            config['prompt'] += ' Keep the face hidden and the back free of front buttons and pockets.'
+    else:
+        config['prompt'] += (' FINAL REFERENCE LOCK: preserve image 0’s exact close-up geometry. '
+                             + detail_edit)
+    config['prompt_version'] = f'shirt-editorial-swatch-v3-{shot.key}'
     return config
 
 

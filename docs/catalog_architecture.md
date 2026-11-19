@@ -9,6 +9,15 @@ uses 768px. Six direct edits upload original provider bytes with no colour
 post-processing or dependent pose regeneration. Explicit `classic-v1` requests
 retain the earlier 9:16 edition.
 
+Shirt editorial conditioning is owned by the Shirt edition. Shared utilities
+measure the cropped input palette and validate material choices; they do not
+append another garment-wide prompt to an editorial detail shot. Each detail
+describes only its visible region and ends with its own framing constraint.
+Folded-sleeve and tucked-hem selections replace the default detail treatment,
+instead of leaving contradictory buttoned-cuff or untucked-hem instructions.
+All views use the same measured fabric sample without a verbal colour-name
+override. The provider still receives the original cropped fabric pixels.
+
 Kurta catalog trousers follow the edition's outfit rule in both fabric and
 ready-made modes. Plain, Sherwani and Jodhpuri use solid white trousers. Pathani
 uses solid trousers in the main source-cloth colour, including when the kurta
