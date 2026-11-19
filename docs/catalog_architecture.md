@@ -1,7 +1,10 @@
 # Catalog edition ownership
 
 Shirt defaults to `editorial-v1`, exporting an image-only 1800 × 2400 collage.
-The new numbered front, side and back photographs are independent templates.
+The numbered front, side and back photographs supply their own pose templates.
+The rear shot depends on the generated front for identity and finished-fabric
+appearance while keeping its own rear-pose template and the original swatch.
+It does not accept the user's face-only image as its sole appearance reference.
 The existing collar, cuff and hem references form the last column. The public
 second-view key remains `close_up` for clients, and its reference is the side photo.
 The main front uses a 1536px limit, the five smaller views use 1024px, and draft

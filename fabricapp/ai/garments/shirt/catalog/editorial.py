@@ -48,7 +48,9 @@ DETAIL_EDITS = {
 }
 SHOTS = tuple(
     Shot(key, description, 'template_edit', framing, reference=REFERENCES / filename,
-         identity_from='request' if key in PORTRAITS else None,
+         dependencies=('front',) if key == 'back' else (),
+         identity_from='front' if key == 'back' else 'request' if key in PORTRAITS else None,
+         identity_crop=(.06, .01, .94, .70) if key == 'back' else None,
          scenario='pose_reference' if key in PORTRAITS else 'person_photo')
     for key, filename, framing, description in (
         ('front', '01_front.png', 'full_body', 'the complete front view, from head to shoes'),
@@ -160,9 +162,11 @@ def build_config(data, shot, seed):
         )
     prompt = []
     if portrait:
+        replacement = ('Replace ALL visible shirt cloth' if shot.key == 'back'
+                       else 'Replace only the shirt cloth')
         prompt.extend([
             f'Edit the reference photograph in image 0: {shot.description}.',
-            'Keep its exact pose, crop and shirt construction. Replace only the shirt cloth '
+            'Keep its exact pose, crop and shirt construction. ' + replacement + ' '
             'with the actual colour, weave and print from image 1, including the collar, '
             'sleeves, cuffs and hem. Preserve buttons, skin and separate clothing.',
         ])
@@ -172,8 +176,10 @@ def build_config(data, shot, seed):
         if shot.key == 'back':
             prompt.append('Keep the head and torso facing away. Preserve the rear yoke, collar and hem. '
                           'Front pockets, front buttons and the front placket stay out of this rear view.')
-            if data.get('person_image') or data.get('face_image') or data.get('face_choice'):
-                prompt.append('Use image 2 only for visible hair, skin tone and body build. Keep the face hidden.')
+            prompt.append('Image 2 is this catalogue’s generated front photograph, showing the same '
+                          'person and the finished shirt already made from image 1. Use it for hair, '
+                          'skin tone, build and the finished fabric appearance. Image 0 supplies '
+                          'only this rear pose and framing. Keep the face hidden.')
         else:
             if data.get('person_image'):
                 prompt.append('Image 2 supplies the wearer’s identity, hair, skin tone and body build.')
@@ -203,10 +209,17 @@ def build_config(data, shot, seed):
         config['prompt'] += ' ' + TROUSER_RULE
         if shot.key == 'back':
             config['prompt'] += ' Keep the face hidden and the back free of front buttons and pockets.'
+            config['prompt'] += (
+                ' FINAL FABRIC EDIT: replace the original cloth colour across the ENTIRE visible '
+                'back, rear yoke, collar, both sleeves and cuffs, all the way to the hem. '
+                'Image 1 supplies the actual cloth; image 2 shows its finished shirt appearance. '
+                'Preserve image 0’s rear geometry, not its original white fabric.'
+            )
     else:
         config['prompt'] += (' FINAL REFERENCE LOCK: preserve image 0’s exact close-up geometry. '
                              + detail_edit)
-    version = 'v6' if portrait else 'v5' if shot.key == 'hem' else 'v4'
+    version = ('v7-front-anchor' if shot.key == 'back' else 'v6' if portrait
+               else 'v5' if shot.key == 'hem' else 'v4')
     config['prompt_version'] = f'shirt-editorial-swatch-{version}-{shot.key}'
     return config
 

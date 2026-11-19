@@ -9,7 +9,7 @@ from PIL import Image
 from rest_framework.test import APIClient
 
 from fabricapp.ai.garments.shirt.catalog.editorial import DEFINITION, build_config
-from fabricapp.ai.providers.cloudflare_engine import GenerationResult
+from fabricapp.ai.providers.cloudflare_engine import GenerationResult, CloudflareGenerationError
 from fabricapp.catalog_engine.registry import get_definition
 from fabricapp.catalog_engine.validation import validate_definition
 
@@ -32,6 +32,20 @@ def request_catalog():
 
 
 class ShirtEditorialCatalogTests(SimpleTestCase):
+    @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/photo.png'})
+    @patch('fabricapp.catalog.generate_edit')
+    def test_failed_front_cannot_produce_an_unconditioned_white_back(self, edit, upload):
+        edit.side_effect = [CloudflareGenerationError('front generation failed')] + [
+            GenerationResult(image_bytes(), 71)] * 4
+        response = request_catalog()
+        events = [json.loads(line) for line in response.streaming_content]
+        self.assertEqual(events[-1]['failed_views'], ['front', 'back'])
+        self.assertEqual([i['view'] for i in events[-1]['images']], ['close_up', 'collar', 'cuff', 'hem'])
+        back = next(e for e in events if e['event'] == 'image_failed' and e['view'] == 'back')
+        self.assertEqual(back['missing_dependencies'], ['front'])
+        self.assertEqual(edit.call_count, 5)
+        self.assertIsNone(events[-1]['collage'])
+
     def test_pale_dyed_cloth_keeps_its_tint_without_tinting_white_printed_fabric(self):
         def prompt(image):
             payload = io.BytesIO()
@@ -123,7 +137,7 @@ class ShirtEditorialCatalogTests(SimpleTestCase):
         self.assertEqual(len({p.box[0] for p in layout.panels[-3:]}), 1)
         for shot in DEFINITION.shots:
             self.assertEqual(shot.operation, 'template_edit')
-            self.assertEqual(shot.dependencies, ())
+            self.assertEqual(shot.dependencies, ('front',) if shot.key == 'back' else ())
             for draft in (False, True):
                 data = {'fabric_image': io.BytesIO(image_bytes()), 'garment_type': 'shirt',
                         'options': {'draft_mode': draft}}
@@ -151,12 +165,18 @@ class ShirtEditorialCatalogTests(SimpleTestCase):
             self.assertEqual(args['person_image'].getvalue(), shot.reference.read_bytes())
             self.assertEqual(args['prompt_config']['seed'], 71)
             self.assertEqual(args['prompt_config']['guidance'], 6)
-            self.assertEqual(args.get('face_choice'), 'raghav' if index < 3 else None)
+            self.assertEqual(args.get('face_choice'), 'raghav' if index < 2 else None)
             if index >= 3:
                 self.assertNotIn('face_image', args)
                 self.assertNotIn('Image 2', args['prompt_config']['prompt'])
             if shot.key == 'back':
                 self.assertIn('Keep the face hidden', args['prompt_config']['prompt'])
+                self.assertEqual(shot.identity_from, 'front')
+                from fabricapp.ai.images.image_utils import crop_identity_reference
+                self.assertEqual(args['face_image'].getvalue(),
+                                 crop_identity_reference(image_bytes(), shot.identity_crop))
+                self.assertIn('generated front photograph', args['prompt_config']['prompt'])
+                self.assertIn('ENTIRE visible back', args['prompt_config']['prompt'])
         for call in upload.call_args_list[:6]:
             self.assertEqual(call.args[0], image_bytes())
 

@@ -36,7 +36,15 @@ than adding conflicting instructions. Default portraits retain full wrist
 cuffs and an untucked hem. The final hem instruction applies the source cloth
 from the photograph's top edge through the entire visible shirt to its hem.
 
-All six shots are independent edits. Front output uses a 1536px longest side;
+All six shots use template edits. The rear shot now depends on the completed
+front: image 0 retains the rear pose, image 1 is the original swatch, and image 2
+is the generated front cropped to retain the head and finished shirt. This
+replaces the face-only rear appearance reference after two brown-fabric reports
+retained a white rear shirt. The final rear prompt explicitly replaces all
+visible rear cloth. Other five shot prompts stay identical to those reports.
+The existing sequential runner still makes six calls, with no extra reposing
+stage. If the front fails, the rear is explicitly skipped instead of generating
+an unconditioned result. Front output uses a 1536px longest side;
 other outputs use 1024px, or 768px in draft mode. Portrait subject references
 opt into 768px so cuffs and the hem remain readable; other callers keep the
 provider's 511px default. Swatch and identity input limits are unchanged.
