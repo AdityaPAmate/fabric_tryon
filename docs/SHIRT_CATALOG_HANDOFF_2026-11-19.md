@@ -1,87 +1,81 @@
 # Shirt catalog completion record — 19 November 2026
 
-The requested Shirt catalog update is implemented, pushed and live-verified.
-This replaces the earlier paused-work handoff in this file.
-
-## Code and deployment
+## Current code and deployment
 
 - Branch: `perf/catalog-speed-optimization`
-- Live-verified code commit: `21068f0078b5bf013addc68d50a4909fcd434298`
+- Live-verified code commit: `2f586bcba423df6f26d6a8e479111f59da1ed4e3`
 - Render service: `srv-db337krbc2fs73cfdt1g`
 - Workspace: `tea-d0oqv0uuk2gs738vsulg` (My Workspace)
-- Verified deployment: `dep-dbvch5jl550s739cu3o0`, status `live`
+- Verified deployment: `dep-dbvd6o3l550s739ei3n0`, status `live`
 - Application: https://fabric-tryon.onrender.com
 
 ## Implemented behavior
 
-Shirt defaults to `editorial-v1`, with an image-only 1800x2400 (3:4) collage,
-no outer padding, no header/footer and no swatch inset. Internal separators
-are 12px. Front occupies the left column, side/rear the middle column, and
-collar/cuff/hem the final column. The public side-view key remains `close_up`
-for client compatibility. Explicit `classic-v1` callers retain their old edition.
+Shirt defaults to `editorial-v1`, an image-only 1800x2400 (3:4) collage, with
+front at left, side/rear in the middle and collar/cuff/hem in the final column.
+There is no outer padding, header/footer or swatch inset. Internal separators
+are 12px. Explicit `classic-v1` callers retain the previous edition.
 
-The downloaded `1_shirt_front.png`, `2_shirt_side.png`, `3_shirt_back.png`
-were copied exactly to `fabricapp/ai/references/assets/catalog/shirt/` as
-`01_front.png`, `02_side.png`, `03_back.png`. The existing collar, sleeve and
-hem reference photographs remain the detail templates.
-In the subsequent navy-trouser update, those three portrait files were edited
-and replaced so their trousers match `hem.png`. Their runtime prompts now
-preserve plain navy trousers independently of the shirt fabric. The original
-white-trouser files remain in Git history; edit provenance and prompts are in
-`SHIRT_NAVY_REFERENCE_EDITS.md`. The live timing below predates this asset update.
+The three numbered portrait reference files now have plain navy trousers,
+matching `hem.png`. The portrait prompt preserves those trousers independently
+of the shirt fabric. Image-edit provenance is in `SHIRT_NAVY_REFERENCE_EDITS.md`.
 
-Shirt-owned prompts describe only the visible region of each close-up.
-Folded-sleeve and tucked-hem selections replace the default treatment rather
-than adding conflicting instructions. Default portraits retain full wrist
-cuffs and an untucked hem. The final hem instruction applies the source cloth
-from the photograph's top edge through the entire visible shirt to its hem.
+The rear keeps its own pose template and original swatch, but takes identity
+and finished-shirt appearance from a crop of the generated front. The crop is
+(.06, .01, .94, .70) of the full front photograph. The final rear instruction
+replaces every visible shirt area, including the yoke, collar, sleeves and cuffs.
+If front generation fails, the dependent rear is skipped explicitly. The
+sequential runner still makes six planned image generations, with no added
+colour post-processing, mask composite, reposing call or automatic colour retry.
 
-All six shots use template edits. The rear shot now depends on the completed
-front: image 0 retains the rear pose, image 1 is the original swatch, and image 2
-is the generated front cropped to retain the head and finished shirt. This
-replaces the face-only rear appearance reference after two brown-fabric reports
-retained a white rear shirt. The final rear prompt explicitly replaces all
-visible rear cloth. Other five shot prompts stay identical to those reports.
-The existing sequential runner still makes six calls, with no extra reposing
-stage. If the front fails, the rear is explicitly skipped instead of generating
-an unconditioned result. Front output uses a 1536px longest side;
-other outputs use 1024px, or 768px in draft mode. Portrait subject references
-opt into 768px so cuffs and the hem remain readable; other callers keep the
-provider's 511px default. Swatch and identity input limits are unchanged.
-There is no added colour post-processing, mask compositing or dependent reposing.
+Front output has a 1536px longest-side limit; the other views use 1024px, or
+768px in draft mode. Portrait subject references opt into 768px; other provider
+callers retain their existing 511px default. Swatch and identity limits are
+unchanged. Shirt prompts own the measured palette and material wording.
 
-Measured cropped source pixels anchor the palette. Pale monochrome dyed cloth
-gets a tint-preservation instruction; neutral white/grey and multicolour prints
-do not get a global tint. Actual swatch pixels retain the pattern information.
+## Latest report investigation and live verification
 
-## Verification
+Investigated reports:
+`shirt/2026-11-19_160101_001` and `shirt/2026-11-19_160325_001` in the local tester.
+Both selected the rear view. Both used the same brown `pant_fabric2.jpg`,
+Vihaan identity, seed 42, guidance 7 and white-marble-terrace background.
+Both produced a white rear shirt while other views carried the brown cloth.
+Their rear prompt/request hashes and all input hashes matched one another.
+The failed production prompt was reconstructed locally with its exact SHA-256.
+The old rear had only a face identity reference, not the generated front outfit.
 
-- Full suite: 170 tests passed in `tmp/shirt_final_full_tests.log`.
-- Final hem-only prompt correction: all 7 Shirt editorial tests passed in
-  `tmp/shirt_hem_scope_tests.log`.
-- Green front, collar and cuff were generated, uploaded and visually reviewed.
-  Their final prompts were checked against the saved successful live configs.
-- Final pale-lilac catalog ran through the public deployed endpoint:
-  **72.858 seconds**, six images, no failed views, no collage error, 3:4 output.
-- Every final shot's diagnostics confirms code revision `21068f0` and one
-  provider attempt. Portraits have three input images; details have two and
-  receive no identity image.
-- All six final panels and the raw hem were visually reviewed. The earlier
-  retained-white hem region was absent, full sleeves and the untucked hem
-  were preserved, and the cuff remained an isolated wrist-level close-up.
+The fix changes only the rear conditioning and its dependency. The other five
+prompts remained byte-identical to the failed reports. This identifies the
+failed request/conditioning path; it does not claim to reveal an undocumented
+internal decision or a single causal token inside the generative model.
 
-Local final evidence (ignored by Git):
-`outputs/shirt_live_21068f0_20261119/lilac/`
-contains `source.jpg`, the six photos, `catalog.png`, `events.json`, `summary.json`.
-Focused green evidence is in `outputs/shirt_focused_v4/`; the focused corrected
-lilac hem is in `outputs/shirt_focused_v5/`.
+Verification used exactly the user-approved six paid generations: one full
+public deployed-endpoint replay with the saved report's original source and
+parameters. Result: **78.832 seconds**, six images, no failed views, 3:4 collage.
+Every shot confirmed revision `2f586bc` and one provider attempt.
 
-The prior `2189e0e` run finished in 69.153s but failed visual review because
-its hem retained white cloth. It is historical evidence, not the final result.
-The final newly approved eight-generation allowance used seven generations:
-one successful focused hem check and one six-image deployed catalog. One was
-unused. No further paid run is needed for this implementation.
+Actual response diagnostics confirmed:
 
-These checks cover the recorded fabrics and requests, not a guarantee that
-all future generative outputs will be identical. Other garment implementations
-were unchanged; the provider subject-size option preserves its old default.
+- Every shot's pose-reference and fabric-input hashes matched the failed report.
+- The five unchanged views also retained their prompt and identity-input hashes.
+- Only the rear changed its prompt and image 2, now the generated-front crop.
+- The raw rear and complete collage were visually reviewed: rear cloth was
+  brown across the back, yoke, collar, both sleeves and cuffs; navy trousers
+  and the rear pose remained present.
+
+A fixed central-back inspection region (x .30-.70, y .35-.65) changed from
+median RGB [213,212,214] to [66,54,40]. Its bright-neutral pixel fraction fell
+from 61.93% to 0.04%. This is evidence for the reported dark-brown case, not a
+runtime colour validator or a rule for rejecting legitimately white cloth.
+
+Evidence, ignored by Git:
+`outputs/shirt_report_back_2f586bc/` contains the source, request, six photos,
+collage, events and `summary.json` with the per-view hash comparisons.
+Only this reported fabric was live-tested under the six-generation cap.
+
+Tests: all 171 passed in `tmp/shirt_report_back_full_tests.log`, including
+provider-input routing and the failed-front/dependent-rear error case.
+
+Earlier successful pale-lilac rollout: `21068f0`, 72.858 seconds, evidence in
+`outputs/shirt_live_21068f0_20261119/lilac/`. That earlier result predates the
+navy-trouser asset update and is not the current report replay.
