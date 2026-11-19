@@ -12,6 +12,11 @@ from fabricapp.catalog_engine.contracts import CatalogDefinition, Layout, Panel,
 
 REFERENCES = CATALOG_REFERENCE_DIR / 'shirt'
 PORTRAITS = {'front', 'close_up', 'back'}
+TROUSER_RULE = (
+    'Keep image 0’s plain dark navy blue trousers (midtone #202637) separate from the shirt. '
+    'Their colour and unpatterned surface stay unchanged, regardless of the shirt swatch’s '
+    'colour or print. Apply image 1 only to shirt cloth.'
+)
 MATERIAL = {
     'unspecified': 'Retain the actual textile surface of image 1.',
     'cotton': 'Use a fine cotton weave with a matte surface and soft diffuse highlights.',
@@ -161,7 +166,7 @@ def build_config(data, shot, seed):
             'with the actual colour, weave and print from image 1, including the collar, '
             'sleeves, cuffs and hem. Preserve buttons, skin and separate clothing.',
         ])
-        prompt.append('Keep the reference shirt length and the existing separate white trousers unchanged.')
+        prompt.append('Keep the reference shirt length and preserve the separate trousers in image 0.')
         if data.get('gender'):
             prompt.append('Subject: ' + _person_description(data['gender'], data.get('body_type')) + '.')
         if shot.key == 'back':
@@ -195,12 +200,13 @@ def build_config(data, shot, seed):
     if portrait:
         config['prompt'] += (' FINAL REFERENCE LOCK: keep image 0’s camera view and body pose. '
                              + portrait_treatment(details))
+        config['prompt'] += ' ' + TROUSER_RULE
         if shot.key == 'back':
             config['prompt'] += ' Keep the face hidden and the back free of front buttons and pockets.'
     else:
         config['prompt'] += (' FINAL REFERENCE LOCK: preserve image 0’s exact close-up geometry. '
                              + detail_edit)
-    version = 'v5' if shot.key == 'hem' else 'v4'
+    version = 'v6' if portrait else 'v5' if shot.key == 'hem' else 'v4'
     config['prompt_version'] = f'shirt-editorial-swatch-{version}-{shot.key}'
     return config
 

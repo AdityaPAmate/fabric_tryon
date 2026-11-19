@@ -8,6 +8,10 @@ The main front uses a 1536px limit, the five smaller views use 1024px, and draft
 uses 768px. Six direct edits upload original provider bytes with no colour
 post-processing or dependent pose regeneration. Explicit `classic-v1` requests
 retain the earlier 9:16 edition.
+The editorial front, side and back references use plain dark navy trousers
+matching the hem reference. The portrait prompt preserves those trousers
+independently of the shirt swatch colour and pattern. See
+`SHIRT_NAVY_REFERENCE_EDITS.md` for the saved assets and edit prompt set.
 
 Shirt editorial conditioning is owned by the Shirt edition. Shared utilities
 measure the cropped input palette and validate material choices; they do not

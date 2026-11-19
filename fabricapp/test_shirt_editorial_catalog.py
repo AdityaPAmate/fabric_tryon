@@ -89,6 +89,14 @@ class ShirtEditorialCatalogTests(SimpleTestCase):
         self.assertIn('covers both forearms continuously down to the wrists', front)
         self.assertNotIn('covers both forearms continuously down to the wrists',
                          config('front', ['folded_sleeves']))
+        for view in ('front', 'close_up', 'back'):
+            for details in ((), ['folded_sleeves', 'tucked']):
+                portrait = config(view, details)
+                self.assertIn('plain dark navy blue trousers', portrait)
+                self.assertIn('regardless of the shirt swatch', portrait)
+                self.assertNotIn('white trousers', portrait)
+                self.assertGreater(portrait.index('plain dark navy blue trousers'),
+                                   portrait.index('FINAL REFERENCE LOCK'))
 
     def test_all_views_measure_the_requested_fabric_crop_without_a_named_colour_override(self):
         for rgb in ('#233d7b', '#8d2463', '#71811e'):

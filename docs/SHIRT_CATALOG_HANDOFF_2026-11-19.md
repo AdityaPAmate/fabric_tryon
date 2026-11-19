@@ -24,6 +24,11 @@ The downloaded `1_shirt_front.png`, `2_shirt_side.png`, `3_shirt_back.png`
 were copied exactly to `fabricapp/ai/references/assets/catalog/shirt/` as
 `01_front.png`, `02_side.png`, `03_back.png`. The existing collar, sleeve and
 hem reference photographs remain the detail templates.
+In the subsequent navy-trouser update, those three portrait files were edited
+and replaced so their trousers match `hem.png`. Their runtime prompts now
+preserve plain navy trousers independently of the shirt fabric. The original
+white-trouser files remain in Git history; edit provenance and prompts are in
+`SHIRT_NAVY_REFERENCE_EDITS.md`. The live timing below predates this asset update.
 
 Shirt-owned prompts describe only the visible region of each close-up.
 Folded-sleeve and tucked-hem selections replace the default treatment rather
