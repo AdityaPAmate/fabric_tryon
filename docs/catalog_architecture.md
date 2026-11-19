@@ -17,6 +17,10 @@ Folded-sleeve and tucked-hem selections replace the default detail treatment,
 instead of leaving contradictory buttoned-cuff or untucked-hem instructions.
 All views use the same measured fabric sample without a verbal colour-name
 override. The provider still receives the original cropped fabric pixels.
+Only the editorial portrait templates opt into 768px subject inputs, so small
+wrist cuffs and the hem remain readable. Detail templates, swatches and identity
+images keep their previous input limits. The provider's default remains 511px;
+its optional subject-size setting introduces no garment-specific branch.
 
 Kurta catalog trousers follow the edition's outfit rule in both fabric and
 ready-made modes. Plain, Sherwani and Jodhpuri use solid white trousers. Pathani

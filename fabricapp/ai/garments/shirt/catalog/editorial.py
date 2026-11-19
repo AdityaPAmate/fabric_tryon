@@ -3,7 +3,6 @@ from PIL import Image
 
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 from fabricapp.ai.fabric.fabric_material import validate_fabric_type
-from fabricapp.ai.garments.shirt.details import get_shirt_detail_prompt
 from fabricapp.ai.pipeline.router import PromptRoutingError
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
@@ -110,6 +109,17 @@ def condition_fabric(config, data):
     return config
 
 
+def portrait_treatment(details):
+    sleeves = ('Change only the sleeve treatment to evenly rolled fabric folds just below the elbows.'
+               if 'folded_sleeves' in details else
+               'Keep the reference’s full-length sleeves and flat buttoned wrist cuffs. '
+               'The sleeve fabric covers both forearms continuously down to the wrists.')
+    hem = ('Tuck the shirt fully into the trousers, with both sides of its hem hidden inside the waistband.'
+           if 'tucked' in details else
+           'Keep the reference’s continuous untucked hem hanging outside and over the trouser waistband.')
+    return sleeves + ' ' + hem
+
+
 def build_config(data, shot, seed):
     portrait = shot.key in PORTRAITS
     details = data.get('garment_details') or ()
@@ -136,8 +146,7 @@ def build_config(data, shot, seed):
             'with the actual colour, weave and print from image 1, including the collar, '
             'sleeves, cuffs and hem. Preserve buttons, skin and separate clothing.',
         ])
-        prompt.append(get_shirt_detail_prompt(details))
-        prompt.append('Keep the reference shirt length and the trousers separate and plain white.')
+        prompt.append('Keep the reference shirt length and the existing separate white trousers unchanged.')
         if data.get('gender'):
             prompt.append('Subject: ' + _person_description(data['gender'], data.get('body_type')) + '.')
         if shot.key == 'back':
@@ -163,22 +172,20 @@ def build_config(data, shot, seed):
         'prompt': ' '.join(prompt), 'seed': seed, 'guidance': data.get('guidance', 7),
         'output_dimensions': output_dimensions(data, shot), 'output_size_multiple': 32,
         'fabric_source_format': 'PNG', 'classified_recovery': True, 'safety_retry_count': 0,
+        **({'subject_input_max_side': 768} if portrait else {}),
     }
     config = condition_fabric(config, data)
     # Colour/material helpers must not have the last word over this shot's camera
     # and construction. A detail edit never describes invisible garment parts.
     if portrait:
         config['prompt'] += (' FINAL REFERENCE LOCK: keep image 0’s camera view and body pose. '
-                             + get_shirt_detail_prompt(details))
-        if 'folded_sleeves' not in details:
-            config['prompt'] += (' Buttoned wrist cuffs end directly against the hands, as in image 0. '
-                                 'The sleeve fabric covers both forearms continuously down to the wrists.')
+                             + portrait_treatment(details))
         if shot.key == 'back':
             config['prompt'] += ' Keep the face hidden and the back free of front buttons and pockets.'
     else:
         config['prompt'] += (' FINAL REFERENCE LOCK: preserve image 0’s exact close-up geometry. '
                              + detail_edit)
-    config['prompt_version'] = f'shirt-editorial-swatch-v3-{shot.key}'
+    config['prompt_version'] = f'shirt-editorial-swatch-v4-{shot.key}'
     return config
 
 

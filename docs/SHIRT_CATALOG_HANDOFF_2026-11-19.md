@@ -2,15 +2,20 @@
 
 > Resume note: the user subsequently asked to complete the remaining work.
 > The snapshot below records the initial `5d8b1ca` deployment, not final quality.
-> Follow-up Shirt-only changes use `shirt-editorial-swatch-v3-*`: region-specific
-> detail edits, a compact measured palette without colour-name overrides, and
-> non-conflicting sleeve/hem options. A focused v2 cuff generation followed the
-> supplied cuff reference correctly (7.79s); a v2 front still rolled its cuffs
-> (7.41s), which motivated the v3 wrist-coverage instruction. These two focused
-> runs consumed the last two generations from the earlier eight-generation
-> allowance. Further paid verification requires the pending user response to
-> the new ten-generation request. Never treat the older 69.376s run as a test
-> of the v3 implementation.
+> Follow-up changes use `shirt-editorial-swatch-v4-*`: region-specific detail
+> edits, a measured palette without colour-name overrides, non-conflicting
+> sleeve/hem options and 768px portrait subject references. Other provider
+> callers keep the existing 511px subject-input default. A v2 cuff edit followed
+> the reference, but v2 front cuffs were rolled; a v3 pale-fabric front invented
+> a waistband over the shirt. Simplified reference-preservation instructions
+> and the portrait input-size opt-in followed. The v4 green front, collar and
+> cuff were visually inspected and uploaded: the front kept full wrist cuffs
+> and the untucked hem; the close-ups kept their reference regions. All 169
+> tests passed (`tmp/shirt_v4_full_tests.log`). The user approved a NEW maximum
+> ten-generation allowance; four focused generations were used, leaving six
+> reserved for one deployed pale-fabric catalog. Its actual timing, revision,
+> events and images are saved under `outputs/shirt_live_<revision>_20261119/`.
+> Never treat the older 69.376s run as a test of the v4 implementation.
 
 ## User's requested work
 

@@ -32,6 +32,18 @@ def request_catalog():
 
 
 class ShirtEditorialCatalogTests(SimpleTestCase):
+    def test_subject_resolution_opt_in_leaves_the_existing_provider_default_unchanged(self):
+        from fabricapp.ai.providers.cloudflare_engine import _build_subject
+        source = image_bytes((1200, 1800))
+        default = _build_subject('person_photo', io.BytesIO(source), None, None, 1536)
+        editorial = _build_subject('person_photo', io.BytesIO(source), None, None, 1536,
+                                  max_input_side=768)
+        with Image.open(default[0]) as image:
+            self.assertEqual(max(image.size), 511)
+        with Image.open(editorial[0]) as image:
+            self.assertEqual(max(image.size), 768)
+        self.assertEqual(default[2:], editorial[2:])
+
     def test_detail_edits_stay_local_and_selected_options_replace_reference_treatments(self):
         def config(view, details=()):
             data = {'fabric_image': io.BytesIO(image_bytes()), 'garment_type': 'shirt',
@@ -127,6 +139,10 @@ class ShirtEditorialCatalogTests(SimpleTestCase):
         def reply(url, **kwargs):
             files, parameters = kwargs['files'], kwargs['data']
             inputs.append(set(files))
+            with Image.open(io.BytesIO(files['input_image_0'][1].getvalue())) as subject:
+                self.assertEqual(max(subject.size), 768 if len(inputs) <= 3 else 511)
+            with Image.open(io.BytesIO(files['input_image_1'][1].getvalue())) as swatch:
+                self.assertLessEqual(max(swatch.size), 511)
             return Mock(status_code=200, headers={'Content-Type': 'image/png'},
                         content=image_bytes((parameters['width'], parameters['height'])))
 

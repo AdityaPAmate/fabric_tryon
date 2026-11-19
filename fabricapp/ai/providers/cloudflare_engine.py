@@ -130,7 +130,8 @@ def _load_pose_reference_bytes(path):
         )
 
 
-def _build_pose_reference_subject(pose_reference_path, face_choice, face_image, max_output_side):
+def _build_pose_reference_subject(pose_reference_path, face_choice, face_image, max_output_side,
+                                  max_input_side=MAX_INPUT_DIM):
     """
     pose_reference scenario: image_0 is the reference PHOTO itself (it is
     edited), so the output has the same shape as the photo. The chosen face
@@ -141,7 +142,7 @@ def _build_pose_reference_subject(pose_reference_path, face_choice, face_image, 
 
     # A fresh BytesIO for every call, so no function sees a stream that
     # another function has already read to the end.
-    subject_buffer = resize_to_fit(io.BytesIO(photo_bytes), max_dim=MAX_INPUT_DIM)
+    subject_buffer = resize_to_fit(io.BytesIO(photo_bytes), max_dim=max_input_side)
     out_w, out_h = get_output_dimensions(
         io.BytesIO(photo_bytes), max_side=max_output_side
     )
@@ -156,6 +157,7 @@ def _build_pose_reference_subject(pose_reference_path, face_choice, face_image, 
 
 def _build_subject(
     scenario, person_image, face_choice, face_image, max_output_side, pose_reference_path=None,
+    max_input_side=MAX_INPUT_DIM,
 ):
     """
     Prepares image_0 (subject), the optional reference image (image_2)
@@ -164,11 +166,11 @@ def _build_subject(
     """
     if scenario == SCENARIO_POSE_REFERENCE:
         return _build_pose_reference_subject(
-            pose_reference_path, face_choice, face_image, max_output_side
+            pose_reference_path, face_choice, face_image, max_output_side, max_input_side
         )
 
     if scenario == SCENARIO_PERSON_PHOTO:
-        subject_buffer = resize_to_fit(person_image, max_dim=MAX_INPUT_DIM)
+        subject_buffer = resize_to_fit(person_image, max_dim=max_input_side)
         out_w, out_h = get_output_dimensions(person_image, max_side=max_output_side)
         reference_buffer = _load_uploaded_face_buffer(face_image) if face_image else None
         return subject_buffer, reference_buffer, out_w, out_h
@@ -177,7 +179,7 @@ def _build_subject(
     # the model enough space for the complete head-to-feet pose and keeps the
     # fabric rendering at the same scale as the earlier sharp outputs.
     out_w, out_h = get_portrait_dimensions(max_side=max_output_side)
-    canvas_w, canvas_h = get_portrait_dimensions(max_side=MAX_INPUT_DIM)
+    canvas_w, canvas_h = get_portrait_dimensions(max_side=max_input_side)
     subject_buffer = make_blank_canvas(canvas_w, canvas_h)
 
     reference_buffer = None
@@ -246,6 +248,9 @@ def generate_tryon_image(
         raise CloudflareGenerationError(
             "The generation coordinator must provide scenario and prompt_config."
         )
+    subject_input_max_side = prompt_config.get('subject_input_max_side', MAX_INPUT_DIM)
+    if type(subject_input_max_side) is not int or not 256 <= subject_input_max_side <= 1024:
+        raise CloudflareGenerationError('Invalid subject input size.')
 
     # Stage 0: prepare the subject image (image_0) for the chosen scenario.
     logger.info(
@@ -256,7 +261,8 @@ def generate_tryon_image(
     )
     with timed_stage("input_preparation", scenario=scenario):
         subject_buffer, reference_buffer, out_w, out_h = _build_subject(
-            scenario, person_image, face_choice, face_image, max_output_side, pose_reference_path
+            scenario, person_image, face_choice, face_image, max_output_side, pose_reference_path,
+            max_input_side=subject_input_max_side,
         )
         if prompt_config.get('output_dimensions'):
             out_w, out_h = prompt_config['output_dimensions']
@@ -264,7 +270,7 @@ def generate_tryon_image(
                    for value in (out_w, out_h)):
                 raise CloudflareGenerationError('Invalid requested output dimensions.')
             if scenario in ('face_photo', 'generated_person', 'person_pose'):
-                scale = MAX_INPUT_DIM / max(out_w, out_h)
+                scale = subject_input_max_side / max(out_w, out_h)
                 subject_buffer = make_blank_canvas(round(out_w * scale), round(out_h * scale))
         # Catalog templates can have arbitrary aspect ratios. Request a stable
         # model-aligned size rather than accepting a silently rounded response.
