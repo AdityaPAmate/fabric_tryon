@@ -33,10 +33,12 @@ DETAIL_EDITS = {
         'entering the top edge and the wrist leaving the bottom edge.'
     ),
     'hem': (
-        'Retexture only the existing lower shirt panels, front placket and curved stitched hem '
-        'in image 0 with the fabric in image 1. Keep the white button, small opening between '
-        'the front panels, dark trousers beneath the hem and grey background unchanged. '
-        'Preserve this tight waist-level crop, with shirt cloth entering the top edge.'
+        'Replace ALL visible shirt fabric in image 0 with the fabric in image 1, from the '
+        'top edge of the photograph continuously down to the curved stitched bottom edge. '
+        'Both front panels, the complete front placket and the narrow turned hem use the '
+        'same source cloth. Replace the original cloth colour across the entire shirt area. '
+        'Keep only the white button, small opening between the front panels, dark trousers '
+        'beneath the hem and grey background unchanged. Preserve this tight waist-level crop.'
     ),
 }
 SHOTS = tuple(
@@ -198,7 +200,8 @@ def build_config(data, shot, seed):
     else:
         config['prompt'] += (' FINAL REFERENCE LOCK: preserve image 0’s exact close-up geometry. '
                              + detail_edit)
-    config['prompt_version'] = f'shirt-editorial-swatch-v4-{shot.key}'
+    version = 'v5' if shot.key == 'hem' else 'v4'
+    config['prompt_version'] = f'shirt-editorial-swatch-{version}-{shot.key}'
     return config
 
 

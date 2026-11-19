@@ -1,5 +1,16 @@
 # Shirt catalog handoff — 19 November 2026
 
+> Later verification: deployed `2189e0e` completed a pale-lilac six-shot catalog
+> in 69.153s, with no request failures and an 1800x2400 collage. Visual review
+> confirmed the portrait sleeves/hem and collar/cuff framing, but the hem detail
+> incorrectly retained white cloth above a tinted bottom strip. The v5 hem
+> prompt therefore replaces ALL visible shirt fabric from the photo's top edge
+> to the stitched hem, rather than describing only "lower shirt panels".
+> Seven targeted tests passed after this scope correction. Evidence for the
+> failed-quality full run is in `outputs/shirt_live_2189e0e_20261119/lilac/`.
+> The newly approved ten-generation allowance has been used; a further maximum
+> eight-generation verification request was submitted for this final hem fix.
+
 > Resume note: the user subsequently asked to complete the remaining work.
 > The snapshot below records the initial `5d8b1ca` deployment, not final quality.
 > Follow-up changes use `shirt-editorial-swatch-v4-*`: region-specific detail
