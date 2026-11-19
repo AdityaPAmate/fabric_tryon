@@ -32,6 +32,24 @@ def request_catalog():
 
 
 class ShirtEditorialCatalogTests(SimpleTestCase):
+    def test_pale_dyed_cloth_keeps_its_tint_without_tinting_white_printed_fabric(self):
+        def prompt(image):
+            payload = io.BytesIO()
+            image.save(payload, 'PNG')
+            return build_config({'fabric_image': payload, 'garment_type': 'shirt', 'options': {}},
+                                DEFINITION.shots[0], 42)['prompt']
+        for shade in ('#c9b9d1', '#b4cadd', '#e2c4cf'):
+            self.assertIn('rather than neutralising pale dyed cloth to white',
+                          prompt(Image.new('RGB', (96, 128), shade)))
+        for neutral in ('#ffffff', '#d0d0d0', '#71811e'):
+            self.assertNotIn('neutralising pale dyed cloth',
+                             prompt(Image.new('RGB', (96, 128), neutral)))
+        self.assertNotIn('yellow-green', prompt(Image.new('RGB', (96, 128), '#eedca3')))
+        self.assertIn('yellow-green', prompt(Image.new('RGB', (96, 128), '#e0e8b1')))
+        printed = Image.new('RGB', (96, 128), '#ffffff')
+        printed.paste('#8e2134', (0, 0, 24, 128))
+        self.assertNotIn('neutralising pale dyed cloth', prompt(printed))
+
     def test_subject_resolution_opt_in_leaves_the_existing_provider_default_unchanged(self):
         from fabricapp.ai.providers.cloudflare_engine import _build_subject
         source = image_bytes((1200, 1800))

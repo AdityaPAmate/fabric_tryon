@@ -1,7 +1,7 @@
 """Reference-based 3:4 Shirt catalog with independent pose and detail shots."""
 from PIL import Image
 
-from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
+from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours, has_single_colour_family
 from fabricapp.ai.fabric.fabric_material import validate_fabric_type
 from fabricapp.ai.pipeline.router import PromptRoutingError
 from fabricapp.ai.pipeline.scenario_composer import _person_description
@@ -90,6 +90,19 @@ def condition_fabric(config, data):
     # One stable measured sample across shots. Names such as "yellow" can
     # reinterpret an olive/green source; the uploaded pixels define its hue.
     colour = (f"The largest sampled cloth colour is {colours[0]['hex']}. " if colours else '')
+    if colours and has_single_colour_family(profile):
+        sample = colours[0]
+        low, high = min(sample['rgb']), max(sample['rgb'])
+        if (low + high) / 2 > 153 and high - low >= 12:
+            # Pale dyed cloth can be mistaken for the white reference shirt.
+            # Only a single measured family qualifies; prints and neutral white
+            # never receive a global tint instruction.
+            tint = sample['name']
+            if sample['rgb'][1] > sample['rgb'][0]:
+                tint = tint.replace('yellow', 'yellow-green')
+            colour += (f"Retain the measured {tint} tint visibly in the shirt fabric. "
+                       'Replace the original reference cloth colour; keep the source tint '
+                       'rather than neutralising pale dyed cloth to white. ')
     distinct = []
     for sample in colours:
         if all(sum((a - b) ** 2 for a, b in zip(sample['rgb'], other['rgb'])) > 24 ** 2

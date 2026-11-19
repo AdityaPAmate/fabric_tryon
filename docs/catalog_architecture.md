@@ -15,8 +15,12 @@ append another garment-wide prompt to an editorial detail shot. Each detail
 describes only its visible region and ends with its own framing constraint.
 Folded-sleeve and tucked-hem selections replace the default detail treatment,
 instead of leaving contradictory buttoned-cuff or untucked-hem instructions.
-All views use the same measured fabric sample without a verbal colour-name
-override. The provider still receives the original cropped fabric pixels.
+All views use the same measured fabric samples. Saturated colours are not
+reinterpreted through a colour-name override. Pale dyed cloth belonging to
+one measured colour family receives a tint-preservation instruction so the
+white reference shirt cannot erase its subtle colour. Neutral white/grey and
+multicolour prints do not receive this instruction. The provider still
+receives the original cropped fabric pixels.
 Only the editorial portrait templates opt into 768px subject inputs, so small
 wrist cuffs and the hem remain readable. Detail templates, swatches and identity
 images keep their previous input limits. The provider's default remains 511px;
