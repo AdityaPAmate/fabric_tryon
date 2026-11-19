@@ -38,6 +38,8 @@ All other reference assets remain unchanged.
 
 - `03_back_view.png`: generated file `exec-be44373b-b7d0-43fc-89e0-fecb840989e0.png`.
 - `04_fabric_texture.png`: generated file `exec-2320bd73-4dcd-4200-8aaa-19223286961c.png`.
+- `05_border_closeup.png`: generated file `exec-08f4e89d-65d0-4f51-a4f2-d92ce655efe6.png`;
+  revised after the first live run retained original black template stripes.
 
 ### Back reference prompt
 
@@ -82,6 +84,21 @@ mannequins, faces, hands, blouse, clothing on a body, props, text, labels, colla
 inset, graphic borders or watermark. The photograph must clearly read as a full
 product flat-lay, not a macro textile detail.
 
+### Plain border template edit prompt
+
+Use case: precise-object-edit. Edit this saree side-edge macro reference for use
+as a geometry-only AI template. Preserve the same close camera crop, naturally
+curved lifted cloth edge, soft three-dimensional fold, fine woven textile texture
+and light grey studio surface. REMOVE EVERY black line and dark stripe from the
+fabric, including the small visible segment at the lower left. Replace those
+stripe areas with continuous plain ivory woven fabric of exactly the adjacent
+cloth tone and texture. The whole cloth should be plain ivory/white with a simple
+neutral stitched finished edge, no coloured border design, no dark piping, no
+print, no decorative motifs anywhere. Retain the real physical thickness of the
+selvedge and natural fold shadows, no cutout or pasted patch. Uniform diffuse
+neutral white light, no tint. One portrait macro photograph at the same
+approximately 320:425 aspect ratio. No people, faces, hands, text or collage.
+
 ## Verification
 
 Full offline suite: 172 tests, one capitalization-only assertion failed after the
@@ -90,11 +107,34 @@ new back prompt. Corrected the assertion to compare case-insensitively; subseque
 Tests exercise actual multipart crop pixels, face/border slot separation,
 back identity exclusion, invalid crops, full-source flat-lay and layout coverage.
 Offline tests establish request routing, not generated visual fidelity.
+The subsequent complete offline suite passed all 172 tests.
 
 `scripts/verify_saree_catalog.py` performs one authorized deployed six-shot replay
 and saves evidence under ignored `outputs/`. No automatic reruns. The selected
 saved source is the cream/purple saree report `2026-11-19_110114_001`, not the red
 bird-design screenshot. Live visual findings must be reported separately.
+
+### First deployed live run: 34ceef4
+
+One catalog, six provider attempts total, six uploads plus collage, 77.86 seconds
+through completion (excluding evidence downloads). All six diagnostics identify
+34ceef4; back has only two input hashes and no identity. 1800 × 2400 export.
+Evidence: `outputs/saree_redesign_34ceef4/` (ignored, local).
+
+Visual review: back pallu hangs vertically with lower skirt visible; pleats shot
+excludes upper torso and scenery. Side removes the broad terminal artwork, though
+a portion of the diagonal edge is visible at the bottom crop. Front retains its
+previous handling. Full flat-lay FAILED: the model drew a headless dressed figure
+despite the correct flat-lay template and full product upload. Border FAILED:
+product band appeared but original black template stripes survived. Request
+hashes confirm those are model output adherence failures, not missing product
+uploads. They do not establish a particular internal model mechanism.
+
+Follow-up: changed flat-lay instruction from creating a saree to editing image 0's
+flat rectangle in place, reinforced all four corners/table and excluded garment
+silhouettes. Removed black stripes from the border template itself. This removes
+the observed source of copied stripes. These follow-up changes require their own
+paid visual verification; the initial six-image run does not verify them.
 
 Desktop tester optional fields installed with `scripts/update_tester_saree_regions.py`;
 original files backed up under ignored `tmp/tester_saree_region_backup/`. Refresh

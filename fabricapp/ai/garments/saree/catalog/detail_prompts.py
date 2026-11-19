@@ -5,7 +5,10 @@ from fabricapp.ai.garments.saree.catalog.regions import source_regions
 
 
 FULL_FABRIC_PROMPT = (
-    'Create one overhead COMPLETE SAREE FLAT-LAY using the product photograph in image 1. '
+    'EDIT IMAGE 0 IN PLACE: keep its single FLAT RECTANGLE of cloth lying on a table, '
+    'its overhead camera, all four visible corners and its surrounding studio surface. '
+    'Replace the entire rectangular textile surface with the supplied product from image 1. '
+    'The result is a COMPLETE SAREE FLAT-LAY, spread flat and photographed directly from above. '
     'Show its body, BOTH long side borders and COMPLETE pallu end TOGETHER, with all four '
     'outer edges and corners inside the frame. Image 0 supplies only the flat-lay placement '
     'on a neutral studio surface, never textile colour or design. Preserve every supplied '
@@ -16,6 +19,8 @@ FULL_FABRIC_PROMPT = (
     'body swatch is supplied, use that cloth consistently with plain finished edges; do not '
     'invent unseen ornamental borders or a pallu design. Keep the whole outline inside '
     'small natural studio margins; do not zoom into a fabric macro. '
+    'The subject is a rectangular piece of fabric, not a dressed figure. '
+    'Do not form shoulders, a neckline, sleeves, a waist or a human silhouette. '
     'No wearer, mannequin, blouse, face, hands, text, inset or collage. '
 )
 
@@ -69,12 +74,15 @@ def build_detail_config(data, shot, seed):
         'fabric_crop_box': crop,
         'fabric_region': 'full_saree' if flatlay else 'body' if shot.key == 'pleats' else 'border',
         'fabric_region_selection': 'full_source' if flatlay else regions['body_selection' if shot.key == 'pleats' else 'border_selection'],
-    }, context, 'saree')
+    }, context, 'saree', lead_with_edit=flatlay)
     if shot.key == 'pleats' and regions['border'] is not None:
         config['fabric_reference_crops'] = {'side_border': regions['border']}
         config['prompt'] += (' Image 2 is only the actual long-side border cloth. Use its design '
                              'on the existing narrow edge and lower hem; do not put broad pallu '
                              'end artwork there. Keep image 0’s tight pleats crop.')
     config['prompt'] += ' Use even neutral white light. Preserve the actual source colour and pattern.'
-    config['prompt_version'] = 'saree-catalog-v3-' + shot.key
+    if flatlay:
+        config['prompt'] += (' FINAL COMPOSITION: the same flat rectangular cloth as image 0, '
+                             'all four corners on the table; no body, no blouse and no draped wearer.')
+    config['prompt_version'] = 'saree-catalog-v4-' + shot.key
     return config

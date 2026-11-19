@@ -48,18 +48,12 @@
     ]
   },
   "05_border_closeup.png": {
-    "sha256": "3d54f955f0522d5ad12e582ba74e1dd0bfb4af85824b59dd72ac5709e0a56f2d",
-    "source": "white_saree_catalog_final_corrected_3x4.png",
-    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
-    "crop_box": [
-      766,
-      502,
-      1086,
-      927
-    ],
+    "sha256": "0b24565e5a1d1bcc9952cfb6f015824ad3aecb7e7bc413cd71f299c89c42c9ee",
+    "source": "Plain selvedge edit via built-in image_gen",
+    "previous_asset_sha256": "3d54f955f0522d5ad12e582ba74e1dd0bfb4af85824b59dd72ac5709e0a56f2d",
     "size": [
-      320,
-      425
+      1088,
+      1445
     ]
   },
   "06_pleats_hem.png": {
