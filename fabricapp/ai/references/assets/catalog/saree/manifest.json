@@ -30,33 +30,21 @@
     ]
   },
   "03_back_view.png": {
-    "sha256": "6193380b6c5901899066d3cd35cd00a35eb53f8f2a7f6cd3b2c6010ee916b784",
-    "source": "white_saree_catalog_final_corrected_3x4.png",
-    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
-    "crop_box": [
-      432,
-      709,
-      759,
-      1448
-    ],
+    "sha256": "561d3d32c0583807396fd0ecb4f458c8f0832e5b8e5e81de2c4998fc5e704584",
+    "source": "Straight-hanging pallu edit via built-in image_gen",
+    "previous_asset_sha256": "6193380b6c5901899066d3cd35cd00a35eb53f8f2a7f6cd3b2c6010ee916b784",
     "size": [
-      327,
-      739
+      834,
+      1886
     ]
   },
   "04_fabric_texture.png": {
-    "sha256": "5c48c89c748fd96054c0d514bca23951ecfdeb6632dc861097d47fcf97dc345c",
-    "source": "white_saree_catalog_final_corrected_3x4.png",
-    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
-    "crop_box": [
-      766,
-      0,
-      1086,
-      495
-    ],
+    "sha256": "8c2f86e8fae0a943676870f0c2175a94495b09bf483d50ef020c151ee9718fa7",
+    "source": "Full saree flat-lay geometry reference via built-in image_gen",
+    "previous_asset_sha256": "5c48c89c748fd96054c0d514bca23951ecfdeb6632dc861097d47fcf97dc345c",
     "size": [
-      320,
-      495
+      1024,
+      1536
     ]
   },
   "05_border_closeup.png": {

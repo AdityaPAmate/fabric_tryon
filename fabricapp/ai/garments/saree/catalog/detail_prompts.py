@@ -1,17 +1,36 @@
 """Separate product-region tasks; template fabric is never product evidence."""
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.garments.saree.catalog.layout import OUTPUT_SIZES
+from fabricapp.ai.garments.saree.catalog.regions import source_regions
 
 
-BODY_PROMPT = (
-    'Edit image 0 into a macro photograph of the MAIN BODY FABRIC from image 1. '
-    'Image 0 supplies only shallow folds, lighting and camera framing, never product design. '
-    'Identify the uninterrupted central body cloth in image 1, excluding long-side borders, '
-    'selvedges, pallu end panels and hems. Extract its actual base colour, woven texture, '
-    'motifs, repeat spacing and relative motif scale. Fill the frame with that body fabric '
-    'over gentle folds. Preserve printed motifs if present; do not substitute the template '
-    'white weave or invent microscopic yarn detail beyond the supplied evidence. '
-    'No border bands, edge stripes, people, hands, text, inset or collage. '
+FULL_FABRIC_PROMPT = (
+    'Create one overhead COMPLETE SAREE FLAT-LAY using the product photograph in image 1. '
+    'Show its body, BOTH long side borders and COMPLETE pallu end TOGETHER, with all four '
+    'outer edges and corners inside the frame. Image 0 supplies only the flat-lay placement '
+    'on a neutral studio surface, never textile colour or design. Preserve every supplied '
+    'region and its actual colours, motifs and relative proportions. Keep the body pattern '
+    'on the body, side-border design on the sides and broad end artwork on the pallu end. '
+    'Use a few shallow settling folds without hiding any region. Match the source weave; '
+    'replace all reference white cloth and pale lines with the actual product. If only a '
+    'body swatch is supplied, use that cloth consistently with plain finished edges; do not '
+    'invent unseen ornamental borders or a pallu design. Keep the whole outline inside '
+    'small natural studio margins; do not zoom into a fabric macro. '
+    'No wearer, mannequin, blouse, face, hands, text, inset or collage. '
+)
+
+PLEATS_PROMPT = (
+    'Retexture this existing WAIST-TO-HEM PLEATS CLOSE-UP in image 0 using the body cloth '
+    'in image 1. Preserve the exact close camera distance, natural vertical folded pleats, '
+    'their overlap and the stitched lower hem. The waist enters the TOP edge; the bottom '
+    'hem sits near the BOTTOM edge. Only folded saree cloth fills the photograph. Keep the '
+    'upper torso, shoulders, neck, blouse, face, hands and mannequin outside the frame. '
+    'The pallu beside the pleats continues below the crop; do not display its broad terminal '
+    'artwork here. Reproduce actual body motifs through the natural three-dimensional folds, '
+    'without a flat pasted texture. Use a plain neutral studio surface around the bottom '
+    'hem, with no architecture or scenery. '
+    'Replace the reference white fabric and black stripes with the actual product cloth. '
+    'Use an evidenced edge design only; otherwise keep a plain matching stitched hem. '
 )
 
 BORDER_PROMPT = (
@@ -34,22 +53,28 @@ BORDER_PROMPT = (
 
 def build_detail_config(data, shot, seed):
     options = data.get('options') or {}
-    body = shot.key == 'fabric_texture'
-    # Border must see the original image when a global body-only crop excludes its edge.
-    crop = options.get('fabric_body_crop_box', options.get('fabric_crop_box')) if body else options.get('fabric_border_crop_box')
+    flatlay = shot.key == 'fabric_texture'
+    regions = source_regions(data)
+    crop = None if flatlay else regions['body' if shot.key == 'pleats' else 'border']
     context = {**data, 'options': {**options, 'fabric_crop_box': crop}}
     dimensions = OUTPUT_SIZES[shot.key]
     if options.get('draft_mode', False):
         scale = min(1, 512 / max(dimensions))
         dimensions = tuple(max(256, round(value * scale / 32) * 32) for value in dimensions)
     config = apply_fabric_conditioning({
-        'prompt': BODY_PROMPT if body else BORDER_PROMPT,
+        'prompt': FULL_FABRIC_PROMPT if flatlay else PLEATS_PROMPT if shot.key == 'pleats' else BORDER_PROMPT,
         'seed': seed, 'guidance': data.get('guidance', 7),
         'output_dimensions': dimensions, 'safety_retry_count': 0,
         'fabric_source_format': 'PNG', 'classified_recovery': True,
         'fabric_crop_box': crop,
-        'fabric_region': 'body' if body else 'border',
-        'fabric_region_selection': 'explicit_crop' if crop is not None else 'full_source',
+        'fabric_region': 'full_saree' if flatlay else 'body' if shot.key == 'pleats' else 'border',
+        'fabric_region_selection': 'full_source' if flatlay else regions['body_selection' if shot.key == 'pleats' else 'border_selection'],
     }, context, 'saree')
-    config['prompt_version'] = 'saree-catalog-body-texture-v2' if body else 'saree-catalog-side-border-v2'
+    if shot.key == 'pleats' and regions['border'] is not None:
+        config['fabric_reference_crops'] = {'side_border': regions['border']}
+        config['prompt'] += (' Image 2 is only the actual long-side border cloth. Use its design '
+                             'on the existing narrow edge and lower hem; do not put broad pallu '
+                             'end artwork there. Keep image 0’s tight pleats crop.')
+    config['prompt'] += ' Use even neutral white light. Preserve the actual source colour and pattern.'
+    config['prompt_version'] = 'saree-catalog-v3-' + shot.key
     return config

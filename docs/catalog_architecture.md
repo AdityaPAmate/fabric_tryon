@@ -75,6 +75,11 @@ garment or a sibling edition.
 
 # Current saree revision: 3:4
 
+The 19 November 2026 [Saree redesign](saree_catalog_redesign_2026-11-19.md)
+supersedes historical shot descriptions below: catalog-only straight back,
+complete flat-lay fourth panel and dedicated pleats framing. Normal pose generation
+is unchanged. Body/border selection can be overridden explicitly.
+
 Saree exports 1800 x 2400 using `saree-six-panel-3x4-v4`. Other garment layouts
 retain their existing ratios. The six catalog templates are panel crops from
 the user-provided `white_saree_catalog_final_corrected_3x4.png`.

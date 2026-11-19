@@ -10,9 +10,9 @@ SHOTS = tuple(
          scenario='pose_reference' if identity or key == 'back_pallu' else 'person_photo')
     for key, description, framing, identity in (
         ('front', 'very tall full-length front portrait matching image 0, complete head and saree hem, pallu hanging down the front', 'full_body', 'request'),
-        ('side_portrait', 'tall three-quarter portrait matching image 0 torso angle, hand placement and hanging pallu extent, with the complete head included', 'side_portrait', 'request'),
-        ('back_pallu', 'rear-facing full-length reference pose, both hands holding the broad diagonal pallu open, complete head and entire pallu edge visible', 'rear_full_body', None),
-        ('fabric_texture', 'extreme close-up of the original fabric surface and weave over soft shallow folds; fill the frame with cloth only, without any border or hem', 'fabric_texture_detail', None),
+        ('side_portrait', 'side-facing head-to-upper-thigh portrait, long pallu continuing below the bottom frame edge with its terminal end out of view', 'side_portrait', 'request'),
+        ('back_pallu', 'full-length rear view with a straight hanging pallu on the left, level pallu end and the lower saree hem visible', 'rear_full_body', None),
+        ('fabric_texture', 'complete overhead flat-lay of the supplied saree showing body, both side borders and the complete pallu end together', 'full_fabric_layout', None),
         ('border', 'close-up of the saree long SIDE EDGE: a narrow continuous border or finished selvedge beside the main body cloth, with the outer edge and background clearly visible', 'side_border_detail', None),
         ('pleats', 'fabric-only waist-to-hem front pleats with the hanging pallu edge beside them, no head or hands', 'pleats_detail', None),
     )

@@ -45,27 +45,24 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         for filename in expected:
             self.assertEqual(hashlib.sha256((root / filename).read_bytes()).hexdigest(), manifest[filename]['sha256'])
 
-    def test_back_reuses_normal_builder_with_new_catalog_reference(self):
+    def test_catalog_back_is_straight_without_changing_the_normal_diagonal_pose(self):
         definition = get_definition('saree')
         shot = next(shot for shot in definition.shots if shot.key == 'back_pallu')
         with patch('fabricapp.ai.garments.saree.builder.build_prompt', wraps=normal_builder) as shared:
             config = definition.build_config(data(), shot, 71)
-        shared.assert_called_once()
-        args = shared.call_args.kwargs
-        self.assertEqual(args['scenario'], 'pose_reference')
-        self.assertEqual(args['context']['pose'], 'back_showing_pallu')
-        self.assertFalse(args['context']['use_face_reference'])
+        shared.assert_not_called()
         self.assertIsNone(shot.identity_from)
         self.assertEqual(shot.dependencies, ())
         self.assertTrue(config['forbid_identity_references'])
         self.assertNotIn('image 2', config['prompt'].lower())
-        expected = normal_builder(scenario='pose_reference', garment_type='saree', context=args['context'], seed=71)
-        self.assertEqual(config['prompt'], expected['prompt'])
         self.assertEqual(config['seed'], 71)
         self.assertEqual(shot.reference.name, '03_back_view.png')
         self.assertTrue(Path(get_pose_reference_path('saree', 'back_showing_pallu')).is_file())
-        self.assertIn('BACK-PALLU GEOMETRY LOCK', config['prompt'])
-        self.assertIn('both arms and hands', config['prompt'])
+        self.assertIn('pallu hangs STRAIGHT DOWN', config['prompt'])
+        self.assertIn('visible lower skirt', config['prompt'])
+        normal = normal_builder(scenario='pose_reference', garment_type='saree',
+                                context={'pose': 'back_showing_pallu', 'use_face_reference': False}, seed=71)
+        self.assertIn('spread diagonally', normal['prompt'])
 
     @patch('fabricapp.ai.main._generate_with_engine')
     def test_normal_endpoint_rejects_face_or_person_inputs_for_back_pose(self, engine):

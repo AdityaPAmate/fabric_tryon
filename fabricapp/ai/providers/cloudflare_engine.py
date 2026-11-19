@@ -323,6 +323,27 @@ def generate_tryon_image(
         composition_buffer = resize_to_fit(io.BytesIO(composition_bytes), max_dim=MAX_INPUT_DIM)
         files["input_image_3"] = ("composition.jpg", composition_buffer, "image/jpeg")
 
+    # Optional product-only reference crops. These come from the same original
+    # fabric upload, never from a face/person upload. Existing callers omit this.
+    fabric_references = {}
+    for role, box in (prompt_config.get('fabric_reference_crops') or {}).items():
+        if use_garment_image or fabric_image is None:
+            raise CloudflareGenerationError('Fabric references require a fabric upload.')
+        slot = next((f'input_image_{index}' for index in (2, 3)
+                     if f'input_image_{index}' not in files), None)
+        if slot is None:
+            raise CloudflareGenerationError('Too many image references.')
+        fabric_image.seek(0)
+        with Image.open(fabric_image) as original:
+            width, height = original.size
+        if (not isinstance(box, (list, tuple)) or len(box) != 4
+                or any(type(value) is not int for value in box)
+                or not 0 <= box[0] < box[2] <= width or not 0 <= box[1] < box[3] <= height):
+            raise CloudflareGenerationError('Invalid fabric reference crop.')
+        buffer = resize_to_fit(fabric_image, MAX_INPUT_DIM, crop_box=box, output_format='PNG')
+        files[slot] = ('fabric_detail.png', buffer, 'image/png')
+        fabric_references[slot] = {'role': role, 'crop_box': list(box)}
+
     logger.info(
         "Stage 3: calling Cloudflare model=%s size=%sx%s images=%s",
         settings.CLOUDFLARE_MODEL, out_w, out_h, len(files),
@@ -375,6 +396,8 @@ def generate_tryon_image(
             diagnostics['fabric_crop_box'] = prompt_config.get('fabric_crop_box')
         if prompt_config.get('fabric_neutral_lift'):
             diagnostics['fabric_neutral_lift'] = prompt_config['fabric_neutral_lift']
+        if fabric_references:
+            diagnostics['fabric_reference_crops'] = fabric_references
 
     def generation_error(message, **kwargs):
         if diagnostics is not None:

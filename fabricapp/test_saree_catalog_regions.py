@@ -14,14 +14,44 @@ from fabricapp.test_catalog_engine import data, picture, post
 
 
 class SareeCatalogRegionTests(SimpleTestCase):
+    @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.test/a.png'})
+    @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
+    def test_face_and_border_have_separate_slots_and_back_receives_no_identity(self, provider, upload):
+        source = Image.new('RGB', (96, 128), 'red')
+        source.paste('blue', (64, 0, 96, 128))
+        buffer = io.BytesIO()
+        source.save(buffer, 'PNG')
+        captured = []
+        def reply(url, **kwargs):
+            files, fields = kwargs['files'], kwargs['data']
+            captured.append({key: value[1].getvalue() for key, value in files.items()})
+            return Mock(status_code=200, headers={'Content-Type': 'image/png'},
+                        content=picture(size=(fields['width'], fields['height'])))
+        provider.side_effect = reply
+        with patch('django.conf.settings.SAVE_DEBUG_FILES', False):
+            response = post(face_choice='poonam', options=json.dumps({'draft_mode': True,
+                'fabric_body_crop_box': [0, 0, 64, 128], 'fabric_border_crop_box': [64, 0, 96, 128]}),
+                fabric_image=SimpleUploadedFile('cloth.png', buffer.getvalue(), 'image/png'))
+            events = [json.loads(chunk) for chunk in response.streaming_content]
+            response.close()
+        self.assertEqual(events[-1]['status'], 'completed')
+        self.assertEqual(len(captured), 6)
+        self.assertEqual(set(captured[1]), {'input_image_0', 'input_image_1', 'input_image_2', 'input_image_3'})
+        with Image.open(io.BytesIO(captured[1]['input_image_3'])) as border:
+            self.assertEqual(border.getpixel((border.width//2, border.height//2)), (0, 0, 255))
+        self.assertEqual(set(captured[2]), {'input_image_0', 'input_image_1'})
+        self.assertEqual(set(captured[3]), {'input_image_0', 'input_image_1'})
+
     def test_body_and_border_have_distinct_tasks_and_crop_precedence(self):
         definition = get_definition('saree')
         request = data(options={'fabric_crop_box': [0, 0, 40, 80]})
         configs = {s.key: definition.build_config(request, s, 42)
                    for s in definition.shots if s.key in ('fabric_texture', 'border')}
-        self.assertEqual(configs['fabric_texture']['fabric_crop_box'], [0, 0, 40, 80])
+        self.assertIsNone(configs['fabric_texture']['fabric_crop_box'])
         self.assertIsNone(configs['border']['fabric_crop_box'])
-        self.assertIn('MAIN BODY FABRIC', configs['fabric_texture']['prompt'])
+        self.assertIn('COMPLETE SAREE FLAT-LAY', configs['fabric_texture']['prompt'])
+        self.assertIn('BOTH long side borders', configs['fabric_texture']['prompt'])
+        self.assertEqual(configs['fabric_texture']['fabric_region'], 'full_saree')
         self.assertIn('not the main body print', configs['border']['prompt'])
         self.assertNotEqual(configs['fabric_texture']['prompt_version'], configs['border']['prompt_version'])
         self.assertEqual(request['options'], {'fabric_crop_box': [0, 0, 40, 80]})
@@ -48,9 +78,16 @@ class SareeCatalogRegionTests(SimpleTestCase):
         buffer = io.BytesIO()
         source.save(buffer, 'PNG')
         seen = []
+        product_references = []
+        full_layout = []
         def answer(url, **kwargs):
-            image = Image.open(kwargs['files']['input_image_1'][1])
+            image = Image.open(io.BytesIO(kwargs['files']['input_image_1'][1].getvalue()))
             seen.append(image.convert('RGB').getpixel((image.width//2, image.height//2)))
+            if len(seen) == 4:
+                full_layout.append(image.convert('RGB').getpixel((image.width-1, image.height//2)))
+            if len(seen) in (2, 6):
+                extra = Image.open(io.BytesIO(kwargs['files']['input_image_2'][1].getvalue()))
+                product_references.append(extra.convert('RGB').getpixel((extra.width//2, extra.height//2)))
             fields = kwargs['data']
             return Mock(status_code=200, headers={'Content-Type': 'image/png'},
                         content=picture(size=(fields['width'], fields['height'])))
@@ -65,6 +102,11 @@ class SareeCatalogRegionTests(SimpleTestCase):
         self.assertEqual(len(seen), 6)
         self.assertEqual(seen[3], (255, 0, 0))
         self.assertEqual(seen[4], (0, 0, 255))
+        self.assertEqual(full_layout, [(0, 0, 255)])
+        self.assertEqual(product_references, [(0, 0, 255)] * 2)
         border = next(e['image'] for e in events if e['event'] == 'image_ready' and e['image']['view'] == 'border')
         self.assertEqual(border['generation']['fabric_crop_box'], [64, 0, 96, 128])
         self.assertEqual(border['generation']['fabric_region'], 'border')
+        pleats = next(e['image'] for e in events if e['event'] == 'image_ready' and e['image']['view'] == 'pleats')
+        self.assertEqual(pleats['generation']['fabric_reference_crops']['input_image_2']['role'], 'side_border')
+        self.assertEqual(pleats['generation']['fabric_crop_box'], [0, 0, 64, 128])

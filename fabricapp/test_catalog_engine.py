@@ -123,7 +123,7 @@ class CatalogDefinitionTests(SimpleTestCase):
                 continue
             self.assertLessEqual(max(config['output_dimensions']), 512)
             self.assertTrue(all(value % 32 == 0 for value in config['output_dimensions']))
-            self.assertIn('Image 1', config['prompt'])
+            self.assertIn('image 1', config['prompt'].lower())
             self.assertIn('fabric', config['prompt'])
             self.assertNotIn('shirt', config['prompt'].lower())
             self.assertIn('cotton', config['prompt'])
