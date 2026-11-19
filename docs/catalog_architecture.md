@@ -1,5 +1,17 @@
 # Catalog edition ownership
 
+Kurta catalog trousers follow the edition's outfit rule in both fabric and
+ready-made modes. Plain, Sherwani and Jodhpuri use solid white trousers. Pathani
+uses solid trousers in the main source-cloth colour, including when the kurta
+cloth is printed. Jacket or kurta motifs and edge trim stay off the trousers.
+Pathani side and back views use the front outfit as their consistency reference.
+
+Jodhpuri's swatch back view checks the source colour family before delivery.
+A failed check makes one corrective generation with a new seed. A second failure
+reports a failed shot and prevents a completed collage containing the mismatch.
+This check applies to single-colour-family swatches. Multicolour pattern fidelity
+requires additional assessment.
+
 The catalog endpoint validates the request and the registry resolves an explicit
 garment and edition. Each edition provides its shot plan, reference paths,
 prompt builder and layout through `CatalogDefinition`. Editions with both swatch

@@ -4,6 +4,10 @@ from pathlib import Path
 from typing import Callable
 
 
+class CatalogFabricMismatch(ValueError):
+    failure_type = 'fabric_mismatch'
+
+
 @dataclass(frozen=True)
 class Shot:
     key: str
@@ -70,3 +74,4 @@ class CatalogDefinition:
     resolve_crop: Callable | None = None
     finish_shot: Callable | None = None
     swatch_colour: Callable | None = None
+    validate_shot: Callable | None = None

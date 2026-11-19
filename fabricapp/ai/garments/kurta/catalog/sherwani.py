@@ -49,7 +49,7 @@ FRAMING = {
     ),
     'side_slit': (
         'Frame only the lower side seam, hem and vent at thigh level. The two hem edges frame the narrow side opening, '
-        'with plain trouser cloth behind it. Keep the front closure, hands and upper body outside the frame.'
+        'with plain white trouser cloth behind it. Keep the front closure, hands and upper body outside the frame.'
     ),
 }
 
@@ -107,7 +107,7 @@ def build_config(data, shot, seed):
         if portrait:
             prompt.append('Image 1 supplies only the finished Sherwani. Preserve its cut, length, colour, '
                           'weave, motifs, trim and visible closures. Exclude its mannequin, original wearer and surroundings. '
-                          'Complete the outfit with plain coordinating trousers and shoes when these are absent from the upload.')
+                          'Complete the outfit with plain white trousers and the reference shoes.')
         else:
             prompt.append('Image 1 is a tight crop of the Sherwani as worn in this catalog. Use its cloth, '
                           'finish and visible construction. Keep the crop and camera distance of image 0.')
@@ -123,7 +123,7 @@ def build_config(data, shot, seed):
         if portrait:
             if shot.key != 'back':
                 prompt.append('Keep the reference front closure and its visible fasteners.')
-            prompt.append('Keep the separate trousers plain ivory. Place any distinct decorative swatch border at the lower hem only.')
+            prompt.append('Keep the separate trousers plain white. Place any distinct decorative swatch border at the lower hem only.')
             prompt.append(KURTA_DUPATTA_ADD if 'with_dupatta' in data.get('garment_details', ()) else DUPATTA_REMOVE)
         else:
             prompt.append(SWATCH_DETAILS[shot.key])
@@ -131,6 +131,8 @@ def build_config(data, shot, seed):
                 prompt.append('Keep any distinct decorative swatch border at the lower hem only.')
 
     if portrait:
+        prompt.append('CATALOG TROUSERS: use the same solid white trousers in every view. '
+                      'Keep all Sherwani colours, motifs and borders off the trousers.')
         if shot.key in IDENTITY_VIEWS and data.get('person_image'):
             prompt.append('Image 2 supplies the same human face, hairstyle, facial hair and body build in every view. '
                           'Match those features and skin tone exactly. Use image 0 for the pose and camera framing.')
@@ -172,7 +174,7 @@ def build_config(data, shot, seed):
     if shot.key == 'cuff':
         config['prompt'] += ' Keep the cuff evenly exposed with no glare, white patches or clipped highlights.'
     source = 'ready' if ready else 'swatch'
-    version = 'v3' if ready else 'v4'
+    version = 'v4' if ready else 'v5'
     config['prompt_version'] = f'sherwani-catalog-{source}-{version}-{shot.key}'
     return config
 

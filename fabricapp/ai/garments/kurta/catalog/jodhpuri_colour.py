@@ -18,6 +18,26 @@ REGIONS = {
 }
 
 
+def matches_solid_jacket(generation, view, target):
+    """Reject a replacement textile when a source swatch has one colour family."""
+    if target is None or view not in REGIONS:
+        return True
+    with Image.open(io.BytesIO(generation.image_bytes)) as source:
+        image = source.convert('RGB')
+    box = tuple(round(value * side) for value, side in zip(REGIONS[view][0], image.size * 2))
+    cloth = image.crop(box)
+    pixels = np.asarray(cloth, dtype=np.float32)
+    if np.ptp(target) < 20:
+        chroma = pixels - pixels.mean(axis=2, keepdims=True)
+        matching = np.linalg.norm(chroma - (target - target.mean()), axis=2) < 18
+    else:
+        hsv = np.asarray(cloth.convert('HSV'), dtype=np.float32)
+        hue = colorsys.rgb_to_hsv(*(target / 255))[0] * 255
+        gap = np.abs(hsv[:, :, 0] - hue)
+        matching = (np.minimum(gap, 256 - gap) < 28) & (hsv[:, :, 1] > 8)
+    return bool(matching.mean() >= .35)
+
+
 def align_jacket_colour(generation, view, target):
     if target is None or np.ptp(target) < 20 or view not in REGIONS:
         return generation

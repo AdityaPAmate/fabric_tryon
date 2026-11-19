@@ -8,6 +8,7 @@ from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
 from fabricapp.ai.garments.kurta.catalog.pathani_colour import match_cloth_exposure
+from fabricapp.ai.garments.kurta.catalog.pathani_trousers import trouser_colour
 from fabricapp.ai.fabric.solid_swatch import solid_swatch_rgb
 from fabricapp.ai.garments.kurta.details import SLEEVES_FOLDED
 from fabricapp.ai.pipeline.scenario_composer import _person_description
@@ -51,7 +52,8 @@ READY_CROPS = {
 }
 SHOTS = tuple(
     Shot(key, description, 'template_edit', framing, reference=REFERENCES / f'{index:02}_{key}.png',
-         identity_from='request' if key in IDENTITY_VIEWS else None,
+         identity_from='request' if key == 'front' else 'front' if key in ('side', 'back') else None,
+         dependencies=('front',) if key in ('side', 'back') else (),
          scenario='pose_reference' if key in IDENTITY_VIEWS else 'person_photo')
     for index, (key, framing, description) in enumerate((
         ('front', 'full_body', 'full-length front view'),
@@ -104,8 +106,8 @@ def build_config(data, shot, seed):
     prompt = ['Edit image 0 in place. Keep its camera angle, perspective and subject scale.', FRAMING[shot.key]]
     if ready and portrait:
         prompt.append('Image 1 supplies the finished Pathani. Use its actual length, collar, sleeves, pockets, '
-                      'closures, stitching, fabric and trim. Include its matching trousers if supplied, '
-                      'or use plain coordinating trousers. Use the source photo for clothing only.')
+                      'closures, stitching, fabric and trim. Use plain trousers dyed in the main colour '
+                      'of the Pathani cloth. Use the source photo for clothing only.')
     elif ready:
         prompt.append('Image 1 is a crop of the Pathani as worn in this catalog. Copy its cloth, weave, pattern '
                       'scale and visible construction. Use image 0 for framing only. Include a flap, tab or button '
@@ -119,13 +121,23 @@ def build_config(data, shot, seed):
                       'colour and texture out of the garment. Keep skin, hardware and backdrop clean.')
         prompt.append(SWATCH_CONSTRUCTION[shot.key])
         if portrait:
-            prompt.append('Use separate plain coordinating straight trousers. The hem and side vent have '
+            prompt.append('Use separate plain straight trousers in the main colour of the Pathani cloth. The hem and side vent have '
                           'simple stitching. Continue the same source textile to the edge.')
         if 'folded_sleeves' in details and (portrait or shot.key == 'cuff'):
             prompt.append(SLEEVES_FOLDED.format(noun='Pathani') if portrait else
                           'Show the selected rolled cuff at the same diagonal angle, with a bare forearm.')
 
     if portrait:
+        target = trouser_colour(data)
+        if target is not None:
+            shade = '#%02X%02X%02X' % tuple(round(float(value)) for value in target)
+            prompt.append(f'CATALOG TROUSERS: use the same solid {shade} trousers in every view. '
+                          'This is the source cloth’s main colour. Keep all prints, embroidery, '
+                          'checks, stripes and border designs on the kurta only.')
+        if shot.identity_from == 'front':
+            prompt.append('Image 2 is the established front outfit from this catalog. Match its wearer '
+                          'and the exact plain trouser colour. Image 0 fixes the current camera angle '
+                          'and pose. Keep the source textile from image 1 on the kurta.')
         if shot.identity_from and data.get('person_image'):
             prompt.append('Use image 2 for the wearer’s face, hairstyle and body build. Keep the pose of image 0.')
         else:
@@ -160,7 +172,8 @@ def build_config(data, shot, seed):
         ' Use broad soft fill from both sides and above so the shoulders, sleeves and lower body '
         'share the same cloth exposure. Keep neutral studio fill on the garment in outdoor scenes. '
         'Keep narrow, soft shadows at folds and seams. Keep hard shadow bands, sun patches, rim '
-        'lights and bright shoulder highlights off the cloth. Preserve skin, fasteners and trousers.'
+        'lights and bright shoulder highlights off the cloth. Preserve skin and fasteners. '
+        'Keep the trousers in the specified plain source colour.'
     )
     config['prompt'] += (
         ' Use a single broad diffuse exposure over the entire outfit from shoulder to hem. '
@@ -171,7 +184,7 @@ def build_config(data, shot, seed):
         'edge plain, including the hem, side vent, pockets and cuffs. Do not invent embroidery, '
         'decorative borders, motifs, appliqué or contrast piping.'
     )
-    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v5-{shot.key}"
+    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v6-{shot.key}"
     return config
 
 

@@ -11,6 +11,50 @@ from fabricapp.test_catalog import picture
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
 
 
+class KurtaOutfitPolicyTests(SimpleTestCase):
+    def test_white_trousers_are_required_in_all_three_styles_and_both_source_modes(self):
+        from fabricapp.ai.garments.kurta.catalog import plain, sherwani, jodhpuri
+
+        for edition in (plain, sherwani, jodhpuri):
+            for key in ('fabric_image', 'garment_image'):
+                data = {key: io.BytesIO(picture())}
+                for shot in edition.SHOTS[:3]:
+                    prompt = edition.build_config(data, shot, 42)['prompt']
+                    with self.subTest(edition=edition.__name__, source=key, shot=shot.key):
+                        self.assertIn('same solid white trousers in every view', prompt)
+                        self.assertNotIn('plain coordinating trousers', prompt)
+
+    def test_pathani_main_colour_excludes_print_and_preserves_source_stream(self):
+        import numpy as np
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.kurta.catalog.pathani_trousers import trouser_colour
+
+        for colour in ('#244c93', '#38834c', '#803848', '#d1c1d9'):
+            swatch = Image.new('RGB', (120, 160), colour)
+            ImageDraw.Draw(swatch).rectangle((10, 10, 29, 159), fill='#f6cf32')
+            stream = io.BytesIO()
+            swatch.save(stream, 'PNG')
+            stream.seek(9)
+            target = trouser_colour({'fabric_image': stream})
+            self.assertLess(np.linalg.norm(target - Image.new('RGB', (1, 1), colour).getpixel((0, 0))), 3)
+            self.assertEqual(stream.tell(), 9)
+
+    def test_sherwani_corrects_greyed_brown_and_neutral_cloth(self):
+        import numpy as np
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.kurta.catalog.sherwani_colour import match_solid_cloth
+
+        for observed, target in (((66, 55, 49), (62, 40, 27)), ((155, 155, 155), (180, 180, 180))):
+            image = Image.new('RGB', (160, 240), 'white')
+            ImageDraw.Draw(image).rectangle((45, 45, 115, 180), fill=observed)
+            source = io.BytesIO()
+            image.save(source, 'PNG')
+            result = match_solid_cloth(GenerationResult(source.getvalue(), 42), 'back', np.array(target))
+            with Image.open(io.BytesIO(result.image_bytes)) as output:
+                self.assertLess(np.linalg.norm(np.asarray(output.getpixel((80, 100))) - target), 5)
+                self.assertEqual(output.getpixel((10, 100)), (255, 255, 255))
+
+
 class PlainKurtaCatalogTests(SimpleTestCase):
     def test_garment_swatch_uses_reference_plan_and_extracts_only_body_pixels(self):
         from PIL import ImageDraw
@@ -250,7 +294,10 @@ class PathaniCatalogTests(SimpleTestCase):
                 for index, call in enumerate(edit.call_args_list):
                     args = call.kwargs
                     prompt = args['prompt_config']['prompt']
-                    self.assertEqual(args.get('face_choice'), 'raghav' if index < 2 else None)
+                    self.assertEqual(args.get('face_choice'), 'raghav' if index == 0 else None)
+                    if index in (1, 2):
+                        self.assertIn('face_image', args)
+                        self.assertIn('established front outfit', prompt)
                     self.assertIn('only with broad, diffused neutral white light', prompt)
                     self.assertIn('including the hem, side vent, pockets and cuffs', prompt)
                     self.assertIn('garment_image' if ready else 'fabric_image', args)
@@ -357,6 +404,37 @@ class SherwaniCatalogTests(SimpleTestCase):
 
 
 class JodhpuriCatalogTests(SimpleTestCase):
+    def test_wrong_back_fabric_is_retried_once_and_never_uploaded_on_second_failure(self):
+        import threading
+        from dataclasses import replace
+        from fabricapp.ai.garments.kurta.catalog import jodhpuri
+        from fabricapp.catalog_engine.contracts import Layout, Panel
+        from fabricapp.catalog_engine.runner import Services, generate_catalog
+
+        source = io.BytesIO()
+        Image.new('RGB', (64, 96), '#d1c1d9').save(source, 'PNG')
+        correct = GenerationResult(source.getvalue(), 43)
+        wrong = GenerationResult(picture(), 42)
+        shot = next(shot for shot in jodhpuri.DEFINITION.shots if shot.key == 'back')
+        definition = replace(jodhpuri.DEFINITION, shots=(shot,), layout=lambda product: Layout(
+            'retry-check', (64, 96), (Panel('back', (0, 0, 64, 96)),)))
+        for outputs, expected_status in (([wrong, correct], 'completed'), ([wrong, wrong], 'failed')):
+            edit = Mock(side_effect=outputs)
+            upload = Mock(return_value={'url': 'https://example.com/output.png'})
+            with patch('fabricapp.catalog_engine.runner.get_request_definition', return_value=definition):
+                events = list(generate_catalog({'fabric_image': io.BytesIO(source.getvalue()),
+                                                'garment_type': 'kurta', 'garment_style': 'jodhpuri'},
+                                               threading.Event(), Services(Mock(), edit, upload)))
+            self.assertEqual(edit.call_count, 2)
+            self.assertEqual(events[-1]['status'], expected_status)
+            self.assertEqual(edit.call_args.kwargs['prompt_config']['seed'], 43)
+            self.assertIn('FABRIC CORRECTION', edit.call_args.kwargs['prompt_config']['prompt'])
+            if expected_status == 'failed':
+                upload.assert_not_called()
+                self.assertEqual(next(e for e in events if e['event'] == 'image_failed')['error'], 'fabric_mismatch')
+            else:
+                self.assertEqual(events[-1]['images'][0]['generation']['catalog_fabric_retry_count'], 1)
+
     def test_pale_jodhpuri_back_matches_body_shade_without_recolouring_print(self):
         import numpy as np
         from PIL import ImageDraw
@@ -390,10 +468,15 @@ class JodhpuriCatalogTests(SimpleTestCase):
         ImageDraw.Draw(jacket).rectangle((50, 58, 74, 88), fill='navy')
         source_image = io.BytesIO()
         jacket.save(source_image, 'PNG')
+        navy_output = io.BytesIO()
+        Image.new('RGB', (64, 96), 'navy').save(navy_output, 'PNG')
         for source, extract in (('fabric_image', False), ('garment_image', False), ('garment_image', True)):
             with self.subTest(source=source, extract=extract):
                 edit.reset_mock()
                 upload.reset_mock()
+                # Extraction selects the navy chest. The provider mock must
+                # return that fabric to pass the back-view fidelity check.
+                edit.return_value = GenerationResult(navy_output.getvalue() if extract else picture(), 42)
                 response = APIClient().post('/api/generate-catalog/', {
                     source: SimpleUploadedFile('sample.png', source_image.getvalue(), 'image/png'),
                     'garment_as_swatch': extract, 'garment_type': 'kurta', 'garment_style': 'jodhpuri',

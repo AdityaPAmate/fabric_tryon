@@ -32,19 +32,26 @@ def match_solid_cloth(generation, view, target):
     sx0, sy0, sx1, sy1 = bounds(SAMPLE_BOXES[view])
     sample = pixels[sy0:sy1, sx0:sx1]
     measured = np.median(sample, axis=(0, 1))
-    if np.ptp(target) < 24 or np.ptp(measured) < 24:
-        return generation
-
     def hue(rgb):
         return Image.new('RGB', (1, 1), tuple(np.rint(rgb).astype(int))).convert('HSV').getpixel((0, 0))[0]
 
     # A large hue mismatch is ambiguous (the crop may be scenery or skin).
     hue_gap = abs(hue(measured) - hue(target))
-    if min(hue_gap, 256 - hue_gap) > 38:
+    chromatic = np.ptp(target) >= 24 and np.ptp(measured) >= 24
+    if chromatic and min(hue_gap, 256 - hue_gap) > 38:
         return generation
     delta = np.abs(hsv[:, :, 0] - hue(measured))
-    weight = np.clip((16 - np.minimum(delta, 256 - delta)) / 7, 0, 1)
-    weight *= np.clip((hsv[:, :, 1] - 42) / 26, 0, 1)
+    if chromatic:
+        weight = np.clip((16 - np.minimum(delta, 256 - delta)) / 7, 0, 1)
+        weight *= np.clip((hsv[:, :, 1] - 42) / 26, 0, 1)
+    else:
+        # Hue is unstable on greyed brown and neutral cloth. Follow connected
+        # pixels of the measured shade, leaving skin and contrasting trim out.
+        chroma = pixels - pixels.mean(axis=2, keepdims=True)
+        sample_chroma = measured - measured.mean()
+        distance = np.linalg.norm(chroma - sample_chroma, axis=2)
+        weight = np.clip((30 - distance) / 16, 0, 1)
+        weight *= np.clip((65 - np.abs(pixels.mean(axis=2) - measured.mean())) / 30, 0, 1)
     x0, y0, x1, y1 = bounds(COLLAR_BOX if view == 'collar' else COAT_BOX)
     region = np.zeros_like(weight)
     region[y0:y1, x0:x1] = weight[y0:y1, x0:x1]

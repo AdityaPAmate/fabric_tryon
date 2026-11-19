@@ -7,7 +7,7 @@ from fabricapp.ai.fabric.body_region import select_body_fabric_region
 from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
-from fabricapp.ai.garments.kurta.catalog.jodhpuri_colour import align_jacket_colour
+from fabricapp.ai.garments.kurta.catalog.jodhpuri_colour import align_jacket_colour, matches_solid_jacket
 from fabricapp.ai.fabric.solid_swatch import solid_swatch_rgb
 from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.scene.catalog_backgrounds import CATALOG_SCENERY
@@ -89,8 +89,8 @@ def build_config(data, shot, seed):
     prompt = ['Edit image 0 in place. Keep its exact camera angle, framing and subject scale.', FRAMING[shot.key]]
     if ready and portrait:
         prompt.append('Image 1 supplies the finished Jodhpuri jacket and its actual cut, cloth, fasteners and trim. '
-                      'Dress the person in that garment. Use any matching trousers supplied with it, or plain coordinating '
-                      'trousers and shoes. The mannequin, hanger and original wearer are display context only.')
+                      'Dress the person in that garment with plain white trousers and the reference shoes. '
+                      'The mannequin, hanger and original wearer are display context only.')
     elif ready:
         prompt.append('Image 1 is a crop of the jacket as worn in this catalog. Copy its cloth, colour and visible '
                       'construction. Keep the close-up and lighting from image 0. Preserve buttons, a pocket opening '
@@ -100,7 +100,7 @@ def build_config(data, shot, seed):
                       'Replace the template textile completely. Continue the supplied pattern across folds at its original '
                       'scale. A plain swatch stays plain. Cloth ends at the garment edge, leaving skin and scenery clear.')
         if portrait:
-            prompt.append('Keep the reference jacket ending at the hips with the separate plain trousers as shown in image 0. '
+            prompt.append('Keep the reference jacket ending at the hips with separate plain white trousers. '
                           'Keep the trouser fabric free of jacket motifs. Keep the stand collar, tailored shoulders and clean hem.')
             if shot.key != 'back':
                 prompt.append('Keep the visible reference front buttons and separate pocket square.')
@@ -115,6 +115,11 @@ def build_config(data, shot, seed):
             prompt.append('Carry the same base shade and motif density across the back and both sleeves. '
                           'Keep the supplied print visible in shadows and along both shoulders. Preserve genuine '
                           'light motifs from the swatch and avoid pale patches from glare or scene lighting.')
+            if data.get('_catalog_fabric_retry'):
+                prompt.insert(0, 'FABRIC CORRECTION: the previous output used the wrong textile. '
+                              'Replace the entire jacket back, collar and sleeves using image 1. '
+                              'Keep its exact base colour and existing pattern. A plain source has no motifs. '
+                              'Image 0 supplies only the rear pose and jacket cut.')
     if shot.key == 'cuff':
         prompt.append('The diagonal sleeve and wrist fill the frame. Keep the uncovered studio area light grey, '
                       'the cloth edge natural and softly shadowed, and the sleeve evenly exposed without white glare.')
@@ -122,6 +127,8 @@ def build_config(data, shot, seed):
         prompt.append('The frame shows only the jacket chest and welt detail. Keep the face, hands, trousers and lower hem outside the crop.')
 
     if portrait:
+        prompt.append('CATALOG TROUSERS: use the same solid white trousers in every view. '
+                      'Keep all jacket colours, motifs and borders off the trousers.')
         if shot.key in IDENTITY_VIEWS and data.get('person_image'):
             prompt.append('Image 2 supplies the wearer’s face, hairstyle, facial hair, skin tone and build. Keep the pose from image 0.')
         elif data.get('gender'):
@@ -150,7 +157,7 @@ def build_config(data, shot, seed):
             shade = '#%02X%02X%02X' % tuple(round(float(component)) for component in target)
             config['prompt'] += f' Match the common jacket midtone {shade} across views.'
     config['prompt'] += WHITE_LIGHT + ' Output one photograph.'
-    version = 'ready-v1' if ready else ('swatch-v3' if shot.key == 'back' else 'swatch-v2')
+    version = 'ready-v2' if ready else ('swatch-v4' if shot.key == 'back' else 'swatch-v3')
     config['prompt_version'] = f'jodhpuri-catalog-{version}-{shot.key}'
     return config
 
@@ -166,15 +173,21 @@ def finish_shot(data, shot, generation):
     return align_jacket_colour(generation, shot.key, swatch_colour(data))
 
 
+def validate_shot(data, shot, generation):
+    if shot.key != 'back' or data.get('fabric_image') is None:
+        return True
+    return matches_solid_jacket(generation, shot.key, swatch_colour(data))
+
+
 SWATCH_SHOTS = SHOTS[:-1] + (
     replace(SHOTS[-1], operation='swatch_composite', reference_mask=REFERENCES / '06_pocket_mask.png',
             swatch_body_only=True, natural_swatch_shading=True,
             composite_relief=REFERENCES / '06_pocket_relief.png'),
 )
 DEFINITION = CatalogDefinition('kurta', 'jodhpuri-v1', SWATCH_SHOTS, build_config, layout,
-                               finish_shot=finish_shot, swatch_colour=swatch_colour)
+                               finish_shot=finish_shot, swatch_colour=swatch_colour, validate_shot=validate_shot)
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
     replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
     for shot in SHOTS[3:]
     for anchor, crop in (READY_CROPS[shot.key],)
-), finish_shot=None, swatch_colour=None)
+), finish_shot=None, swatch_colour=None, validate_shot=None)

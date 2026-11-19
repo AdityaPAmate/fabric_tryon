@@ -73,8 +73,7 @@ def build_config(data, shot, seed):
                       'colour, weave and print. Image 0 supplies composition only. Follow the construction '
                       'visible in image 1, including its actual collar and sleeve end. If there is no side '
                       'slit, show the real side seam and hem at the same scale. Continue the observed cloth and construction '
-                      'on unseen areas without inventing decoration. Preserve any matching bottoms in '
-                      'image 1; otherwise use simple coordinating trousers in full-length views.')
+                      'on unseen areas without inventing decoration. Use plain white trousers in every full-length view.')
         prompt.append('Use image 1 only for clothing. Keep its mannequin, hanger or photographed wearer out of the result.')
     elif portrait:
         prompt.append('Image 1 is the fabric swatch. Replace every visible kurta cloth pixel with its '
@@ -90,6 +89,8 @@ def build_config(data, shot, seed):
         prompt.append(KURTA_DUPATTA_ADD if 'with_dupatta' in details else DUPATTA_REMOVE)
 
     if portrait:
+        prompt.append('CATALOG TROUSERS: use the same solid white trousers in every view. '
+                      'Keep all kurta colours, motifs and borders off the trousers.')
         if shot.key in IDENTITY_VIEWS and data.get('person_image'):
             prompt.append('Image 2 supplies the subject’s face, hairstyle and body build. '
                           'Dress that subject in the requested kurta, in the pose in image 0.')
@@ -179,7 +180,7 @@ def _detail_prompt(view, ready_made, folded_sleeves):
     elif view == 'side_slit':
         textile = ('Apply the swatch in image 1 to both sides of the vent and both folded hem edges. '
                    'Keep the original motif scale, spacing and contrast through the seams and folds. '
-                   'Preserve the visible plain trousers inside the slit. Place any real source border '
+                   'Preserve the visible plain white trousers inside the slit. Place any real source border '
                    'along the lower hem only. A plain swatch has a plain stitched edge.')
     else:
         textile = ('Replace only the kurta cloth in image 0 using the fabric swatch in image 1. '
@@ -217,7 +218,7 @@ READY_DETAIL_EDITS = {
         'Keep the tight thigh-level view of the lower side seam and hem. Copy the fabric and visible '
         'seam construction from image 1. Show a slit only when visible in image 1. Keep the lower '
         'edge in frame and the opening free of added fasteners. The frame contains only lower cloth '
-        'and any plain trouser fabric visible behind the opening.'
+        'and any plain white trouser fabric visible behind the opening.'
     ),
 }
 

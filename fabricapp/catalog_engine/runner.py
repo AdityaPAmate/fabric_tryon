@@ -2,11 +2,12 @@
 import io
 import logging
 from math import gcd
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable
 from uuid import uuid4
 
 from fabricapp.catalog_engine.registry import get_request_definition
+from fabricapp.catalog_engine.contracts import CatalogFabricMismatch
 from fabricapp.catalog_engine.validation import validate_definition
 from fabricapp.catalog_engine.renderer import render_catalog
 from fabricapp.ai.providers.cloudflare_engine import CloudflareGenerationError, GenerationResult
@@ -130,6 +131,17 @@ def generate_catalog(data, stopped, services):
             shot_timings = {**timings, 'view': shot.key, 'operation': shot.operation}
             with timed_stage('catalog_shot_generate', **shot_timings):
                 generation = generate_shot(data, shot, definition, shot_bytes, seeds, services)
+                if definition.validate_shot and not definition.validate_shot(data, shot, generation):
+                    if stopped.is_set():
+                        return
+                    retry_data = {**data, 'seed': generation.effective_seed ^ 1,
+                                  '_catalog_fabric_retry': True}
+                    generation = generate_shot(retry_data, shot, definition, shot_bytes, seeds, services)
+                    if not definition.validate_shot(data, shot, generation):
+                        raise CatalogFabricMismatch('Generated cloth does not match the supplied fabric.')
+                    generation = replace(generation, diagnostics={
+                        **(generation.diagnostics or {}), 'catalog_fabric_retry_count': 1,
+                    })
             if definition.finish_shot:
                 with timed_stage('catalog_shot_finish', **shot_timings):
                     generation = definition.finish_shot(data, shot, generation)
@@ -149,7 +161,7 @@ def generate_catalog(data, stopped, services):
         except Exception as exc:
             logger.exception('Catalog shot failed: %s', shot.key)
             failed.append(shot.key)
-            failure = exc.failure_type if isinstance(exc, CloudflareGenerationError) else None
+            failure = getattr(exc, 'failure_type', None)
             blocked = blocked or failure in ('allocation_exhausted', 'authentication_error') or (
                 isinstance(exc, CloudflareGenerationError) and exc.status_code in (401, 403, 429))
             yield {'event': 'image_failed', 'view': shot.key, 'error': failure or 'image_generation_or_upload_failed',
