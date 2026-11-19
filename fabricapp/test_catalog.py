@@ -23,7 +23,8 @@ def picture():
 class CatalogTests(SimpleTestCase):
     def data(self):
         return {'garment_type': 'shirt', 'gender': 'men', 'fabric_type': 'velvet',
-                'fabric_image': io.BytesIO(picture()), 'options': {'draft_mode': True}}
+                'fabric_image': io.BytesIO(picture()), 'options': {'draft_mode': True},
+                'catalog_edition': 'classic-v1'}
 
     def test_plan_for_every_garment(self):
         for garment in ('shirt', 'blazer', 'kurta', 'kurti_pant', 'pant'):
@@ -37,6 +38,7 @@ class CatalogTests(SimpleTestCase):
     @patch('fabricapp.ai.main._generate_with_engine', return_value=GenerationResult(picture(), 42))
     def test_native_front_size_does_not_leak_into_normal_or_close_up_requests(self, engine):
         data = self.data()
+        data.pop('catalog_edition')
         from fabricapp.ai.garments.shirt.catalog.definition import _pipeline_options
         data['options'] = {'draft_mode': False, **_pipeline_options('front')}
         from fabricapp.ai.main import generate_tryon_image as generate_catalog_front
@@ -59,6 +61,7 @@ class CatalogTests(SimpleTestCase):
         response = APIClient().post('/api/generate-catalog/', {
             'fabric_image': SimpleUploadedFile('swatch.png', picture(), content_type='image/png'),
             'garment_type': 'shirt', 'gender': 'men', 'fabric_type': 'velvet',
+            'catalog_edition': 'classic-v1',
             'body_type': 'trim', 'face_choice': 'raghav',
         }, format='multipart')
         self.assertEqual(response.status_code, 200)
@@ -84,7 +87,7 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual(events[-1]["collage"]["layout"], "portrait-catalog-9x16-v5")
         self.assertFalse(front.call_args.kwargs['options']['draft_mode'])
         for view, call in zip(['back', 'collar', 'cuff', 'hem'], edit.call_args_list):
-            template = get_catalog_reference_path('shirt', view)
+            template = get_catalog_reference_path('shirt', view, 'classic-v1')
             expected = template.read_bytes() if template else picture()
             self.assertTrue(call.kwargs['person_image'].getvalue() == expected, view)
             self.assertEqual(call.kwargs['scenario'], 'person_pose' if view == 'back' else 'person_photo')
@@ -231,7 +234,7 @@ class CatalogTests(SimpleTestCase):
         response = APIClient().get('/api/catalog/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Generate Catalog')
-        config = edit_config(self.data(), catalog_plan('shirt')[3][1], 43)
+        config = edit_config(self.data(), catalog_plan('shirt', 'classic-v1')[3][1], 43)
         self.assertIn('extreme close-up', config['prompt'])
         self.assertNotIn('shown fully from head to feet', config['prompt'])
         self.assertEqual(config['seed'], 43)
@@ -247,16 +250,16 @@ class CatalogTests(SimpleTestCase):
                 self.assertIn('45 degrees', plan['three_quarter'])
         data = self.data()
         data['background'] = 'white_marble_terrace'
-        prompt = edit_config(data, dict(catalog_plan('shirt'))['back'], 42, view='back')['prompt']
+        prompt = edit_config(data, dict(catalog_plan('shirt', 'classic-v1'))['back'], 42, view='back')['prompt']
         self.assertIn('marble terrace', prompt)
         self.assertIn('FINAL CAMERA REQUIREMENT: REAR CLOSE-UP', prompt)
 
     def test_templates_are_packaged_and_keep_reference_geometry(self):
         for view in ('collar', 'cuff', 'hem'):
-            path = get_catalog_reference_path('shirt', view)
+            path = get_catalog_reference_path('shirt', view, 'classic-v1')
             self.assertTrue(path.is_file())
             data = self.data()
-            config = edit_config(data, dict(catalog_plan('shirt'))[view], 42,
+            config = edit_config(data, dict(catalog_plan('shirt', 'classic-v1'))[view], 42,
                                  reference_template=path, view=view)
             self.assertIn('Replace ALL visible shirt fabric', config['prompt'])
             self.assertIn('FINAL CROP: match image 0 exactly', config['prompt'])
@@ -275,7 +278,7 @@ class CatalogTests(SimpleTestCase):
     def test_template_requests_align_dimensions_without_relaxing_output_validation(self):
         from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image as engine
         template = get_catalog_reference_path('shirt', 'collar')
-        config = edit_config(self.data(), dict(catalog_plan('shirt'))['collar'], 42,
+        config = edit_config(self.data(), dict(catalog_plan('shirt', 'classic-v1'))['collar'], 42,
                              reference_template=template, view='collar')
         def provider(*args, **kwargs):
             self.assertEqual(set(kwargs['files']), {'input_image_0', 'input_image_1'})

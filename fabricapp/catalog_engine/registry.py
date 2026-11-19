@@ -3,6 +3,7 @@ from importlib import import_module
 
 CUSTOM = {
     ('shirt', 'classic-v1'): 'fabricapp.ai.garments.shirt.catalog.definition',
+    ('shirt', 'editorial-v1'): 'fabricapp.ai.garments.shirt.catalog.editorial',
     ('saree', 'editorial-v1'): 'fabricapp.ai.garments.saree.catalog.definition',
     ('kurti_pant', 'editorial-v1'): 'fabricapp.ai.garments.kurti_pant.catalog.definition',
     ('kurta', 'plain-v1'): 'fabricapp.ai.garments.kurta.catalog.plain',
@@ -19,7 +20,7 @@ CUSTOM = {
     ('saree', 'classic-v1'): 'fabricapp.ai.garments.saree.catalog.classic',
     ('ready_made', 'ready-made-v1'): 'fabricapp.catalog_engine.ready_made',
 }
-DEFAULTS = {'shirt': 'classic-v1', 'saree': 'editorial-v1',
+DEFAULTS = {'shirt': 'editorial-v1', 'saree': 'editorial-v1',
             'blazer': 'classic-v1', 'kurta': 'classic-v1',
             'kurti_pant': 'editorial-v1', 'pant': 'classic-v1'}
 STYLE_EDITIONS = {('kurta', 'plain'): 'plain-v1', ('kurta', 'sherwani'): 'sherwani-v1',

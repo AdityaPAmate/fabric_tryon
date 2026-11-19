@@ -1,5 +1,14 @@
 # Catalog edition ownership
 
+Shirt defaults to `editorial-v1`, exporting an image-only 1800 × 2400 collage.
+The new numbered front, side and back photographs are independent templates.
+The existing collar, cuff and hem references form the last column. The public
+second-view key remains `close_up` for clients, and its reference is the side photo.
+The main front uses a 1536px limit, the five smaller views use 1024px, and draft
+uses 768px. Six direct edits upload original provider bytes with no colour
+post-processing or dependent pose regeneration. Explicit `classic-v1` requests
+retain the earlier 9:16 edition.
+
 Kurta catalog trousers follow the edition's outfit rule in both fabric and
 ready-made modes. Plain, Sherwani and Jodhpuri use solid white trousers. Pathani
 uses solid trousers in the main source-cloth colour, including when the kurta
