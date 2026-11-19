@@ -250,6 +250,11 @@ class PathaniCatalogTests(SimpleTestCase):
 
         shot = next(shot for shot in pathani.DEFINITION.shots if shot.key == 'collar')
         self.assertEqual(shot.operation, 'swatch_composite')
+        with Image.open(shot.reference_mask) as mask:
+            # The collar's brown fold is textile, while the oblique button
+            # stays hardware. Preserving the whole fold created a tan block.
+            self.assertGreater(mask.getpixel((400, 450)), 240)
+            self.assertEqual(mask.getpixel((444, 497)), 0)
         for colour in ((62, 40, 27), (209, 193, 217), (122, 138, 31)):
             source = io.BytesIO()
             Image.new('RGB', (96, 128), colour).save(source, 'PNG')
