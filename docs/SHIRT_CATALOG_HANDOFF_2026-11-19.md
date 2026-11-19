@@ -1,132 +1,74 @@
-# Shirt catalog handoff — 19 November 2026
+# Shirt catalog completion record — 19 November 2026
 
-> Later verification: deployed `2189e0e` completed a pale-lilac six-shot catalog
-> in 69.153s, with no request failures and an 1800x2400 collage. Visual review
-> confirmed the portrait sleeves/hem and collar/cuff framing, but the hem detail
-> incorrectly retained white cloth above a tinted bottom strip. The v5 hem
-> prompt therefore replaces ALL visible shirt fabric from the photo's top edge
-> to the stitched hem, rather than describing only "lower shirt panels".
-> Seven targeted tests passed after this scope correction. Evidence for the
-> failed-quality full run is in `outputs/shirt_live_2189e0e_20261119/lilac/`.
-> The newly approved ten-generation allowance has been used; a further maximum
-> eight-generation verification request was submitted for this final hem fix.
+The requested Shirt catalog update is implemented, pushed and live-verified.
+This replaces the earlier paused-work handoff in this file.
 
-> Resume note: the user subsequently asked to complete the remaining work.
-> The snapshot below records the initial `5d8b1ca` deployment, not final quality.
-> Follow-up changes use `shirt-editorial-swatch-v4-*`: region-specific detail
-> edits, a measured palette without colour-name overrides, non-conflicting
-> sleeve/hem options and 768px portrait subject references. Other provider
-> callers keep the existing 511px subject-input default. A v2 cuff edit followed
-> the reference, but v2 front cuffs were rolled; a v3 pale-fabric front invented
-> a waistband over the shirt. Simplified reference-preservation instructions
-> and the portrait input-size opt-in followed. The v4 green front, collar and
-> cuff were visually inspected and uploaded: the front kept full wrist cuffs
-> and the untucked hem; the close-ups kept their reference regions. All 169
-> tests passed (`tmp/shirt_v4_full_tests.log`). The user approved a NEW maximum
-> ten-generation allowance; four focused generations were used, leaving six
-> reserved for one deployed pale-fabric catalog. Its actual timing, revision,
-> events and images are saved under `outputs/shirt_live_<revision>_20261119/`.
-> Never treat the older 69.376s run as a test of the v4 implementation.
+## Code and deployment
 
-## User's requested work
-
-Update the Shirt catalog to 3:4. Import downloaded `1_shirt_front.png`,
-`2_shirt_side.png`, `3_shirt_back.png` as the first three references. Keep the
-existing collar, sleeve/cuff and hem references in the final column. Keep
-generation time low. User has now asked to stop at the current stage and hand
-remaining work to another model because usage is nearly exhausted.
-
-## Completed code and deployment
-
-- Checkout: `C:/Users/ADMIN/Desktop/fabric_tryon`
 - Branch: `perf/catalog-speed-optimization`
-- Pushed commit: `5d8b1cae8ec02b10784ab0dd8ad961808203b2a1`
-- Commit title: `Add reference-based 3:4 Shirt catalog with smaller detail generations`
-- Git working tree was clean at handoff, before this uncommitted handoff note.
-- Render service: `srv-db337krbc2fs73cfdt1g`, workspace `tea-d0oqv0uuk2gs738vsulg`
-- Render deployment: `dep-dbvbvd3l550s739bdr4g`, confirmed `live`.
-- URL: https://fabric-tryon.onrender.com
-- The six live response diagnostics all confirm the commit above.
+- Live-verified code commit: `21068f0078b5bf013addc68d50a4909fcd434298`
+- Render service: `srv-db337krbc2fs73cfdt1g`
+- Workspace: `tea-d0oqv0uuk2gs738vsulg` (My Workspace)
+- Verified deployment: `dep-dbvch5jl550s739cu3o0`, status `live`
+- Application: https://fabric-tryon.onrender.com
 
-New Shirt-owned implementation:
-`fabricapp/ai/garments/shirt/catalog/editorial.py`.
-Registry defaults Shirt to `editorial-v1`; explicit `classic-v1` retains the
-previous 9:16 behavior. No other garment implementation was changed.
+## Implemented behavior
 
-Layout is image-only 1800x2400: full front on left, side/back stacked in the
-middle, collar/cuff/hem stacked on the right. No outer padding or header/footer;
-12px internal separators. `close_up` remains the public key for the side view
-for client compatibility. All six are independent template edits. Front uses
-a 1536px longest side, other shots 1024px, draft 768px. No finish hook or local
-pixel recoloring was added.
+Shirt defaults to `editorial-v1`, with an image-only 1800x2400 (3:4) collage,
+no outer padding, no header/footer and no swatch inset. Internal separators
+are 12px. Front occupies the left column, side/rear the middle column, and
+collar/cuff/hem the final column. The public side-view key remains `close_up`
+for client compatibility. Explicit `classic-v1` callers retain their old edition.
 
-Copied reference assets (hash-verified identical to Downloads originals):
-`fabricapp/ai/references/assets/catalog/shirt/01_front.png`, `02_side.png`,
-`03_back.png`. Existing details remain `shirt_collar.png`, `sleeve.png`, `hem.png`.
+The downloaded `1_shirt_front.png`, `2_shirt_side.png`, `3_shirt_back.png`
+were copied exactly to `fabricapp/ai/references/assets/catalog/shirt/` as
+`01_front.png`, `02_side.png`, `03_back.png`. The existing collar, sleeve and
+hem reference photographs remain the detail templates.
 
-## Verification already performed
+Shirt-owned prompts describe only the visible region of each close-up.
+Folded-sleeve and tucked-hem selections replace the default treatment rather
+than adding conflicting instructions. Default portraits retain full wrist
+cuffs and an untucked hem. The final hem instruction applies the source cloth
+from the photograph's top edge through the entire visible shirt to its hem.
 
-- Targeted catalog tests: 26 passed, including three new HTTP/provider-routing
-  tests in `fabricapp/test_shirt_editorial_catalog.py`.
-- Full suite: 166 ran; 165 initially passed. One existing aspect-ratio test
-  still expected Shirt 9:16. Updated its expected default to 3:4, then reran
-  that exact test successfully. The entire suite was not rerun after this
-  expectation-only change. Log: `tmp/shirt_full_tests.log`.
-- One real deployed catalog completed in **69.376 seconds**, all six shots,
-  Cloudinary upload and final 3:4 collage; no failed views or collage error.
-  This proves execution and measured latency for ONE fabric, not universal
-  visual correctness.
+All six shots are independent edits. Front output uses a 1536px longest side;
+other outputs use 1024px, or 768px in draft mode. Portrait subject references
+opt into 768px so cuffs and the hem remain readable; other callers keep the
+provider's 511px default. Swatch and identity input limits are unchanged.
+There is no added colour post-processing, mask compositing or dependent reposing.
 
-Live evidence folder:
-`outputs/shirt_live_5d8b1ca_20261119/green/`
-Contains `source.jpg`, six individual images, `catalog.png`, `events.json`,
-`summary.json`. These outputs are ignored by Git but exist locally.
+Measured cropped source pixels anchor the palette. Pale monochrome dyed cloth
+gets a tint-preservation instruction; neutral white/grey and multicolour prints
+do not get a global tint. Actual swatch pixels retain the pattern information.
 
-## Remaining issues — do NOT claim the visual requirements are complete
+## Verification
 
-The live collage was visually inspected at handoff. It exposes real failures:
+- Full suite: 170 tests passed in `tmp/shirt_final_full_tests.log`.
+- Final hem-only prompt correction: all 7 Shirt editorial tests passed in
+  `tmp/shirt_hem_scope_tests.log`.
+- Green front, collar and cuff were generated, uploaded and visually reviewed.
+  Their final prompts were checked against the saved successful live configs.
+- Final pale-lilac catalog ran through the public deployed endpoint:
+  **72.858 seconds**, six images, no failed views, no collage error, 3:4 output.
+- Every final shot's diagnostics confirms code revision `21068f0` and one
+  provider attempt. Portraits have three input images; details have two and
+  receive no identity image.
+- All six final panels and the raw hem were visually reviewed. The earlier
+  retained-white hem region was absent, full sleeves and the untucked hem
+  were preserved, and the cuff remained an isolated wrist-level close-up.
 
-1. **Cuff shot does not follow its sleeve reference.** The middle panel of the
-   last column shows an upper-body short-sleeved shirt, rather than the requested
-   sleeve/cuff close-up. Inspect raw `cuff.jpg` against `sleeve.png`, and the
-   actual serialized prompt/input geometry in the response diagnostics.
-2. Front, side and rear show rolled sleeves despite the default full-sleeve
-   instruction. Check whether contradictory template/conditioning instructions
-   override the desired sleeve treatment. Do not assume a cause without inspecting.
-3. Green cloth tone/shading varies between panels, with visible bright bands
-   on some shots. The supplied green source itself has a strong bright stripe;
-   separate faithful source appearance from unwanted added lighting.
-4. Detail images are generated at their reference aspect ratios then cover-
-   cropped into narrow panels. Review whether this removes important collar,
-   cuff or hem content. Do not introduce padding to hide the issue.
-5. Inspect all six raw outputs at full resolution and compare their own
-   references, not only request success or collage metadata.
-6. A second patterned/lilac fabric has NOT been live-tested. Also validate
-   identity, background, folded/full sleeves, tucked/untucked options after
-   correcting reference adherence. Keep changes confined to Shirt.
+Local final evidence (ignored by Git):
+`outputs/shirt_live_21068f0_20261119/lilac/`
+contains `source.jpg`, the six photos, `catalog.png`, `events.json`, `summary.json`.
+Focused green evidence is in `outputs/shirt_focused_v4/`; the focused corrected
+lilac hem is in `outputs/shirt_focused_v5/`.
 
-## Continuation tools and commands
+The prior `2189e0e` run finished in 69.153s but failed visual review because
+its hem retained white cloth. It is historical evidence, not the final result.
+The final newly approved eight-generation allowance used seven generations:
+one successful focused hem check and one six-image deployed catalog. One was
+unused. No further paid run is needed for this implementation.
 
-Python: `.\venv\Scripts\python.exe`
-
-Tests:
-```
-.\venv\Scripts\python.exe manage.py test fabricapp.test_shirt_editorial_catalog fabricapp.test_catalog --noinput
-.\venv\Scripts\python.exe manage.py test fabricapp --noinput
-```
-
-Temporary live script: `tmp/verify_deployed_shirt.py`.
-It accepts `--revision <commit-prefix>` and `--case green` or `--case lilac`.
-Without a case it runs BOTH full catalogs (12 paid generations): do not run
-that by default. Green source is saved in the evidence folder. Lilac source:
-`C:/Users/ADMIN/Desktop/fabric_tryon_tester_ui/reports/shirt/2026-11-19_101610_001/garment_source.jpg`.
-
-Automatic approval review rejected the two-catalog/12-generation command
-because available authorization was at most 8 generations. A reduced single
-catalog/6-generation command was then approved and completed. Do not assume a
-fresh paid-generation allowance. The user has asked to stop further work now.
-
-After fixes: run relevant tests, commit/push to the existing branch, verify
-the intended revision deploys, and visually review the real results before
-claiming quality is fixed. Render autoDeploy is configured yes but did not
-trigger on this push; an explicit plugin deployment of latest commit was used.
+These checks cover the recorded fabrics and requests, not a guarantee that
+all future generative outputs will be identical. Other garment implementations
+were unchanged; the provider subject-size option preserves its old default.
