@@ -68,10 +68,8 @@ SHOTS = tuple(
 
 
 WHITE_LIGHT = (
-    ' FINAL LIGHTING: Illuminate the subject and setting only with broad, diffused neutral white light '
-    'and neutral camera white balance. No direct sunlight, warm light, golden-hour glow or coloured reflections. '
-    'Match the source fabric hue, saturation, midtone brightness and motif contrast. '
-    'Keep natural soft fold shadows and the selected fabric finish. No saturation boost or orange colour cast.'
+    ' Use even neutral white light. Preserve the source colour and texture. '
+    'No direct sunlight, warm colour cast, dramatic shadows or bright patches.'
 )
 
 
@@ -137,10 +135,7 @@ def build_config(data, shot, seed):
                           'checks, stripes and border designs on the kurta only.')
         prompt.append('Keep the knee-length Pathani hanging freely over the trousers with its long '
                       'side vents and full lower hem. Preserve image 0’s camera angle and head orientation.')
-        prompt.append('Use broad neutral frontal fill on both trouser legs, from the visible upper '
-                      'trousers to both ankle hems. Match their diffuse midtone to the specified solid '
-                      'source colour. Keep soft, narrow crease shadows and visible cloth texture. '
-                      'Keep sunlight bands, dark cast patches and silhouette rim light off both legs.')
+        prompt.append('Keep both trouser legs evenly exposed in the specified plain source colour.')
         if shot.identity_from and data.get('person_image'):
             prompt.append('Use image 2 for the wearer’s face, hairstyle and body build. Keep the pose of image 0.')
         else:
@@ -178,35 +173,8 @@ def build_config(data, shot, seed):
             'Do not zoom out or create a waist, belt, trouser waistband, tucked-in shirt or full torso. '
             + config['prompt']
         )
-    config['prompt'] += WHITE_LIGHT + ' Output one photograph without text or watermark.'
-    if portrait:
-        config['prompt'] += (
-            ' Use broad soft fill from both sides and above so the shoulders, sleeves and lower body '
-            'share the same cloth exposure. Keep neutral studio fill on the garment in outdoor scenes. '
-            'Keep narrow, soft shadows at folds and seams. Keep hard shadow bands, sun patches, rim '
-            'lights and bright shoulder highlights off the cloth. Preserve skin and fasteners. '
-            'Keep the trousers in the specified plain source colour.'
-        )
-        if data.get('_catalog_fabric_retry'):
-            config['prompt'] = (
-                'CORRECT THE OUTFIT EXPOSURE: keep image 0’s original pose, head direction and knee-length '
-                'Pathani cut. Render both trouser legs in the specified source midtone under broad white '
-                'frontal fill, preserving shallow folds. Remove broad dark patches on the trousers. '
-                + config['prompt']
-            )
-    else:
-        config['prompt'] += (
-            ' Illuminate only the visible cloth within image 0’s existing tight detail crop with broad '
-            'diffuse white fill. Preserve its exact camera distance and frame boundaries. '
-        )
-    config['prompt'] += (
-        ' Keep illumination free of dappled light, isolated bright spots and strong gradients. '
-        'Keep fine weave and small shadows at the visible seams, folds and pocket edges. '
-        'Copy ornament only where visible in image 1. For plain source cloth, keep every panel and '
-        'edge plain, including the hem, side vent, pockets and cuffs. Do not invent embroidery, '
-        'decorative borders, motifs, appliqué or contrast piping.'
-    )
-    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v7-{shot.key}"
+    config['prompt'] += WHITE_LIGHT + ' Plain cloth stays plain, including the hem, side vent, pockets and cuffs. Output one photograph.'
+    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v8-{shot.key}"
     return config
 
 
@@ -215,23 +183,34 @@ def finish_shot(data, shot, generation):
         return generation
     crop, _ = select_body_fabric_region(data)
     profile = measure_fabric_colours(data['fabric_image'], crop, palette_size=16, min_coverage=.015)
-    return match_cloth_exposure(generation, shot.key, solid_swatch_rgb(profile))
+    generation = match_cloth_exposure(generation, shot.key, solid_swatch_rgb(profile))
+    if shot.key in PORTRAITS:
+        matched = trousers_match(generation.image_bytes, trouser_colour(data))
+        generation = replace(generation, diagnostics={
+            **(generation.diagnostics or {}),
+            'pathani_trouser_colour_review': 'within_sample_limits' if matched else 'review_recommended',
+        })
+    return generation
 
 
-def validate_shot(data, shot, generation):
-    if shot.key not in PORTRAITS:
-        return True
-    return trousers_match(generation.image_bytes, trouser_colour(data))
+def swatch_colour(data):
+    crop, _ = select_body_fabric_region(data)
+    profile = measure_fabric_colours(data['fabric_image'], crop, palette_size=16, min_coverage=.015)
+    return solid_swatch_rgb(profile)
 
 
-SWATCH_SHOTS = SHOTS[:-1] + (
-    replace(SHOTS[-1], operation='swatch_composite', reference_mask=REFERENCES / '06_pocket_mask.png',
-            swatch_body_only=True, composite_relief=REFERENCES / '06_pocket_relief.png'),
+SWATCH_SHOTS = tuple(
+    replace(shot, operation='swatch_composite',
+            reference_mask=REFERENCES / f'{shot.reference.stem}_mask.png',
+            composite_relief=REFERENCES / f'{shot.reference.stem}_relief.png',
+            swatch_body_only=True, swatch_original_orientation=shot.key == 'collar',
+            natural_swatch_shading=shot.key == 'collar')
+    if shot.key in ('collar', 'pocket') else shot for shot in SHOTS
 )
 DEFINITION = CatalogDefinition('kurta', 'pathani-v1', SWATCH_SHOTS, build_config, layout,
-                               finish_shot=finish_shot, validate_shot=validate_shot)
+                               finish_shot=finish_shot, swatch_colour=swatch_colour)
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
     replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
     for shot in SHOTS[3:]
     for anchor, crop in (READY_CROPS[shot.key],)
-), finish_shot=None)
+), finish_shot=None, swatch_colour=None)

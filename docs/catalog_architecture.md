@@ -7,7 +7,13 @@ cloth is printed. Jacket or kurta motifs and edge trim stay off the trousers.
 Pathani views use their own pose templates and a common measured trouser colour.
 Full-body outfit and lighting instructions apply only to portrait shots.
 Close-ups keep their original neck/chest or sleeve crop. Coloured trouser
-midtones are checked before delivery, with one bounded corrective generation.
+midtones are sampled for a diagnostic review hint. A fixed image sample cannot
+reliably separate trousers, shadows and scenery, so this heuristic does not
+reject a Pathani shot or trigger another paid generation.
+The Pathani swatch collar panel keeps the original reference photograph and
+replaces cloth through its own mask and neutral seam relief. Skin, backdrop,
+buttons, neckline and framing stay tied to that reference. Finished-garment
+mode keeps its garment-detail edit because the uploaded garment supplies its cut.
 
 Jodhpuri's swatch back view checks the source colour family before delivery.
 A failed check makes one corrective generation with a new seed. A second failure

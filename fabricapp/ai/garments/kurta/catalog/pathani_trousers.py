@@ -40,7 +40,7 @@ def trouser_colour(data):
 
 
 def trousers_match(image_bytes, target):
-    """Check coloured trouser midtones before accepting a full-length shot."""
+    """Estimate coloured trouser midtones for an advisory diagnostic."""
     if target is None or np.ptp(target) < 20:
         return True
     with Image.open(io.BytesIO(image_bytes)) as source:

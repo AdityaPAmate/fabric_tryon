@@ -223,6 +223,48 @@ class PlainKurtaCatalogTests(SimpleTestCase):
 
 
 class PathaniCatalogTests(SimpleTestCase):
+    @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
+    @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
+    def test_trouser_review_does_not_abort_or_retry_a_successful_catalog(self, edit, upload):
+        source = io.BytesIO()
+        Image.new('RGB', (96, 128), '#d1c1d9').save(source, 'PNG')
+        response = APIClient().post('/api/generate-catalog/', {
+            'fabric_image': SimpleUploadedFile('source.png', source.getvalue(), 'image/png'),
+            'garment_type': 'kurta', 'garment_style': 'pathani', 'gender': 'men',
+            'options': json.dumps({'draft_mode': True}),
+        }, format='multipart')
+        self.assertEqual(response.status_code, 200)
+        events = [json.loads(line) for line in response.streaming_content]
+        self.assertEqual(events[-1]['status'], 'completed')
+        self.assertEqual(events[-1]['failed_views'], [])
+        self.assertEqual(edit.call_count, 4)
+        self.assertEqual(upload.call_count, 7)
+        portraits = events[-1]['images'][:3]
+        self.assertTrue(all(image['generation']['pathani_trouser_colour_review'] == 'review_recommended'
+                            for image in portraits))
+
+    def test_local_collar_keeps_reference_skin_background_and_exact_crop(self):
+        from PIL import ImageChops
+        from fabricapp.ai.garments.kurta.catalog import pathani
+        from fabricapp.catalog_engine.runner import Services, generate_shot
+
+        shot = next(shot for shot in pathani.DEFINITION.shots if shot.key == 'collar')
+        self.assertEqual(shot.operation, 'swatch_composite')
+        for colour in ((62, 40, 27), (209, 193, 217), (122, 138, 31)):
+            source = io.BytesIO()
+            Image.new('RGB', (96, 128), colour).save(source, 'PNG')
+            provider = Mock(side_effect=AssertionError('Collar must keep the existing photograph.'))
+            result = generate_shot({'fabric_image': source}, shot, pathani.DEFINITION, {}, {},
+                                   Services(provider, provider, Mock()))
+            provider.assert_not_called()
+            with Image.open(io.BytesIO(result.image_bytes)) as output, Image.open(shot.reference) as reference, \
+                    Image.open(shot.reference_mask) as mask:
+                self.assertEqual(output.size, reference.size)
+                difference = ImageChops.difference(output, reference.convert('RGB'))
+                protected = mask.point(lambda value: 255 if value == 0 else 0)
+                self.assertIsNone(Image.composite(difference, Image.new('RGB', output.size), protected).getbbox())
+                self.assertIsNotNone(difference.getbbox())
+
     def test_trouser_check_rejects_broad_darkening_without_repainting_pixels(self):
         import numpy as np
         from fabricapp.ai.garments.kurta.catalog.pathani_trousers import trousers_match
@@ -300,7 +342,7 @@ class PathaniCatalogTests(SimpleTestCase):
                     '01_front.png', '02_side.png', '03_back.png', '04_collar.png', '05_cuff.png', '06_pocket.png',
                 ])
                 ready = source == 'garment_image' and not extract
-                self.assertEqual(edit.call_count, 6 if ready else 5)
+                self.assertEqual(edit.call_count, 6 if ready else 4)
                 self.assertEqual(upload.call_count, 7)
                 self.assertEqual(events[-1]['images'][-1]['operation'], 'template_edit' if ready else 'swatch_composite')
                 for index, call in enumerate(edit.call_args_list):
@@ -309,7 +351,7 @@ class PathaniCatalogTests(SimpleTestCase):
                     self.assertEqual(args.get('face_choice'), 'raghav' if index < 2 else None)
                     if index >= 2:
                         self.assertNotIn('face_image', args)
-                    self.assertIn('only with broad, diffused neutral white light', prompt)
+                    self.assertIn('Use even neutral white light', prompt)
                     self.assertIn('including the hem, side vent, pockets and cuffs', prompt)
                     self.assertIn('garment_image' if ready else 'fabric_image', args)
                     self.assertEqual('palace courtyard' in prompt, index < 3)
@@ -317,12 +359,17 @@ class PathaniCatalogTests(SimpleTestCase):
                         self.assertIn('free of front closures, chest pockets and buttons', prompt)
                     if ready and index >= 3:
                         self.assertNotEqual(args['garment_image'].getvalue(), picture())
+                from fabricapp.ai.garments.kurta.catalog import pathani
+                collar = next(shot for shot in pathani.SHOTS if shot.key == 'collar')
+                collar_prompt = pathani.build_config({
+                    'garment_image' if ready else 'fabric_image': io.BytesIO(picture()),
+                }, collar, 42)['prompt']
+                self.assertIn('only the lower chin', collar_prompt)
+                self.assertIn('CLOSE-UP CAMERA LOCK', collar_prompt)
+                self.assertNotIn('shoulders, sleeves and lower body', collar_prompt)
+                self.assertIn('waistband', collar_prompt)
                 prompts = [call.kwargs['prompt_config']['prompt'] for call in edit.call_args_list[3:]]
-                self.assertIn('only the lower chin', prompts[0])
-                self.assertIn('CLOSE-UP CAMERA LOCK', prompts[0])
-                self.assertNotIn('shoulders, sleeves and lower body', prompts[0])
-                self.assertIn('waistband', prompts[0])
-                self.assertIn('smooth light-grey studio background', prompts[1])
+                self.assertIn('smooth light-grey studio background', prompts[1 if ready else 0])
                 if ready:
                     self.assertIn('one chest pocket in close-up', prompts[2])
 
