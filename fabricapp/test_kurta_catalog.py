@@ -223,6 +223,18 @@ class PlainKurtaCatalogTests(SimpleTestCase):
 
 
 class PathaniCatalogTests(SimpleTestCase):
+    def test_trouser_check_rejects_broad_darkening_without_repainting_pixels(self):
+        import numpy as np
+        from fabricapp.ai.garments.kurta.catalog.pathani_trousers import trousers_match
+
+        target = np.array([209, 193, 217])
+        for colour, accepted in (((209, 193, 217), True), ((105, 88, 117), False)):
+            output = io.BytesIO()
+            Image.new('RGB', (100, 240), colour).save(output, 'PNG')
+            original = output.getvalue()
+            self.assertEqual(trousers_match(original, target), accepted)
+            self.assertEqual(output.getvalue(), original)
+
     def test_pathani_exposure_reaches_full_length_side_hem(self):
         import numpy as np
         from PIL import ImageDraw
@@ -294,10 +306,9 @@ class PathaniCatalogTests(SimpleTestCase):
                 for index, call in enumerate(edit.call_args_list):
                     args = call.kwargs
                     prompt = args['prompt_config']['prompt']
-                    self.assertEqual(args.get('face_choice'), 'raghav' if index == 0 else None)
-                    if index in (1, 2):
-                        self.assertIn('face_image', args)
-                        self.assertIn('established front outfit', prompt)
+                    self.assertEqual(args.get('face_choice'), 'raghav' if index < 2 else None)
+                    if index >= 2:
+                        self.assertNotIn('face_image', args)
                     self.assertIn('only with broad, diffused neutral white light', prompt)
                     self.assertIn('including the hem, side vent, pockets and cuffs', prompt)
                     self.assertIn('garment_image' if ready else 'fabric_image', args)
@@ -308,6 +319,9 @@ class PathaniCatalogTests(SimpleTestCase):
                         self.assertNotEqual(args['garment_image'].getvalue(), picture())
                 prompts = [call.kwargs['prompt_config']['prompt'] for call in edit.call_args_list[3:]]
                 self.assertIn('only the lower chin', prompts[0])
+                self.assertIn('CLOSE-UP CAMERA LOCK', prompts[0])
+                self.assertNotIn('shoulders, sleeves and lower body', prompts[0])
+                self.assertIn('waistband', prompts[0])
                 self.assertIn('smooth light-grey studio background', prompts[1])
                 if ready:
                     self.assertIn('one chest pocket in close-up', prompts[2])
@@ -404,6 +418,37 @@ class SherwaniCatalogTests(SimpleTestCase):
 
 
 class JodhpuriCatalogTests(SimpleTestCase):
+    def test_collar_correction_has_no_horizontal_step_at_the_old_crop_boundary(self):
+        import numpy as np
+        from fabricapp.ai.garments.kurta.catalog.jodhpuri_colour import align_jacket_colour
+
+        source = io.BytesIO()
+        Image.new('RGB', (200, 300), (100, 70, 50)).save(source, 'PNG')
+        result = align_jacket_colour(GenerationResult(source.getvalue(), 42), 'collar',
+                                     np.array([62, 40, 27]))
+        with Image.open(io.BytesIO(result.image_bytes)) as output:
+            above, below = (np.asarray(output.getpixel((30, y)), dtype=float) for y in (81, 87))
+            self.assertLess(np.max(np.abs(above - below)), 3)
+            self.assertLess(np.linalg.norm(below - (62, 40, 27)), 6)
+
+    def test_back_highlight_correction_stays_above_the_white_trousers(self):
+        import numpy as np
+        from PIL import ImageDraw
+        from fabricapp.ai.garments.kurta.catalog.jodhpuri_colour import align_jacket_colour
+
+        image = Image.new('RGB', (160, 320), '#eeeeee')
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((32, 55, 130, 170), fill=(100, 70, 50))
+        # A warm reflection on the white trousers used to be pulled into the
+        # expanded jacket mask and recoloured as a brown patch.
+        draw.rectangle((67, 171, 93, 200), fill=(225, 205, 195))
+        source = io.BytesIO()
+        image.save(source, 'PNG')
+        result = align_jacket_colour(GenerationResult(source.getvalue(), 42), 'back',
+                                     np.array([62, 40, 27]))
+        with Image.open(io.BytesIO(result.image_bytes)) as output:
+            self.assertEqual(output.getpixel((80, 190)), image.getpixel((80, 190)))
+
     def test_wrong_back_fabric_is_retried_once_and_never_uploaded_on_second_failure(self):
         import threading
         from dataclasses import replace

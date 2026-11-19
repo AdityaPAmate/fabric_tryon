@@ -8,7 +8,7 @@ from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.references.catalog_reference import CATALOG_REFERENCE_DIR
 from fabricapp.ai.garments.kurta.catalog.pathani_colour import match_cloth_exposure
-from fabricapp.ai.garments.kurta.catalog.pathani_trousers import trouser_colour
+from fabricapp.ai.garments.kurta.catalog.pathani_trousers import trouser_colour, trousers_match
 from fabricapp.ai.fabric.solid_swatch import solid_swatch_rgb
 from fabricapp.ai.garments.kurta.details import SLEEVES_FOLDED
 from fabricapp.ai.pipeline.scenario_composer import _person_description
@@ -25,7 +25,9 @@ FRAMING = {
     'back': 'Keep the full-length straight rear pose with the face out of view. Keep the full hem visible. '
             'The rear panel stays continuous and free of front closures, chest pockets and buttons.',
     'collar': 'Keep only the lower chin and neck at the top edge. The collar, shoulders, upper placket and chest '
-              'fill the frame. Keep the eyes, nose and rest of the face outside the frame.',
+              'fill the frame. Keep the eyes, nose and rest of the face outside the frame. '
+              'The chest extends beyond the bottom and side edges. The waist, waistband, belt, '
+              'trousers, hips, lower hem and full arms are outside this close-up.',
     'cuff': 'Keep one diagonal sleeve from upper right to lower left, its stitched cuff and the bare wrist '
             'at lower left. Use a smooth light-grey studio background outside the sleeve and wrist. '
             'Keep the sleeve edge softly shadowed and the cuff evenly exposed.',
@@ -52,8 +54,7 @@ READY_CROPS = {
 }
 SHOTS = tuple(
     Shot(key, description, 'template_edit', framing, reference=REFERENCES / f'{index:02}_{key}.png',
-         identity_from='request' if key == 'front' else 'front' if key in ('side', 'back') else None,
-         dependencies=('front',) if key in ('side', 'back') else (),
+         identity_from='request' if key in IDENTITY_VIEWS else None,
          scenario='pose_reference' if key in IDENTITY_VIEWS else 'person_photo')
     for index, (key, framing, description) in enumerate((
         ('front', 'full_body', 'full-length front view'),
@@ -134,10 +135,12 @@ def build_config(data, shot, seed):
             prompt.append(f'CATALOG TROUSERS: use the same solid {shade} trousers in every view. '
                           'This is the source cloth’s main colour. Keep all prints, embroidery, '
                           'checks, stripes and border designs on the kurta only.')
-        if shot.identity_from == 'front':
-            prompt.append('Image 2 is the established front outfit from this catalog. Match its wearer '
-                          'and the exact plain trouser colour. Image 0 fixes the current camera angle '
-                          'and pose. Keep the source textile from image 1 on the kurta.')
+        prompt.append('Keep the knee-length Pathani hanging freely over the trousers with its long '
+                      'side vents and full lower hem. Preserve image 0’s camera angle and head orientation.')
+        prompt.append('Use broad neutral frontal fill on both trouser legs, from the visible upper '
+                      'trousers to both ankle hems. Match their diffuse midtone to the specified solid '
+                      'source colour. Keep soft, narrow crease shadows and visible cloth texture. '
+                      'Keep sunlight bands, dark cast patches and silhouette rim light off both legs.')
         if shot.identity_from and data.get('person_image'):
             prompt.append('Use image 2 for the wearer’s face, hairstyle and body build. Keep the pose of image 0.')
         else:
@@ -167,24 +170,43 @@ def build_config(data, shot, seed):
             config['prompt'] += ' Use the body cloth and keep decorative hem borders outside this close-up.'
         config = apply_fabric_conditioning(config, context, 'kurta', 'pathani',
                                            match_pattern_colours=True, lead_with_edit=True)
+    if shot.key == 'collar':
+        config['prompt'] = (
+            'CLOSE-UP CAMERA LOCK: edit the existing neck-and-chest crop in image 0 in place. '
+            'Retain the collar at its exact scale and position, shoulder tabs and short upper placket. '
+            'Keep only the lower chin at the top edge and cut through the chest at the bottom edge. '
+            'Do not zoom out or create a waist, belt, trouser waistband, tucked-in shirt or full torso. '
+            + config['prompt']
+        )
     config['prompt'] += WHITE_LIGHT + ' Output one photograph without text or watermark.'
+    if portrait:
+        config['prompt'] += (
+            ' Use broad soft fill from both sides and above so the shoulders, sleeves and lower body '
+            'share the same cloth exposure. Keep neutral studio fill on the garment in outdoor scenes. '
+            'Keep narrow, soft shadows at folds and seams. Keep hard shadow bands, sun patches, rim '
+            'lights and bright shoulder highlights off the cloth. Preserve skin and fasteners. '
+            'Keep the trousers in the specified plain source colour.'
+        )
+        if data.get('_catalog_fabric_retry'):
+            config['prompt'] = (
+                'CORRECT THE OUTFIT EXPOSURE: keep image 0’s original pose, head direction and knee-length '
+                'Pathani cut. Render both trouser legs in the specified source midtone under broad white '
+                'frontal fill, preserving shallow folds. Remove broad dark patches on the trousers. '
+                + config['prompt']
+            )
+    else:
+        config['prompt'] += (
+            ' Illuminate only the visible cloth within image 0’s existing tight detail crop with broad '
+            'diffuse white fill. Preserve its exact camera distance and frame boundaries. '
+        )
     config['prompt'] += (
-        ' Use broad soft fill from both sides and above so the shoulders, sleeves and lower body '
-        'share the same cloth exposure. Keep neutral studio fill on the garment in outdoor scenes. '
-        'Keep narrow, soft shadows at folds and seams. Keep hard shadow bands, sun patches, rim '
-        'lights and bright shoulder highlights off the cloth. Preserve skin and fasteners. '
-        'Keep the trousers in the specified plain source colour.'
-    )
-    config['prompt'] += (
-        ' Use a single broad diffuse exposure over the entire outfit from shoulder to hem. '
-        'Keep illumination free of dappled light, isolated bright spots and strong gradients. '
-        'Use the same diffuse light on the garment and the wearer, with soft transitions between '
-        'light and shadow. Keep fine weave and small shadows at seams, folds and pocket edges. '
+        ' Keep illumination free of dappled light, isolated bright spots and strong gradients. '
+        'Keep fine weave and small shadows at the visible seams, folds and pocket edges. '
         'Copy ornament only where visible in image 1. For plain source cloth, keep every panel and '
         'edge plain, including the hem, side vent, pockets and cuffs. Do not invent embroidery, '
         'decorative borders, motifs, appliqué or contrast piping.'
     )
-    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v6-{shot.key}"
+    config['prompt_version'] = f"pathani-catalog-{'ready' if ready else 'swatch'}-v7-{shot.key}"
     return config
 
 
@@ -196,11 +218,18 @@ def finish_shot(data, shot, generation):
     return match_cloth_exposure(generation, shot.key, solid_swatch_rgb(profile))
 
 
+def validate_shot(data, shot, generation):
+    if shot.key not in PORTRAITS:
+        return True
+    return trousers_match(generation.image_bytes, trouser_colour(data))
+
+
 SWATCH_SHOTS = SHOTS[:-1] + (
     replace(SHOTS[-1], operation='swatch_composite', reference_mask=REFERENCES / '06_pocket_mask.png',
             swatch_body_only=True, composite_relief=REFERENCES / '06_pocket_relief.png'),
 )
-DEFINITION = CatalogDefinition('kurta', 'pathani-v1', SWATCH_SHOTS, build_config, layout, finish_shot=finish_shot)
+DEFINITION = CatalogDefinition('kurta', 'pathani-v1', SWATCH_SHOTS, build_config, layout,
+                               finish_shot=finish_shot, validate_shot=validate_shot)
 READY_MADE_DEFINITION = replace(DEFINITION, shots=SHOTS[:3] + tuple(
     replace(shot, dependencies=(anchor,), garment_from=anchor, source_crop=crop)
     for shot in SHOTS[3:]

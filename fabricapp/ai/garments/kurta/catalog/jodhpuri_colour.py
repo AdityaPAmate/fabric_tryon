@@ -12,8 +12,8 @@ from scipy.ndimage import binary_closing, binary_fill_holes, distance_transform_
 REGIONS = {
     'front': ((.37, .31, .62, .44), (.05, .20, .95, .61)),
     'side': ((.43, .32, .65, .47), (.10, .21, .92, .62)),
-    'back': ((.38, .32, .62, .47), (.07, .22, .93, .64)),
-    'collar': ((.15, .48, .40, .76), (0, .28, 1, 1)),
+    'back': ((.38, .32, .62, .47), (.07, .16, .93, .54)),
+    'collar': ((.15, .48, .40, .76), (0, 0, 1, 1)),
     'cuff': ((.47, .20, .73, .45), (.08, 0, 1, .91)),
 }
 
@@ -58,6 +58,17 @@ def align_jacket_colour(generation, view, target):
     left, top, right, bottom = bounds(region)
     mask = np.zeros_like(weight)
     mask[top:bottom, left:right] = weight[top:bottom, left:right]
+    safe_area = np.zeros_like(weight)
+    safe_area[top:bottom, left:right] = 1
+    if view in ('collar', 'cuff'):
+        x = np.arange(image.width) / image.width
+        y = np.arange(image.height)[:, None] / image.height
+        if view == 'collar':
+            skin = np.abs(x - .5) < np.clip(.32 - .94 * y, 0, .32)
+        else:
+            skin = (x < .32) & (y > .64 + .60 * x)
+        safe_area[skin] = 0
+        mask[skin] = 0
     components, _ = label(mask > .30)
     left, top, right, bottom = bounds(sample)
     centre = components[top:bottom, left:right]
@@ -86,7 +97,7 @@ def align_jacket_colour(generation, view, target):
         nearby = np.clip(1 - distance_transform_edt(~silhouette) / (image.width / 21), 0, 1)
         nearby *= np.clip((56 - hue_gap) / 20, 0, 1)
         nearby *= np.clip((hsv[:, :, 1] - 12) / 16, 0, 1)
-        coverage = np.maximum(silhouette, nearby)
+        coverage = np.maximum(silhouette, nearby) * safe_area
         exposure = np.asarray(image.filter(ImageFilter.GaussianBlur(max(2, image.width / 100))),
                               dtype=np.float32)
         excess = exposure.max(axis=2) - max(target.max(), midtone.max())
@@ -95,7 +106,14 @@ def align_jacket_colour(generation, view, target):
         highlight_shift = target - exposure + (.38 * excess)[:, :, None]
         corrected = corrected * (1 - pale[:, :, None]) + (pixels + highlight_shift) * pale[:, :, None]
         weights = np.maximum(weights, pale)
+    # Expand only inside the safe garment bounds. A soft taper avoids an RGB
+    # step at the measurement rectangle, including the old collar crop line.
+    padded = np.pad(safe_area, 1)
+    distance = distance_transform_edt(padded)[1:-1, 1:-1]
+    feather = np.clip(distance / max(2, image.width * .035), 0, 1)
+    weights *= feather
     matte = Image.fromarray(np.uint8(weights * 255)).filter(ImageFilter.GaussianBlur(1.5))
+    matte = Image.fromarray(np.uint8(np.asarray(matte) * safe_area))
     correction = Image.fromarray(np.uint8(np.clip(corrected, 0, 255)))
     output = io.BytesIO()
     Image.composite(correction, image, matte).save(output, 'PNG')

@@ -4,7 +4,10 @@ Kurta catalog trousers follow the edition's outfit rule in both fabric and
 ready-made modes. Plain, Sherwani and Jodhpuri use solid white trousers. Pathani
 uses solid trousers in the main source-cloth colour, including when the kurta
 cloth is printed. Jacket or kurta motifs and edge trim stay off the trousers.
-Pathani side and back views use the front outfit as their consistency reference.
+Pathani views use their own pose templates and a common measured trouser colour.
+Full-body outfit and lighting instructions apply only to portrait shots.
+Close-ups keep their original neck/chest or sleeve crop. Coloured trouser
+midtones are checked before delivery, with one bounded corrective generation.
 
 Jodhpuri's swatch back view checks the source colour family before delivery.
 A failed check makes one corrective generation with a new seed. A second failure

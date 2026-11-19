@@ -1,4 +1,7 @@
 """Measure the plain Pathani trouser dye from the source cloth."""
+import colorsys
+import io
+
 import numpy as np
 from PIL import Image
 
@@ -34,3 +37,21 @@ def trouser_colour(data):
     family = [colour for colour in colours if np.linalg.norm(np.asarray(colour['rgb']) - base) <= 40]
     return np.average([colour['rgb'] for colour in family], axis=0,
                       weights=[colour['coverage'] for colour in family])
+
+
+def trousers_match(image_bytes, target):
+    """Check coloured trouser midtones before accepting a full-length shot."""
+    if target is None or np.ptp(target) < 20:
+        return True
+    with Image.open(io.BytesIO(image_bytes)) as source:
+        image = source.convert('RGB')
+    box = tuple(round(value * side) for value, side in zip((.28, .81, .72, .89), image.size * 2))
+    sample = image.crop(box)
+    hsv = np.asarray(sample.convert('HSV'), dtype=np.float32)
+    hue = colorsys.rgb_to_hsv(*(target / 255))[0] * 255
+    delta = np.abs(hsv[:, :, 0] - hue)
+    cloth = (np.minimum(delta, 256 - delta) < 28) & (hsv[:, :, 1] > 10)
+    if cloth.mean() < .25:
+        return False
+    measured = np.median(np.asarray(sample, dtype=np.float32)[cloth], axis=0)
+    return bool(np.max(np.abs(measured - target)) <= 45)

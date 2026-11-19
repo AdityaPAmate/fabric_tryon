@@ -157,7 +157,16 @@ def build_config(data, shot, seed):
             shade = '#%02X%02X%02X' % tuple(round(float(component)) for component in target)
             config['prompt'] += f' Match the common jacket midtone {shade} across views.'
     config['prompt'] += WHITE_LIGHT + ' Output one photograph.'
-    version = 'ready-v2' if ready else ('swatch-v4' if shot.key == 'back' else 'swatch-v3')
+    config['prompt'] += (
+        ' Keep a continuous cloth midtone through the visible jacket panels. Use broad frontal white '
+        'fill with shallow seam and fold shadows. Keep broad horizontal light bands, faded lower '
+        'panels and dark upper panels off the cloth. Preserve the source weave and motif contrast. '
+        'Keep the trouser fabric separate and plain white.'
+        if portrait else
+        ' Keep the light continuous over the existing cloth inside this close-up. Preserve its '
+        'visible seams, skin and backdrop with no rectangular colour patch or horizontal exposure step.'
+    )
+    version = 'ready-v3' if ready else ('swatch-v5' if shot.key == 'back' else 'swatch-v4')
     config['prompt_version'] = f'jodhpuri-catalog-{version}-{shot.key}'
     return config
 
