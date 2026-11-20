@@ -75,6 +75,11 @@ garment or a sibling edition.
 
 # Current saree revision: 3:4
 
+Latest fifth-panel update: [source-resolution quality and direction](saree_border_quality_orientation.md).
+The renderer samples original source pixels through one composed transform,
+handles edge-touching trims, rejects collapsing bands, and exposes Auto/0/180
+orientation for Saree fabric catalogs.
+
 Fifth-panel update: [bounded border-only extraction](saree_border_only_extraction.md).
 The diagonal detail samples only a rectified side band. It no longer samples
 the entire source or silently substitutes whole fabric when border selection fails.

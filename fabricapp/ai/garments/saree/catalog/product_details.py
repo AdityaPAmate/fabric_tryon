@@ -9,7 +9,7 @@ from PIL import Image
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
 from fabricapp.ai.garments.saree.catalog.layout import PANELS
 from fabricapp.ai.garments.saree.catalog.regions import source_regions
-from fabricapp.ai.garments.saree.catalog.border_extraction import extract_band, render_band
+from fabricapp.ai.garments.saree.catalog.border_extraction import extract_band, render_from_source
 
 
 def _load(data):
@@ -121,7 +121,7 @@ def render_product(data, shot):
         strip, extraction = extract_band(image, data.get('options') or {})
         selection = extraction['selection']
         box = extraction.get('source_crop_box')
-        result = render_band(strip, size)
+        result = render_from_source(image,strip,extraction,size)
     else:
         raise ValueError(f'Unsupported Saree product shot: {shot.key}')
     output = io.BytesIO()

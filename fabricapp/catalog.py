@@ -44,14 +44,20 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
         if not isinstance(value, dict):
             return super().validate_options(value)
         details = {key: value[key] for key in self.DETAIL_CROPS if key in value}
-        validated = super().validate_options({key: val for key, val in value.items() if key not in details})
+        rotation = {}
+        if 'fabric_border_rotation' in value:
+            angle=value['fabric_border_rotation']
+            if not (angle=='auto' or type(angle) is int and angle in (0,180)):
+                raise serializers.ValidationError({'fabric_border_rotation':'Choose auto, 0 or 180.'})
+            rotation['fabric_border_rotation']=angle
+        validated = super().validate_options({key: val for key, val in value.items() if key not in details and key not in rotation})
         for key, box in details.items():
             # Reuse the existing pixel-coordinate contract, including bool rejection.
             try:
                 super().validate_options({'fabric_crop_box': box})
             except serializers.ValidationError as exc:
                 raise serializers.ValidationError({key: exc.detail})
-        return {**validated, **details}
+        return {**validated, **details, **rotation}
 
     def validate_catalog_product(self, value):
         if not isinstance(value, dict):
@@ -94,6 +100,8 @@ class CatalogRequestSerializer(FabricTryOnRequestSerializer):
             data['fabric_image'] = fabric
             data['catalog_edition'] = edition
         data = super().validate(data)
+        if 'fabric_border_rotation' in data.get('options',{}) and (data.get('garment_type')!='saree' or not data.get('fabric_image')):
+            raise serializers.ValidationError({'options':{'fabric_border_rotation':'Only supported for Saree fabric catalogs.'}})
         crops = {key: data.get('options', {})[key] for key in self.DETAIL_CROPS if key in data.get('options', {})}
         if crops:
             if data.get('garment_type') != 'saree' or not data.get('fabric_image'):
