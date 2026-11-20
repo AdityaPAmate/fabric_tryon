@@ -73,7 +73,7 @@ class SareeProductDetailTests(SimpleTestCase):
         with Image.open(io.BytesIO(result.image_bytes)) as actual:
             self.assertEqual(actual.getpixel((actual.width//2,actual.height//2)),(0,0,255))
         result = definition.render_product(data(options={}),shot)
-        self.assertEqual(result.diagnostics['fabric_region_selection'],'body_only_no_confirmed_border')
+        self.assertEqual(result.diagnostics['fabric_region_selection'],'plain_source_edge')
 
     def test_back_identity_declaration_is_rejected_before_provider_call(self):
         definition = get_definition('saree');back = next(s for s in definition.shots if s.key == 'back_pallu')

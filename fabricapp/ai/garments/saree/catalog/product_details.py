@@ -2,7 +2,6 @@
 import hashlib
 import io
 import os
-from math import hypot
 
 import numpy as np
 from PIL import Image
@@ -10,6 +9,7 @@ from PIL import Image
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
 from fabricapp.ai.garments.saree.catalog.layout import PANELS
 from fabricapp.ai.garments.saree.catalog.regions import source_regions
+from fabricapp.ai.garments.saree.catalog.border_extraction import extract_band, render_band
 
 
 def _load(data):
@@ -107,56 +107,35 @@ def border_reference_box(data, regions):
     return [left, top, right, bottom]
 
 
-def diagonal_border(image, box, size):
-    """Rotate the real photographed band onto corner 1 → corner 3.
-
-    One uniform scale preserves motif proportions. Neighbouring cloth comes
-    from the same source photo, not a generated background or pasted new design.
-    """
-    left, top, right, bottom = box
-    if image.width > image.height:
-        left, top, right, bottom = top, image.width-right, bottom, image.width-left
-        image = image.transpose(Image.Transpose.ROTATE_90)
-    width, height = size[0]-1, size[1]-1
-    length = hypot(width, height)
-    scale = length/max(1,bottom-top-1)
-    denominator = length*scale
-    transform = (height/denominator, -width/denominator, (left+right-1)/2,
-                 width/denominator, height/denominator, top)
-    return image.transform(size, Image.Transform.AFFINE, transform,
-                           resample=Image.Resampling.BICUBIC,
-                           fillcolor=(235,235,235))
-
-
 def render_product(data, shot):
     image, digest = _load(data)
-    regions = source_regions(data)
     left, top, right, bottom = PANELS[shot.key]
     size = (right-left, bottom-top)
     if (data.get('options') or {}).get('draft_mode'):
         scale = min(1, 512/max(size))
         size = tuple(max(1, round(value*scale)) for value in size)
-    box, display_box, selection = None, None, 'full_source'
+    box, selection, extraction = None, 'full_source', {}
     if shot.key == 'fabric_texture':
         result = _whole_photo(image, size)
+    elif shot.key == 'border':
+        strip, extraction = extract_band(image, data.get('options') or {})
+        selection = extraction['selection']
+        box = extraction.get('source_crop_box')
+        result = render_band(strip, size)
     else:
-        box, selection = border_box(image, data, regions)
-        if shot.key == 'border':
-            # Rotate actual product pixels with adjacent source cloth, without
-            # asking a model to invent another border or a folded replacement.
-            display_box = list(box)
-            result = diagonal_border(image, box, size)
-        else:
-            raise ValueError(f'Unsupported Saree product shot: {shot.key}')
+        raise ValueError(f'Unsupported Saree product shot: {shot.key}')
     output = io.BytesIO()
     result.save(output, 'PNG')
-    return GenerationResult(output.getvalue(), data.get('seed', 42), {
+    diagnostics = {
         'kind': 'original_product_photo',
         'deployment_revision': os.getenv('RENDER_GIT_COMMIT') or 'unknown',
         'no_new_ai_generation': True, 'source_sha256': digest,
         'fabric_region': 'full_saree' if shot.key == 'fabric_texture' else shot.key,
         'fabric_crop_box': box, 'fabric_region_selection': selection,
-        'display_crop_box': display_box,
+        'display_crop_box': box,
         'photo_fit': 'full_source_resized_no_crop' if shot.key == 'fabric_texture' else 'side_band_diagonal_1_to_3',
         'output_dimensions': list(result.size),
-    })
+    }
+    if shot.key == 'border':
+        diagnostics.update(border_extraction=extraction,border_only_pixels=True)
+    return GenerationResult(output.getvalue(), data.get('seed',42),diagnostics)

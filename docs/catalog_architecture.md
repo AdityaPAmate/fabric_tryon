@@ -75,6 +75,10 @@ garment or a sibling edition.
 
 # Current saree revision: 3:4
 
+Fifth-panel update: [bounded border-only extraction](saree_border_only_extraction.md).
+The diagonal detail samples only a rectified side band. It no longer samples
+the entire source or silently substitutes whole fabric when border selection fails.
+
 Current detail behavior: [pleats cropped from generated front](saree_pleats_from_front.md).
 The last panel is a dependency-based local crop, not a fourth AI edit. It uses
 the front's original pixels and seed; the old sixth reference is not sent.
