@@ -1,0 +1,119 @@
+"""Saree-only original full-product and side-border photos; no generative calls."""
+import hashlib
+import io
+import os
+
+import numpy as np
+from PIL import Image, ImageOps
+
+from fabricapp.ai.providers.cloudflare_engine import GenerationResult
+from fabricapp.ai.garments.saree.catalog.layout import PANELS
+from fabricapp.ai.garments.saree.catalog.regions import source_regions
+
+
+def _load(data):
+    stream = data.get('fabric_image')
+    if stream is None:
+        raise ValueError('Saree product details require the original fabric photograph.')
+    position = stream.tell()
+    try:
+        stream.seek(0)
+        raw = stream.read()
+        with Image.open(io.BytesIO(raw)) as image:
+            # Crop coordinates are defined in original upload pixels.
+            return image.convert('RGB'), hashlib.sha256(raw).hexdigest()
+    finally:
+        stream.seek(position)
+
+
+def border_box(image, data, regions):
+    """Prefer an explicit selection; otherwise narrow an observed side band.
+
+    A sustained coloured band is evidence, a wide inferred body inset is not.
+    Neutral/ambiguous borders need explicit selection; never invent ornament.
+    """
+    explicit = (data.get('options') or {}).get('fabric_border_crop_box')
+    if explicit is not None:
+        return list(explicit), 'explicit_crop'
+    candidate = regions['border']
+    if candidate is not None:
+        band = image.crop(candidate)
+        pixels = np.asarray(band, dtype=np.float32)
+        chroma = np.ptp(pixels, axis=2)
+        vertical = image.height >= image.width
+        strength = (chroma > 38).mean(axis=0 if vertical else 1)
+        active = strength > .55
+        runs, start = [], None
+        for index, yes in enumerate(np.append(active, False)):
+            if yes and start is None:
+                start = index
+            elif not yes and start is not None:
+                if index-start >= 3:
+                    runs.append((start, index))
+                start = None
+        if runs:
+            first, last = min(run[0] for run in runs), max(run[1] for run in runs)
+            # Retain adjoining cloth on each side for a readable real edge.
+            margin = max(2, (last-first)//8)
+            box = list(candidate)
+            axis = 0 if vertical else 1
+            box[axis] += max(0, first-margin)
+            box[axis+2] = candidate[axis] + min(len(strength), last+margin)
+            return box, 'detected_chromatic_side_band'
+    return regions['body'] or [0, 0, image.width, image.height], 'body_only_no_confirmed_border'
+
+
+def _whole_photo(image, size):
+    # The fixed panel must show every source edge without padding or cropping.
+    # Adapt the photo's aspect to that panel; do not synthesize textile pixels.
+    return image.resize(size, Image.Resampling.LANCZOS)
+
+
+def selected_border(data, regions):
+    image, _ = _load(data)
+    box, selection = border_box(image, data, regions)
+    return (None if selection == 'body_only_no_confirmed_border' else box), selection
+
+
+def render_product(data, shot):
+    image, digest = _load(data)
+    regions = source_regions(data)
+    left, top, right, bottom = PANELS[shot.key]
+    size = (right-left, bottom-top)
+    if (data.get('options') or {}).get('draft_mode'):
+        scale = min(1, 512/max(size))
+        size = tuple(max(1, round(value*scale)) for value in size)
+    box, display_box, selection = None, None, 'full_source'
+    if shot.key == 'fabric_texture':
+        result = _whole_photo(image, size)
+    else:
+        box, selection = border_box(image, data, regions)
+        if shot.key == 'border':
+            # Show actual product pixels; no generated curved replacement band.
+            # Keep the entire selected band width with adjacent body cloth. Fit
+            # crops only its repeating longitudinal extent to the panel.
+            display_box = list(box)
+            if selection == 'detected_chromatic_side_band':
+                # Include adjacent real body cloth instead of magnifying a tiny
+                # band fivefold. Keep the selected design visible in context.
+                if image.height >= image.width:
+                    span = max(box[2]-box[0], round((box[3]-box[1])*size[0]/size[1]))
+                    display_box[2] = min(image.width, box[0]+span)
+                else:
+                    span = max(box[3]-box[1], round((box[2]-box[0])*size[1]/size[0]))
+                    display_box[3] = min(image.height, box[1]+span)
+            result = ImageOps.fit(image.crop(display_box), size, method=Image.Resampling.LANCZOS)
+        else:
+            raise ValueError(f'Unsupported Saree product shot: {shot.key}')
+    output = io.BytesIO()
+    result.save(output, 'PNG')
+    return GenerationResult(output.getvalue(), data.get('seed', 42), {
+        'kind': 'original_product_photo',
+        'deployment_revision': os.getenv('RENDER_GIT_COMMIT') or 'unknown',
+        'no_new_ai_generation': True, 'source_sha256': digest,
+        'fabric_region': 'full_saree' if shot.key == 'fabric_texture' else shot.key,
+        'fabric_crop_box': box, 'fabric_region_selection': selection,
+        'display_crop_box': display_box,
+        'photo_fit': 'full_source_resized_no_crop' if shot.key == 'fabric_texture' else 'side_band_cover',
+        'output_dimensions': list(result.size),
+    })

@@ -20,10 +20,9 @@ def _back_reference_config(data, shot, seed):
     prompt = (
         'Edit the full-length REAR photograph in image 0. Replace ALL visible saree cloth '
         'with the actual product in image 1: the rear wrap, lower skirt, pallu, pleats and '
-        'edge borders. The pallu hangs STRAIGHT DOWN along the left half of the back, '
-        'with its long edges nearly vertical and its terminal edge level near the lower calf. '
-        'Keep the wrapped lower saree visible below and to the right of the pallu, including '
-        'the complete floor-level hem. Preserve natural gravity and soft cloth folds. '
+        'edge borders. Keep the EXACT pallu silhouette, angle, grip and lower end already '
+        'in image 0. Do not straighten, move or redesign its drape. Preserve the visible '
+        'lower skirt and complete floor-level hem. Preserve natural gravity and soft cloth folds. '
         'Image 0 fixes only the rear stance, arms, grip, framing and cloth geometry. '
         'Remove the reference white colour and black lines unless present in image 1. '
         'Map body motifs onto the wrapped saree; map broad end artwork ONLY onto the pallu '
@@ -33,7 +32,9 @@ def _back_reference_config(data, shot, seed):
         'The blouse is separate, opaque and solid-coloured to coordinate with the source; '
         'no saree artwork on it. '
         'Keep the template wearer, hair and rear-facing torso. No face/person identity '
-        'reference is used. One natural product photograph, with no text or collage. '
+        'reference is used. EXACTLY ONE PERSON, the existing wearer in image 0. '
+        'Do not add another head, body, person, duplicate silhouette or an overlapping figure. '
+        'One natural product photograph, with no text or collage. '
     )
     background = get_background_description(data.get('background'), garment_type='saree')
     if background:
@@ -48,10 +49,10 @@ def _back_reference_config(data, shot, seed):
         'safety_retry_count': 0, 'fabric_source_format': 'PNG', 'classified_recovery': True,
         'forbid_identity_references': True,
     }, context, 'saree', match_pattern_colours=True, lead_with_edit=True)
-    config['prompt'] += (' FINAL REAR GEOMETRY: follow image 0’s straight hanging pallu, '
-                         'level terminal edge and visible lower skirt. Keep all cloth edges '
+    config['prompt'] += (' FINAL REAR GEOMETRY: keep image 0’s existing single wearer and pallu geometry, '
+                         'including the visible lower skirt. Keep all cloth edges '
                          'inside the frame. Use even neutral white light, not warm sunlight.')
-    config['prompt_version'] = 'saree-catalog-straight-back-v2'
+    config['prompt_version'] = 'saree-catalog-single-back-v3'
     return config
 
 

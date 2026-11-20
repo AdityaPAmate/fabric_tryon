@@ -3,15 +3,17 @@ from fabricapp.catalog_engine.contracts import CatalogDefinition, Shot
 from fabricapp.ai.garments.saree.catalog.references import REFERENCES
 from fabricapp.ai.garments.saree.catalog.layout import get_layout
 from fabricapp.ai.garments.saree.catalog.prompts import build_config
+from fabricapp.ai.garments.saree.catalog.product_details import render_product
 
 SHOTS = tuple(
-    Shot(key, description, 'template_edit', framing,
+    Shot(key, description, 'product_source' if key in ('fabric_texture', 'border') else 'template_edit', framing,
          reference=REFERENCES[key], identity_from=identity,
+         allows_identity_reference=key != 'back_pallu',
          scenario='pose_reference' if identity or key == 'back_pallu' else 'person_photo')
     for key, description, framing, identity in (
         ('front', 'very tall full-length front portrait matching image 0, complete head and saree hem, pallu hanging down the front', 'full_body', 'request'),
         ('side_portrait', 'side-facing head-to-upper-thigh portrait, long pallu continuing below the bottom frame edge with its terminal end out of view', 'side_portrait', 'request'),
-        ('back_pallu', 'full-length rear view with a straight hanging pallu on the left, level pallu end and the lower saree hem visible', 'rear_full_body', None),
+        ('back_pallu', 'one full-length rear-facing wearer matching the supplied back reference exactly, with its pallu and lower hem visible', 'rear_full_body', None),
         ('fabric_texture', 'complete overhead flat-lay of the supplied saree showing body, both side borders and the complete pallu end together', 'full_fabric_layout', None),
         ('border', 'close-up of the saree long SIDE EDGE: a narrow continuous border or finished selvedge beside the main body cloth, with the outer edge and background clearly visible', 'side_border_detail', None),
         ('pleats', 'fabric-only waist-to-hem front pleats with the hanging pallu edge beside them, no head or hands', 'pleats_detail', None),
@@ -29,4 +31,5 @@ DEFINITION = CatalogDefinition(
     product_fields=('title', 'collection', 'subtitle', 'badge', 'product_name', 'product_code',
                     'fabric_description', 'saree_length', 'blouse_length'),
     validate_request=validate_request,
+    render_product=render_product,
 )

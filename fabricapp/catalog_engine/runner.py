@@ -25,6 +25,10 @@ class Services:
 
 def generate_shot(data, shot, definition, shot_bytes, seeds, services):
     """Execute one declared shot; reused by full catalogs and focused live rechecks."""
+    if not shot.allows_identity_reference and (shot.identity_from or shot.identity_crop or shot.reference_role == 'composition'):
+        raise CloudflareGenerationError(f'Identity references are forbidden for {shot.key}')
+    if shot.operation == 'product_source':
+        return definition.render_product(data, shot)
     if shot.operation == 'swatch_composite':
         from fabricapp.catalog_engine.swatch_composite import render_swatch_shot
         target_rgb = definition.swatch_colour(data) if definition.swatch_colour else None
@@ -69,6 +73,10 @@ def generate_shot(data, shot, definition, shot_bytes, seeds, services):
         seed = (seeds[shot.dependencies[0]] if shot.dependencies else data.get('seed', 42))
         config = definition.build_config(data, shot, seed)
         reference_args = {}
+        if not shot.allows_identity_reference:
+            # Enforced by the declaration as well as the provider config. A
+            # prompt-builder refactor cannot silently disable the privacy guard.
+            config = {**config, 'forbid_identity_references': True}
         if shot.identity_from == 'request':
             reference_args = {'face_image': data.get('person_image') or data.get('face_image'),
                               'face_choice': data.get('face_choice')}

@@ -35,12 +35,12 @@ class SareeCatalogRegionTests(SimpleTestCase):
             events = [json.loads(chunk) for chunk in response.streaming_content]
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
-        self.assertEqual(len(captured), 6)
+        self.assertEqual(len(captured), 4)
         self.assertEqual(set(captured[1]), {'input_image_0', 'input_image_1', 'input_image_2', 'input_image_3'})
         with Image.open(io.BytesIO(captured[1]['input_image_3'])) as border:
             self.assertEqual(border.getpixel((border.width//2, border.height//2)), (0, 0, 255))
         self.assertEqual(set(captured[2]), {'input_image_0', 'input_image_1'})
-        self.assertEqual(set(captured[3]), {'input_image_0', 'input_image_1'})
+        self.assertEqual(set(captured[3]), {'input_image_0', 'input_image_1', 'input_image_2'})
 
     def test_body_and_border_have_distinct_tasks_and_crop_precedence(self):
         definition = get_definition('saree')
@@ -79,13 +79,10 @@ class SareeCatalogRegionTests(SimpleTestCase):
         source.save(buffer, 'PNG')
         seen = []
         product_references = []
-        full_layout = []
         def answer(url, **kwargs):
             image = Image.open(io.BytesIO(kwargs['files']['input_image_1'][1].getvalue()))
             seen.append(image.convert('RGB').getpixel((image.width//2, image.height//2)))
-            if len(seen) == 4:
-                full_layout.append(image.convert('RGB').getpixel((image.width-1, image.height//2)))
-            if len(seen) in (2, 6):
+            if len(seen) in (2, 4):
                 extra = Image.open(io.BytesIO(kwargs['files']['input_image_2'][1].getvalue()))
                 product_references.append(extra.convert('RGB').getpixel((extra.width//2, extra.height//2)))
             fields = kwargs['data']
@@ -99,10 +96,9 @@ class SareeCatalogRegionTests(SimpleTestCase):
             events = [json.loads(chunk) for chunk in response.streaming_content]
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
-        self.assertEqual(len(seen), 6)
+        self.assertEqual(len(seen), 4)
         self.assertEqual(seen[3], (255, 0, 0))
-        self.assertEqual(seen[4], (0, 0, 255))
-        self.assertEqual(full_layout, [(0, 0, 255)])
+
         self.assertEqual(product_references, [(0, 0, 255)] * 2)
         border = next(e['image'] for e in events if e['event'] == 'image_ready' and e['image']['view'] == 'border')
         self.assertEqual(border['generation']['fabric_crop_box'], [64, 0, 96, 128])

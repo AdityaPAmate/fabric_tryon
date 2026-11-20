@@ -1,6 +1,6 @@
 """Replay one saved saree report with exactly one six-shot catalog request.
 
-This spends six provider generations and uploads through the deployed application.
+This spends four provider generations and uploads six shots through the deployed application.
 Run only with the user's explicit generation budget authorization.
 """
 import argparse
@@ -61,7 +61,10 @@ def main():
     for item in complete['images']:
         generation = item['generation']
         assert generation['deployment_revision'].startswith(args.revision)
-        assert len(generation['attempts']) == 1
+        if generation.get('no_new_ai_generation'):
+            assert item['view'] in ('fabric_texture', 'border')
+        else:
+            assert len(generation['attempts']) == 1
         if item['view'] == 'back_pallu':
             assert set(generation['input_hashes']) == {'input_image_0', 'input_image_1'}
     print(f'Completed in {elapsed}s; evidence: {out}', flush=True)

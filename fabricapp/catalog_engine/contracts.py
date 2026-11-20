@@ -31,6 +31,7 @@ class Shot:
     natural_swatch_shading: bool = False
     composite_relief: Path | None = None
     swatch_original_orientation: bool = False
+    allows_identity_reference: bool = True
 
 
 @dataclass(frozen=True)
@@ -75,3 +76,4 @@ class CatalogDefinition:
     finish_shot: Callable | None = None
     swatch_colour: Callable | None = None
     validate_shot: Callable | None = None
+    render_product: Callable | None = None

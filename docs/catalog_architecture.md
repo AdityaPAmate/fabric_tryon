@@ -75,6 +75,17 @@ garment or a sibling edition.
 
 # Current saree revision: 3:4
 
+20 November update: `fabric_texture` and `border` use the Saree-owned
+`product_details.render_product` through the generic `product_source` operation.
+They display original uploaded product pixels without AI reconstruction. Full
+source is resized to the panel without crop/padding (aspect can adapt); border
+uses the selected real band. Four AI edits remain: front, side, back and pleats.
+Back declares `allows_identity_reference=False`; definition validation, execution
+and the provider independently enforce the prohibition. Catalog-wide selected
+identity is still permitted for front/side, never forwarded to back.
+The user-replaced back template is authoritative; prompts no longer force an
+incompatible straight pallu. See [20 November evidence](saree_catalog_2026-11-20.md).
+
 The 19 November 2026 [Saree redesign](saree_catalog_redesign_2026-11-19.md)
 supersedes historical shot descriptions below: catalog-only straight back,
 complete flat-lay fourth panel and dedicated pleats framing. Normal pose generation

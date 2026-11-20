@@ -30,12 +30,12 @@
     ]
   },
   "03_back_view.png": {
-    "sha256": "561d3d32c0583807396fd0ecb4f458c8f0832e5b8e5e81de2c4998fc5e704584",
-    "source": "Straight-hanging pallu edit via built-in image_gen",
+    "sha256": "77641da6cbb6555b9197cb43eedbeb5c56c14bfc595e5b26119b621f835664f6",
+    "source": "User replacement in fe43910; rear geometry is authoritative",
     "previous_asset_sha256": "6193380b6c5901899066d3cd35cd00a35eb53f8f2a7f6cd3b2c6010ee916b784",
     "size": [
-      834,
-      1886
+      841,
+      1870
     ]
   },
   "04_fabric_texture.png": {

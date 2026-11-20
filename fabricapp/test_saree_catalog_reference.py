@@ -45,7 +45,7 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         for filename in expected:
             self.assertEqual(hashlib.sha256((root / filename).read_bytes()).hexdigest(), manifest[filename]['sha256'])
 
-    def test_catalog_back_is_straight_without_changing_the_normal_diagonal_pose(self):
+    def test_catalog_back_follows_its_reference_without_changing_normal_pose(self):
         definition = get_definition('saree')
         shot = next(shot for shot in definition.shots if shot.key == 'back_pallu')
         with patch('fabricapp.ai.garments.saree.builder.build_prompt', wraps=normal_builder) as shared:
@@ -58,7 +58,8 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         self.assertEqual(config['seed'], 71)
         self.assertEqual(shot.reference.name, '03_back_view.png')
         self.assertTrue(Path(get_pose_reference_path('saree', 'back_showing_pallu')).is_file())
-        self.assertIn('pallu hangs STRAIGHT DOWN', config['prompt'])
+        self.assertIn('Keep the EXACT pallu silhouette', config['prompt'])
+        self.assertFalse(shot.allows_identity_reference)
         self.assertIn('visible lower skirt', config['prompt'])
         normal = normal_builder(scenario='pose_reference', garment_type='saree',
                                 context={'pose': 'back_showing_pallu', 'use_face_reference': False}, seed=71)
@@ -110,7 +111,7 @@ class SareeCatalogReferenceTests(SimpleTestCase):
     def test_border_is_a_side_edge_generation_not_a_body_crop(self):
         definition = get_definition('saree')
         shot = next(shot for shot in definition.shots if shot.key == 'border')
-        self.assertEqual(shot.operation, 'template_edit')
+        self.assertEqual(shot.operation, 'product_source')
         self.assertEqual(shot.dependencies, ())
         self.assertIsNone(shot.source_crop)
         config = definition.build_config(data(), shot, 42)
@@ -119,13 +120,12 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         self.assertIn('plain finished edge', config['prompt'])
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.test/a.png'})
-    @patch('fabricapp.catalog.generate_edit')
-    def test_border_still_runs_if_texture_generation_fails(self, edit, upload):
-        edit.side_effect = [GenerationResult(picture(), 42)] * 3 + [CloudflareGenerationError('texture failed')] + [GenerationResult(picture(), 42)] * 2
+    @patch('fabricapp.catalog.generate_edit', side_effect=CloudflareGenerationError('provider unavailable'))
+    def test_original_product_details_survive_provider_rejection(self, edit, upload):
         events = list(generate_catalog(data(), threading.Event()))
-        self.assertEqual(events[-1]['failed_views'], ['fabric_texture'])
-        self.assertIn('border', [image['view'] for image in events[-1]['images']])
-        self.assertEqual(edit.call_count, 6)
+        self.assertEqual(events[-1]['failed_views'], ['front', 'side_portrait', 'back_pallu', 'pleats'])
+        self.assertEqual([im['view'] for im in events[-1]['images']], ['fabric_texture', 'border'])
+        self.assertEqual(edit.call_count, 4)
 
     def test_editorial_catalogs_are_3_by_4_and_other_defaults_are_9_by_16(self):
         for garment in DEFAULTS:

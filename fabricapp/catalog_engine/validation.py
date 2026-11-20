@@ -9,8 +9,12 @@ def validate_definition(definition, product=None):
     for shot in shots:
         if not shot.key or shot.key in seen:
             raise ValueError("Catalog shot keys must be nonempty and unique")
-        if shot.operation not in {"pipeline", "anchor_edit", "template_edit", "crop", "reference", "swatch_composite"}:
+        if shot.operation not in {"pipeline", "anchor_edit", "template_edit", "crop", "reference", "swatch_composite", "product_source"}:
             raise ValueError(f"Unknown operation for {shot.key}")
+        if not shot.allows_identity_reference and (shot.identity_from or shot.identity_crop or shot.reference_role == 'composition'):
+            raise ValueError(f'Identity references are forbidden for {shot.key}')
+        if shot.operation == 'product_source' and not definition.render_product:
+            raise ValueError(f'Product renderer is missing for {shot.key}')
         if shot.reference_role not in {'template', 'composition', 'layout'}:
             raise ValueError(f"Unknown reference role for {shot.key}")
         if shot.reference_role == 'composition' and (

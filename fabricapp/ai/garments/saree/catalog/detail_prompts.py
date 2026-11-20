@@ -2,6 +2,7 @@
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.garments.saree.catalog.layout import OUTPUT_SIZES
 from fabricapp.ai.garments.saree.catalog.regions import source_regions
+from fabricapp.ai.garments.saree.catalog.product_details import selected_border
 
 
 FULL_FABRIC_PROMPT = (
@@ -30,8 +31,9 @@ PLEATS_PROMPT = (
     'their overlap and the stitched lower hem. The waist enters the TOP edge; the bottom '
     'hem sits near the BOTTOM edge. Only folded saree cloth fills the photograph. Keep the '
     'upper torso, shoulders, neck, blouse, face, hands and mannequin outside the frame. '
-    'The pallu beside the pleats continues below the crop; do not display its broad terminal '
-    'artwork here. Reproduce actual body motifs through the natural three-dimensional folds, '
+    'Keep the hanging pallu panel and its visible lower edge EXACTLY where image 0 places them. '
+    'Do not extend it, shorten it or move its lower edge outside the frame. '
+    'Reproduce actual body motifs through the natural three-dimensional folds, '
     'without a flat pasted texture. Use a plain neutral studio surface around the bottom '
     'hem, with no architecture or scenery. '
     'Replace the reference white fabric and black stripes with the actual product cloth. '
@@ -60,6 +62,9 @@ def build_detail_config(data, shot, seed):
     options = data.get('options') or {}
     flatlay = shot.key == 'fabric_texture'
     regions = source_regions(data)
+    if shot.key == 'pleats':
+        regions = {**regions}
+        regions['border'], regions['border_selection'] = selected_border(data, regions)
     crop = None if flatlay else regions['body' if shot.key == 'pleats' else 'border']
     context = {**data, 'options': {**options, 'fabric_crop_box': crop}}
     dimensions = OUTPUT_SIZES[shot.key]
@@ -81,8 +86,12 @@ def build_detail_config(data, shot, seed):
                              'on the existing narrow edge and lower hem; do not put broad pallu '
                              'end artwork there. Keep image 0’s tight pleats crop.')
     config['prompt'] += ' Use even neutral white light. Preserve the actual source colour and pattern.'
+    if shot.key == 'pleats':
+        config['prompt'] += (' FINAL EDIT LIMIT: replace textile appearance only. Keep image 0’s '
+                             'exact pleat count, fold boundaries, overlapping edges and hem contour. '
+                             'Do not generate a different drape or a new garment pose.')
     if flatlay:
         config['prompt'] += (' FINAL COMPOSITION: the same flat rectangular cloth as image 0, '
                              'all four corners on the table; no body, no blouse and no draped wearer.')
-    config['prompt_version'] = 'saree-catalog-v4-' + shot.key
+    config['prompt_version'] = 'saree-catalog-v5-' + shot.key
     return config
