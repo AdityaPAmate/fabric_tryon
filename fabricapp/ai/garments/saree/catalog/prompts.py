@@ -7,6 +7,7 @@ from fabricapp.ai.garments.saree.catalog.detail_prompts import build_detail_conf
 from fabricapp.ai.garments.saree.catalog.regions import source_regions
 from fabricapp.ai.garments.saree.catalog.product_details import border_reference_box
 from fabricapp.ai.garments.saree.catalog.front_crop import crop_config
+from fabricapp.ai.garments.saree.catalog.blouse import apply_blouse_policy
 
 
 def _reference_output_size(data, shot):
@@ -33,8 +34,6 @@ def _back_reference_config(data, shot, seed):
         'side borders on the real long edges. Do not expose a second wrapped-skirt hem beneath it '
         'or leave any original white cloth. '
         'Do not invent a decorative border or pallu artwork absent from image 1. '
-        'The blouse is separate, opaque and solid-coloured to coordinate with the source; '
-        'no saree artwork on it. '
         'Do not retain any old blouse piping, sleeve stripes, horizontal pallu lines or '
         'hem stripes from a prior template; only image 1 can supply textile designs. '
         'Keep the template wearer, hair and rear-facing torso. No face/person identity '
@@ -59,7 +58,7 @@ def _back_reference_config(data, shot, seed):
                          'with one floor-length pallu covering the rear skirt and no second lower tier. Keep all cloth edges '
                          'inside the frame. Use even neutral white light, not warm sunlight.')
     config['prompt_version'] = 'saree-catalog-floor-pallu-v5'
-    return config
+    return apply_blouse_policy(config)
 
 
 def _side_portrait_config(data, shot, seed):
@@ -70,7 +69,6 @@ def _side_portrait_config(data, shot, seed):
         'Image 1 is the complete product fabric photograph. Replace all visible saree cloth with its exact '
         'colours, print, motif scale and texture, following the existing folds. '
         'Keep the same angle rather than turning the model to face the camera. '
-        'The blouse remains a separate opaque solid coordinating garment. '
         'Keep the complete lower skirt and floor-level hem visible, with natural adult '
         'head-to-body proportions. Do not compress the body into a half-length portrait. '
         'The pallu hangs long beside the skirt as in image 0, ending near the lower calf '
@@ -111,7 +109,7 @@ def _side_portrait_config(data, shot, seed):
     config['prompt'] += (' FINAL POSE: preserve image 0 side angle and full head-to-hem crop, not a frontal portrait. '
                          'Keep the complete natural-height wearer and full skirt inside the frame. '
                          'Use even neutral white light on the cloth, with no direct sunlight or warm cast.')
-    return config
+    return apply_blouse_policy(config)
 
 
 def build_config(data, shot, seed):
@@ -147,10 +145,7 @@ def build_config(data, shot, seed):
                        'Do not copy the template model\'s identity or body proportions. ')
         else:
             prompt += 'SUBJECT: ' + _person_description(data.get('gender'), data.get('body_type')) + '. '
-        prompt += ('Keep a modest opaque blouse and covered lower body, one person with natural anatomy. '
-                   'The blouse is separate: one solid colour matching the swatch\'s dominant colour, '
-                   'without saree prints or decorative borders. Use the front anchor\'s blouse '
-                   'when image 2 is the approved front. ')
+        prompt += 'Keep a modest opaque blouse and covered lower body, one person with natural anatomy. '
     else:
         prompt += 'Fabric-only detail: do not introduce a face, person, hands or extra garments. '
     background = get_background_description(data.get('background'), garment_type='saree')
@@ -185,4 +180,4 @@ def build_config(data, shot, seed):
     config['prompt'] += ' FINAL SHOT: ' + shot.description + '. '
     config['prompt'] += 'Preserve reference crop and all fabric edges. '
     config['prompt_version'] = 'saree-front-complete-body-v2'
-    return config
+    return apply_blouse_policy(config)

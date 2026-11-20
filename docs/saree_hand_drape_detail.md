@@ -54,3 +54,14 @@ Evidence: `outputs/saree_front_body_verified_20261120/front.png`, `hand.png`,
 through the production runner/provider code, not a whole deployed-catalog test.
 No uploads were performed. One successful sample does not establish a zero
 failure rate for all fabrics or prove a single model-internal cause.
+
+## Plain blouse policy
+
+All three wearer views append the same Saree-owned blouse rule: use the saree
+body's main base colour, excluding motifs, border and pallu artwork. No patterns,
+ornament or contrasting piping may transfer to the blouse. Skin-like nude/beige/
+tan/peach choices are excluded; a skin-like source base uses a non-skin source
+accent, falling back to plain black if none exists. The rule follows style notes
+and does not change the saree or skin. Rear identity guards remain unchanged.
+39 relevant existing tests and a three-view scope/guard check passed; no new paid
+generation was performed for this prompt update.
