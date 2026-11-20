@@ -230,7 +230,7 @@ class SareeCatalogTests(SimpleTestCase):
             self.assertTrue(stream.getvalue().startswith(b'\x89PNG\r\n\x1a\n'))
             fabric_hashes.append(hashlib.sha256(stream.getvalue()).hexdigest())
             payload = picture(size=(fields['width'], fields['height']))
-            self.assertIn('saree', fields['prompt'])
+            self.assertTrue('saree' in fields['prompt'] or 'FOLDED TEXTILE' in fields['prompt'])
             return Mock(status_code=200, headers={'Content-Type': 'image/png'}, content=payload)
         provider.side_effect = answer
         with patch('django.conf.settings.SAVE_DEBUG_FILES', False):

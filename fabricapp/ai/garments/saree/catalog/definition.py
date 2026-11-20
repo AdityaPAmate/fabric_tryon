@@ -13,7 +13,7 @@ SHOTS = tuple(
     for key, description, framing, identity in (
         ('front', 'very tall full-length front portrait matching image 0, complete head and saree hem, pallu hanging down the front', 'full_body', 'request'),
         ('side_portrait', 'full-length side-facing portrait matching image 0, natural adult proportions, complete head, lower skirt and floor-level hem inside the frame', 'side_full_body', 'request'),
-        ('back_pallu', 'one full-length rear-facing wearer matching the supplied back reference exactly, with its pallu and lower hem visible', 'rear_full_body', None),
+        ('back_pallu', 'one full-length rear-facing wearer matching image 0, floor-length pallu covering the rear skirt with one continuous floor-touching hem', 'rear_full_body', None),
         ('fabric_texture', 'complete overhead flat-lay of the supplied saree showing body, both side borders and the complete pallu end together', 'full_fabric_layout', None),
         ('border', 'close-up of the saree long SIDE EDGE: a narrow continuous border or finished selvedge beside the main body cloth, with the outer edge and background clearly visible', 'side_border_detail', None),
         ('pleats', 'fabric-only waist-to-hem front pleats with the hanging pallu edge beside them, no head or hands', 'pleats_detail', None),

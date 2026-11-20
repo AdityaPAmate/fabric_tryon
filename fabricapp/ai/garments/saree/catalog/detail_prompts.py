@@ -3,6 +3,9 @@ from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.garments.saree.catalog.layout import OUTPUT_SIZES
 from fabricapp.ai.garments.saree.catalog.regions import source_regions
 from fabricapp.ai.garments.saree.catalog.product_details import border_reference_box
+from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
+from fabricapp.ai.fabric.fabric_material import validate_fabric_type
+from fabricapp.ai.pipeline.router import PromptRoutingError
 
 
 FULL_FABRIC_PROMPT = (
@@ -26,19 +29,44 @@ FULL_FABRIC_PROMPT = (
 )
 
 PLEATS_PROMPT = (
-    'Retexture this existing WAIST-TO-HEM PLEATS CLOSE-UP in image 0 using the body cloth '
-    'in image 1. Preserve the exact close camera distance, natural vertical folded pleats, '
-    'their overlap and the stitched lower hem. The waist enters the TOP edge; the bottom '
-    'hem sits near the BOTTOM edge. Only folded saree cloth fills the photograph. Keep the '
-    'upper torso, shoulders, neck, blouse, face, hands and mannequin outside the frame. '
-    'Keep the hanging pallu panel and its visible lower edge EXACTLY where image 0 places them. '
-    'Do not extend it, shorten it or move its lower edge outside the frame. '
-    'Reproduce actual body motifs through the natural three-dimensional folds, '
-    'without a flat pasted texture. Use a plain neutral studio surface around the bottom '
-    'hem, with no architecture or scenery. '
-    'Replace the reference white fabric and black stripes with the actual product cloth. '
-    'Use an evidenced edge design only; otherwise keep a plain matching stitched hem. '
+    'EDIT IMAGE 0 IN PLACE: this is a tightly cropped photograph of FOLDED TEXTILE. '
+    'Change only its cloth surface using image 1. Keep exactly the existing fan of '
+    'vertical folds on the left, the diagonal overlapping cloth at the upper left, '
+    'and the straight hanging cloth panel on the right. Keep all overlap boundaries, '
+    'fold shadows, camera distance and the curved stitched bottom hem fixed. '
+    'At the top edge there is only cropped fabric; the complete lower hem remains '
+    'near the bottom. Keep the same tiny grey floor area under that hem. '
+    'Copy the supplied cloth colour, print, motif scale and weave into these existing '
+    'folds. Keep the hanging panel lower edge exactly where image 0 puts it. '
+    'Do not zoom out or reconstruct a whole garment display. '
+    'No mannequin, body parts, blouse, hanger, stand, new scene, inset or text. '
 )
+
+
+def _condition_pleats(config, context):
+    """Cloth-detail conditioning; no whole-outfit prompt before the edit task.
+
+    Every fabric uses this same path, including majority-colour patterned cloth.
+    Shared utilities measure samples but do not change this shot's subject.
+    """
+    material = context.get('fabric_type','unspecified')
+    error = validate_fabric_type(material,'saree')
+    if error:
+        raise PromptRoutingError(error)
+    profile = measure_fabric_colours(context['fabric_image'],
+        (context.get('options') or {}).get('fabric_crop_box'),palette_size=24,min_coverage=.005)
+    samples = ', '.join(sample['hex'] for sample in profile['colours'][:8])
+    if samples:
+        config['prompt'] += (' Measured cloth samples: '+samples+'. Image 1 determines their '
+                             'actual positions and proportions; keep its print on the existing folds. ')
+    surface = {
+        'unspecified': 'Keep the actual photographed weave and finish from image 1.',
+        'cotton': 'Use a fine matte cotton weave with soft diffuse fold highlights.',
+        'silk': 'Use a fine silk weave with restrained lustre and smooth fold highlights.',
+        'velvet': 'Use dense velvet pile with soft directional nap and broad fold highlights.',
+    }[material]
+    config['prompt'] += ' MATERIAL: '+surface+' Change only the photographed cloth surface. '
+    return {**config,'fabric_type':material,'fabric_colour_reference':profile}
 
 BORDER_PROMPT = (
     'Edit image 0 into a macro photograph of the LONG SIDE BORDER / SELVEDGE from image 1. '
@@ -71,7 +99,7 @@ def build_detail_config(data, shot, seed):
     if options.get('draft_mode', False):
         scale = min(1, 512 / max(dimensions))
         dimensions = tuple(max(256, round(value * scale / 32) * 32) for value in dimensions)
-    config = apply_fabric_conditioning({
+    config = {
         'prompt': FULL_FABRIC_PROMPT if flatlay else PLEATS_PROMPT if shot.key == 'pleats' else BORDER_PROMPT,
         'seed': seed, 'guidance': data.get('guidance', 7),
         'output_dimensions': dimensions, 'safety_retry_count': 0,
@@ -79,7 +107,9 @@ def build_detail_config(data, shot, seed):
         'fabric_crop_box': crop,
         'fabric_region': 'full_saree' if flatlay else 'body' if shot.key == 'pleats' else 'border',
         'fabric_region_selection': 'full_source' if flatlay else regions['body_selection' if shot.key == 'pleats' else 'border_selection'],
-    }, context, 'saree', lead_with_edit=flatlay)
+    }
+    config = (_condition_pleats(config,context) if shot.key == 'pleats' else
+              apply_fabric_conditioning(config,context,'saree',lead_with_edit=flatlay))
     if shot.key == 'pleats' and regions['border'] is not None:
         config['fabric_reference_crops'] = {'side_border': regions['border']}
         config['prompt'] += (' Image 2 is only the actual long-side border cloth. Use its design '
@@ -93,5 +123,5 @@ def build_detail_config(data, shot, seed):
     if flatlay:
         config['prompt'] += (' FINAL COMPOSITION: the same flat rectangular cloth as image 0, '
                              'all four corners on the table; no body, no blouse and no draped wearer.')
-    config['prompt_version'] = 'saree-catalog-v6-' + shot.key
+    config['prompt_version'] = 'saree-catalog-v7-' + shot.key
     return config

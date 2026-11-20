@@ -14,6 +14,36 @@ from fabricapp.test_catalog_engine import data, picture
 
 
 class SareeProductDetailTests(SimpleTestCase):
+    def test_real_border_runs_from_first_to_third_corner(self):
+        source=Image.new('RGB',(100,400),'red');source.paste('blue',(30,0,50,400))
+        payload=io.BytesIO();source.save(payload,'PNG');payload.seek(0)
+        definition=get_definition('saree');shot=next(s for s in definition.shots if s.key=='border')
+        result=definition.render_product(data(fabric_image=payload,
+            options={'fabric_border_crop_box':[30,0,50,400]}),shot)
+        with Image.open(io.BytesIO(result.image_bytes)) as image:
+            for fraction in (.1,.5,.9):
+                self.assertEqual(image.getpixel((round(fraction*(image.width-1)),
+                                                 round(fraction*(image.height-1)))),(0,0,255))
+            self.assertNotEqual(image.getpixel((image.width-1,0)),(0,0,255))
+        self.assertEqual(result.diagnostics['photo_fit'],'side_band_diagonal_1_to_3')
+        self.assertTrue(result.diagnostics['no_new_ai_generation'])
+
+    def test_pleats_edit_task_leads_for_plain_and_patterned_fabrics(self):
+        definition=get_definition('saree');shot=next(s for s in definition.shots if s.key=='pleats')
+        for material in ('unspecified','cotton','silk','velvet'):
+            for patterned in (False,True):
+                source=Image.new('RGB',(180,240),'teal')
+                if patterned:
+                    source.paste('gold',(50,0,70,240));source.paste('white',(140,0,160,240))
+                payload=io.BytesIO();source.save(payload,'PNG');payload.seek(0)
+                config=definition.build_config(data(fabric_image=payload,fabric_type=material,options={}),shot,42)
+                self.assertTrue(config['prompt'].startswith('EDIT IMAGE 0 IN PLACE:'))
+                self.assertIn('FOLDED TEXTILE',config['prompt'])
+                self.assertNotIn('saree body and pallu',config['prompt'])
+                self.assertNotIn('Keep the garment construction',config['prompt'])
+                self.assertIn('exact pleat count',config['prompt'])
+                self.assertTrue(config['fabric_colour_reference']['colours'])
+
     def test_narrow_border_input_keeps_design_and_gains_real_source_context(self):
         from fabricapp.ai.garments.saree.catalog.product_details import border_reference_box
         from fabricapp.ai.garments.saree.catalog.regions import source_regions

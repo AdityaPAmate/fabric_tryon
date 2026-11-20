@@ -2,9 +2,10 @@
 import hashlib
 import io
 import os
+from math import hypot
 
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image
 
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
 from fabricapp.ai.garments.saree.catalog.layout import PANELS
@@ -106,6 +107,27 @@ def border_reference_box(data, regions):
     return [left, top, right, bottom]
 
 
+def diagonal_border(image, box, size):
+    """Rotate the real photographed band onto corner 1 → corner 3.
+
+    One uniform scale preserves motif proportions. Neighbouring cloth comes
+    from the same source photo, not a generated background or pasted new design.
+    """
+    left, top, right, bottom = box
+    if image.width > image.height:
+        left, top, right, bottom = top, image.width-right, bottom, image.width-left
+        image = image.transpose(Image.Transpose.ROTATE_90)
+    width, height = size[0]-1, size[1]-1
+    length = hypot(width, height)
+    scale = length/max(1,bottom-top-1)
+    denominator = length*scale
+    transform = (height/denominator, -width/denominator, (left+right-1)/2,
+                 width/denominator, height/denominator, top)
+    return image.transform(size, Image.Transform.AFFINE, transform,
+                           resample=Image.Resampling.BICUBIC,
+                           fillcolor=(235,235,235))
+
+
 def render_product(data, shot):
     image, digest = _load(data)
     regions = source_regions(data)
@@ -120,20 +142,10 @@ def render_product(data, shot):
     else:
         box, selection = border_box(image, data, regions)
         if shot.key == 'border':
-            # Show actual product pixels; no generated curved replacement band.
-            # Keep the entire selected band width with adjacent body cloth. Fit
-            # crops only its repeating longitudinal extent to the panel.
+            # Rotate actual product pixels with adjacent source cloth, without
+            # asking a model to invent another border or a folded replacement.
             display_box = list(box)
-            if selection == 'detected_chromatic_side_band':
-                # Include adjacent real body cloth instead of magnifying a tiny
-                # band fivefold. Keep the selected design visible in context.
-                if image.height >= image.width:
-                    span = max(box[2]-box[0], round((box[3]-box[1])*size[0]/size[1]))
-                    display_box[2] = min(image.width, box[0]+span)
-                else:
-                    span = max(box[3]-box[1], round((box[2]-box[0])*size[1]/size[0]))
-                    display_box[3] = min(image.height, box[1]+span)
-            result = ImageOps.fit(image.crop(display_box), size, method=Image.Resampling.LANCZOS)
+            result = diagonal_border(image, box, size)
         else:
             raise ValueError(f'Unsupported Saree product shot: {shot.key}')
     output = io.BytesIO()
@@ -145,6 +157,6 @@ def render_product(data, shot):
         'fabric_region': 'full_saree' if shot.key == 'fabric_texture' else shot.key,
         'fabric_crop_box': box, 'fabric_region_selection': selection,
         'display_crop_box': display_box,
-        'photo_fit': 'full_source_resized_no_crop' if shot.key == 'fabric_texture' else 'side_band_cover',
+        'photo_fit': 'full_source_resized_no_crop' if shot.key == 'fabric_texture' else 'side_band_diagonal_1_to_3',
         'output_dimensions': list(result.size),
     })

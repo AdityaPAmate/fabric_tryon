@@ -22,13 +22,15 @@ def _back_reference_config(data, shot, seed):
         'Edit the full-length REAR photograph in image 0. Replace ALL visible saree cloth '
         'with the actual product in image 1: the rear wrap, lower skirt, pallu, pleats and '
         'edge borders. Keep the EXACT pallu silhouette, angle, grip and lower end already '
-        'in image 0. Do not straighten, move or redesign its drape. Preserve the visible '
-        'lower skirt and complete floor-level hem. Preserve natural gravity and soft cloth folds. '
+        'in image 0. Keep the pallu reaching the FLOOR and covering the lower rear skirt. '
+        'The visible lower garment is one continuous pallu sheet, not a short pallu above '
+        'a second skirt tier. Preserve natural gravity, soft folds and the single floor-touching edge. '
         'Image 0 fixes only the rear stance, arms, grip, framing and cloth geometry. '
         'Remove the reference white colour and black lines unless present in image 1. '
-        'Map body motifs onto the wrapped saree; map broad end artwork ONLY onto the pallu '
-        'end; keep narrow side borders along the real edges. Do not replace the entire lower '
-        'skirt with end artwork or leave any original white cloth. '
+        'Use the actual pallu body and terminal design continuously on this floor-length '
+        'hanging sheet, with its end artwork at the floor-level end only. Keep actual narrow '
+        'side borders on the real long edges. Do not expose a second wrapped-skirt hem beneath it '
+        'or leave any original white cloth. '
         'Do not invent a decorative border or pallu artwork absent from image 1. '
         'The blouse is separate, opaque and solid-coloured to coordinate with the source; '
         'no saree artwork on it. '
@@ -53,9 +55,9 @@ def _back_reference_config(data, shot, seed):
         'forbid_identity_references': True,
     }, context, 'saree', match_pattern_colours=True, lead_with_edit=True)
     config['prompt'] += (' FINAL REAR GEOMETRY: keep image 0’s existing single wearer and pallu geometry, '
-                         'including the visible lower skirt. Keep all cloth edges '
+                         'with one floor-length pallu covering the rear skirt and no second lower tier. Keep all cloth edges '
                          'inside the frame. Use even neutral white light, not warm sunlight.')
-    config['prompt_version'] = 'saree-catalog-neutral-back-v4'
+    config['prompt_version'] = 'saree-catalog-floor-pallu-v5'
     return config
 
 

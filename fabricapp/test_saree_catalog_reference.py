@@ -60,7 +60,8 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         self.assertTrue(Path(get_pose_reference_path('saree', 'back_showing_pallu')).is_file())
         self.assertIn('Keep the EXACT pallu silhouette', config['prompt'])
         self.assertFalse(shot.allows_identity_reference)
-        self.assertIn('visible lower skirt', config['prompt'])
+        self.assertIn('pallu reaching the FLOOR', config['prompt'])
+        self.assertIn('no second lower tier', config['prompt'])
         normal = normal_builder(scenario='pose_reference', garment_type='saree',
                                 context={'pose': 'back_showing_pallu', 'use_face_reference': False}, seed=71)
         self.assertIn('spread diagonally', normal['prompt'])

@@ -24,9 +24,9 @@
     ]
   },
   "03_back_view.png": {
-    "sha256": "9ee9aa9a2139e1c42d72d1b219591196f12621293e4142ebd8ea44653c2514b7",
-    "previous_asset_sha256": "77641da6cbb6555b9197cb43eedbeb5c56c14bfc595e5b26119b621f835664f6",
-    "source": "Remove original saree and blouse marks, preserve user rear geometry via built-in image_gen",
+    "sha256": "32e75bffecb4b3caa0f75d4f2b8da37f4f0fe127168bd51bee26a7ca6bcf7466",
+    "previous_asset_sha256": "9ee9aa9a2139e1c42d72d1b219591196f12621293e4142ebd8ea44653c2514b7",
+    "source": "Floor-touching pallu covering rear skirt via built-in image_gen",
     "size": [
       841,
       1870
@@ -51,18 +51,12 @@
     ]
   },
   "06_pleats_hem.png": {
-    "sha256": "ae1491732dfb284de69f58daffb1f3ae094b8e24dc8a4979684d621d8c8c42df",
-    "source": "white_saree_catalog_final_corrected_3x4.png",
-    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
-    "crop_box": [
-      766,
-      934,
-      1086,
-      1448
-    ],
+    "sha256": "d6f4309d9fd386af9c96423115327e87c6e5c37bda605e3bb4be203950a0891f",
+    "previous_asset_sha256": "ae1491732dfb284de69f58daffb1f3ae094b8e24dc8a4979684d621d8c8c42df",
+    "source": "Plain folded-textile detail without original stripe markings via built-in image_gen",
     "size": [
-      320,
-      514
+      989,
+      1589
     ]
   }
 }
