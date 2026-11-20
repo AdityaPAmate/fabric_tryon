@@ -32,7 +32,7 @@ A separately available body ROI is sent as image 2 (no identity) or image 3
 (identity present), with minimum size/aspect checks. White source motifs remain
 allowed; no global white-pixel recolouring is performed. The screenshot alone
 cannot prove which inference decision left that region unchanged. The correction
-has local routing tests but has not been live-quality verified.
+has local routing tests and the single-sample live verification described below.
 
 ## Verification
 
@@ -40,4 +40,17 @@ Six saved front outputs (3309, 3302, 3295, 3288, 3281, 3274) were used for local
 crop previews. Evidence is under `outputs/saree_hand_crop_20261120/`. Tests compare
 complete hand-panel pixels against the expected crop for several fabric colours,
 verify no provider call, source hash/seed, dependency failure and bounded aspect.
-No new paid generation was performed.
+The 62 focused tests passed. After explicit user approval, exactly one Cloudflare
+front generation used the original pink/gold saree source from report
+`2026-11-20_131129_001`, seed 42, face choice poonam and white_marble_terrace.
+Automatic network and safety retries were disabled. The provider accepted the
+full source plus a separate body ROI [199,0,551,420] in image 3. Visual review of
+the returned front shows pink lower pleats instead of the supplied screenshot's
+large white lower-skirt section. Both hand and pleats panels were derived from
+that actual returned front with no further AI calls.
+
+Evidence: `outputs/saree_front_body_verified_20261120/front.png`, `hand.png`,
+`pleats.png`, provider trace and two crop source-hash traces. This is a local run
+through the production runner/provider code, not a whole deployed-catalog test.
+No uploads were performed. One successful sample does not establish a zero
+failure rate for all fabrics or prove a single model-internal cause.
