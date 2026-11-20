@@ -1,5 +1,11 @@
 # Catalog edition ownership
 
+Saree editorial-v1 now generates the fifth (border) detail with AI using only
+the actual extracted border as product and placement evidence. It no longer
+delivers an enlarged source crop as the final fifth panel. All other panels and
+the rear identity guard remain unchanged. See [AI border detail](saree_border_ai_detail.md).
+Earlier descriptions of deterministic fifth-panel rendering below are historical.
+
 Shirt defaults to `editorial-v1`, exporting an image-only 1800 × 2400 collage.
 The numbered front, side and back photographs supply their own pose templates.
 The rear shot depends on the generated front for identity and finished-fabric

@@ -71,7 +71,8 @@ class SareeBorderExtractionTests(SimpleTestCase):
             events=[json.loads(chunk) for chunk in response.streaming_content];response.close()
             self.assertEqual(events[-1]['status'],'completed')
             border=next(e['image'] for e in events if e['event']=='image_ready' and e['image']['view']=='border')
-            self.assertEqual(border['generation']['border_extraction']['orientation_rotation'],rotation)
+            self.assertEqual(border['operation'],'template_edit')
+            self.assertEqual(edit.call_args.kwargs['prompt_config']['prompt_version'],'saree-border-ai-detail-v1')
 
     def test_explicit_band_cannot_leak_bright_body_or_terminal_artwork(self):
         source=Image.new('RGB',(300,600),'red')

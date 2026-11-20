@@ -35,7 +35,7 @@ class SareeCatalogRegionTests(SimpleTestCase):
             events = [json.loads(chunk) for chunk in response.streaming_content]
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
-        self.assertEqual(len(captured), 3)
+        self.assertEqual(len(captured), 4)
         self.assertEqual(set(captured[1]), {'input_image_0', 'input_image_1', 'input_image_2', 'input_image_3'})
         with Image.open(io.BytesIO(captured[1]['input_image_3'])) as border:
             self.assertEqual(border.getpixel((border.width-1, border.height//2)), (0, 0, 255))
@@ -95,11 +95,12 @@ class SareeCatalogRegionTests(SimpleTestCase):
             events = [json.loads(chunk) for chunk in response.streaming_content]
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
-        self.assertEqual(len(seen), 3)
+        self.assertEqual(len(seen), 4)
+        self.assertEqual(seen[-1], (0, 0, 255))
 
         self.assertEqual(product_references, [(0, 0, 255)])
         border = next(e['image'] for e in events if e['event'] == 'image_ready' and e['image']['view'] == 'border')
-        self.assertEqual(border['generation']['fabric_crop_box'], [64, 0, 96, 128])
+        self.assertIsNone(border['generation']['fabric_crop_box'])  # Already prepared border-only input.
         self.assertEqual(border['generation']['fabric_region'], 'border')
         pleats = next(e['image'] for e in events if e['event'] == 'image_ready' and e['image']['view'] == 'pleats')
         self.assertEqual(pleats['generation']['kind'], 'derived_crop')

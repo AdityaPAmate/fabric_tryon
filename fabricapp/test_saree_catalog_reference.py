@@ -113,7 +113,7 @@ class SareeCatalogReferenceTests(SimpleTestCase):
     def test_border_is_a_side_edge_generation_not_a_body_crop(self):
         definition = get_definition('saree')
         shot = next(shot for shot in definition.shots if shot.key == 'border')
-        self.assertEqual(shot.operation, 'product_source')
+        self.assertEqual(shot.operation, 'template_edit')
         self.assertEqual(shot.dependencies, ())
         self.assertIsNone(shot.source_crop)
         config = definition.build_config(data(), shot, 42)
@@ -125,9 +125,9 @@ class SareeCatalogReferenceTests(SimpleTestCase):
     @patch('fabricapp.catalog.generate_edit', side_effect=CloudflareGenerationError('provider unavailable'))
     def test_original_product_details_survive_provider_rejection(self, edit, upload):
         events = list(generate_catalog(data(), threading.Event()))
-        self.assertEqual(events[-1]['failed_views'], ['front', 'side_portrait', 'back_pallu', 'pleats'])
-        self.assertEqual([im['view'] for im in events[-1]['images']], ['fabric_texture', 'border'])
-        self.assertEqual(edit.call_count, 3)
+        self.assertEqual(events[-1]['failed_views'], ['front', 'side_portrait', 'back_pallu', 'border', 'pleats'])
+        self.assertEqual([im['view'] for im in events[-1]['images']], ['fabric_texture'])
+        self.assertEqual(edit.call_count, 4)
 
     def test_editorial_catalogs_are_3_by_4_and_other_defaults_are_9_by_16(self):
         for garment in DEFAULTS:

@@ -5,9 +5,10 @@ from fabricapp.ai.garments.saree.catalog.layout import get_layout
 from fabricapp.ai.garments.saree.catalog.prompts import build_config
 from fabricapp.ai.garments.saree.catalog.product_details import render_product
 from fabricapp.ai.garments.saree.catalog.front_crop import resolve_front_crop
+from fabricapp.ai.garments.saree.catalog.border_ai import prepare_edit_inputs
 
 SHOTS = tuple(
-    Shot(key, description, 'crop' if key == 'pleats' else 'product_source' if key in ('fabric_texture', 'border') else 'template_edit', framing,
+    Shot(key, description, 'crop' if key == 'pleats' else 'product_source' if key == 'fabric_texture' else 'template_edit', framing,
          reference=None if key == 'pleats' else REFERENCES[key], identity_from=identity,
          dependencies=('front',) if key == 'pleats' else (),
          source_crop=(.06,.50,.99,.94) if key == 'pleats' else None,
@@ -36,4 +37,5 @@ DEFINITION = CatalogDefinition(
     validate_request=validate_request,
     render_product=render_product,
     resolve_crop=resolve_front_crop,
+    prepare_edit_inputs=prepare_edit_inputs,
 )

@@ -1,6 +1,6 @@
 """Replay one saved saree report with exactly one six-shot catalog request.
 
-This spends three provider generations and uploads six shots through the deployed application.
+This spends four provider generations and uploads six shots through the deployed application.
 Run only with the user's explicit generation budget authorization.
 """
 import argparse

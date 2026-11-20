@@ -1,7 +1,6 @@
 """Separate product-region tasks; template fabric is never product evidence."""
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.garments.saree.catalog.layout import OUTPUT_SIZES
-from fabricapp.ai.garments.saree.catalog.regions import source_regions
 
 
 FULL_FABRIC_PROMPT = (
@@ -24,49 +23,33 @@ FULL_FABRIC_PROMPT = (
     'No wearer, mannequin, blouse, face, hands, text, inset or collage. '
 )
 
-BORDER_PROMPT = (
-    'Edit image 0 into a macro photograph of the LONG SIDE BORDER / SELVEDGE from image 1. '
-    'Image 0 supplies only the curved outer cloth boundary, fold and camera framing. '
-    'The border is the continuous woven or printed band along the long side of a saree, '
-    'not the main body print and not the broad pallu end artwork. '
-    'Identify the actual side edge visible in image 1 and extract its band colours, stripe '
-    'count, motif sequence, orientation and width relative to adjacent body cloth. '
-    'Reproduce this real design along the curved edge, with adjoining body cloth inside '
-    'and a small area of neutral background outside the physical cloth boundary. '
-    'Do not copy image 0 black double stripes, white colour or decorative border. '
-    'Do not turn scattered body motifs into a border band. '
-    'If image 1 contains only body fabric and no distinct border is visible, use a plain '
-    'finished edge matching that body fabric; never invent zari, embroidery or stripes '
-    'or imply that an unseen decorative border was extracted. '
-    'Preserve realistic cloth thickness and fold shadows. No people, hands, text, inset or collage. '
-)
-
-
 def build_detail_config(data, shot, seed):
+    if shot.key == 'border':
+        from fabricapp.ai.garments.saree.catalog.border_ai import build_border_config
+        return build_border_config(data, seed)
     if shot.key == 'pleats':
         raise ValueError('Pleats must be cropped from the generated front, not generated independently.')
     options = data.get('options') or {}
-    flatlay = shot.key == 'fabric_texture'
-    regions = source_regions(data)
-    crop = None if flatlay else regions['border']
+    if shot.key != 'fabric_texture':
+        raise ValueError(f'Unsupported Saree detail: {shot.key}')
+    crop = None
     context = {**data, 'options': {**options, 'fabric_crop_box': crop}}
     dimensions = OUTPUT_SIZES[shot.key]
     if options.get('draft_mode', False):
         scale = min(1, 512 / max(dimensions))
         dimensions = tuple(max(256, round(value * scale / 32) * 32) for value in dimensions)
     config = {
-        'prompt': FULL_FABRIC_PROMPT if flatlay else BORDER_PROMPT,
+        'prompt': FULL_FABRIC_PROMPT,
         'seed': seed, 'guidance': data.get('guidance', 7),
         'output_dimensions': dimensions, 'safety_retry_count': 0,
         'fabric_source_format': 'PNG', 'classified_recovery': True,
         'fabric_crop_box': crop,
-        'fabric_region': 'full_saree' if flatlay else 'border',
-        'fabric_region_selection': 'full_source' if flatlay else regions['border_selection'],
+        'fabric_region': 'full_saree',
+        'fabric_region_selection': 'full_source',
     }
-    config = apply_fabric_conditioning(config,context,'saree',lead_with_edit=flatlay)
+    config = apply_fabric_conditioning(config,context,'saree',lead_with_edit=True)
     config['prompt'] += ' Use even neutral white light. Preserve the actual source colour and pattern.'
-    if flatlay:
-        config['prompt'] += (' FINAL COMPOSITION: the same flat rectangular cloth as image 0, '
-                             'all four corners on the table; no body, no blouse and no draped wearer.')
+    config['prompt'] += (' FINAL COMPOSITION: the same flat rectangular cloth as image 0, '
+                         'all four corners on the table; no body, no blouse and no draped wearer.')
     config['prompt_version'] = 'saree-catalog-v7-' + shot.key
     return config

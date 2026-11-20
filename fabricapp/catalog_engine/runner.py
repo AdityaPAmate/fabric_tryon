@@ -96,6 +96,8 @@ def generate_shot(data, shot, definition, shot_bytes, seeds, services):
         if shot.garment_from:
             from fabricapp.ai.images.image_utils import crop_identity_reference
             garment_source = io.BytesIO(crop_identity_reference(shot_bytes[shot.garment_from], shot.source_crop))
+        if definition.prepare_edit_inputs:
+            source, garment_source = definition.prepare_edit_inputs(data, shot, source, garment_source)
         generation = services.edit(
             person_image=io.BytesIO(source), garment_type=data.get('garment_type'),
             garment_style=data.get('garment_style'),
