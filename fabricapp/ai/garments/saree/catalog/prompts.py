@@ -115,7 +115,7 @@ def _side_portrait_config(data, shot, seed):
 
 
 def build_config(data, shot, seed):
-    if shot.key == 'pleats':
+    if shot.key in ('border', 'pleats'):
         return crop_config(data,shot,seed)
     if shot.key == 'side_portrait':
         return _side_portrait_config(data, shot, seed)
@@ -133,6 +133,12 @@ def build_config(data, shot, seed):
         'Do not retain the reference saree\'s white colour, black stripes, silver edging or other '
         'design unless visible in the submitted swatch. Do not invent an ornamental border absent from image 1. '
         'Preserve one continuous saree and natural fold shading; do not paste a flat texture. '
+        'The wrapped lower skirt on the viewer LEFT beneath the crossing pallu, every '
+        'inward waist tuck and every recessed vertical pleat down to the hem are the SAME '
+        'saree BODY fabric from image 1, not an exposed white petticoat or a second garment. '
+        'Replace the original template textile inside those recessed folds as well as '
+        'the broad hanging pallu. Preserve white or pale motifs ONLY where the supplied '
+        'body fabric itself contains them; do not leave a plain white template panel. '
     )
     if shot.identity_from:
         if identity:
@@ -161,8 +167,22 @@ def build_config(data, shot, seed):
     config = {'prompt': prompt, 'seed': seed, 'guidance': data.get('guidance', 7),
               'prompt_version': 'saree-catalog-six-panel-v1-' + shot.key,
               'output_dimensions': dimensions, 'safety_retry_count': 0,
-              'fabric_source_format': 'PNG', 'classified_recovery': True}
-    config = apply_fabric_conditioning(config, data, 'saree')
+              'fabric_source_format': 'PNG', 'classified_recovery': True,
+              'fabric_crop_box': None}
+    # Keep complete pallu/border evidence in image 1, independently of a body ROI.
+    context = {**data, 'options': {**data.get('options', {}), 'fabric_crop_box': None}}
+    config = apply_fabric_conditioning(config, context, 'saree')
+    regions = source_regions(data)
+    body = regions['body']
+    if (body is not None and min(body[2]-body[0], body[3]-body[1]) >= 64
+            and max(body[2]-body[0], body[3]-body[1]) <= 4*min(body[2]-body[0], body[3]-body[1])):
+        slot = 3 if identity else 2
+        config['fabric_reference_crops'] = {'saree_body': body}
+        config['prompt'] += (f' Image {slot} is an enlarged source BODY-fabric reference, '
+                             'not another garment or identity. Apply its colour and motif '
+                             'continuously to the wrapped skirt and ALL recessed lower pleats. '
+                             'Image 1 still supplies the actual pallu and edge designs. ')
     config['prompt'] += ' FINAL SHOT: ' + shot.description + '. '
     config['prompt'] += 'Preserve reference crop and all fabric edges. '
+    config['prompt_version'] = 'saree-front-complete-body-v2'
     return config

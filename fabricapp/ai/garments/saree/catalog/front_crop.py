@@ -22,13 +22,16 @@ def resolve_front_crop(data, shot, source):
         width, height = image.size
     left, top, right, bottom = PANELS[shot.key]
     aspect = (right-left)/(bottom-top)
-    crop_bottom = .94*height
-    crop_height = .44*height
+    # The fifth panel is the same front's waist/hand area, not a separately
+    # generated hand pose. Coordinates do not depend on fabric hue or pattern.
+    hand_detail = shot.key == 'border'
+    crop_bottom = (.61 if hand_detail else .94)*height
+    crop_height = (.22 if hand_detail else .44)*height
     crop_width = aspect*crop_height
     if crop_width > .96*width:
         crop_width = .96*width
         crop_height = crop_width/aspect
-    crop_left = min(max(.53*width-crop_width/2, 0), width-crop_width)
+    crop_left = min(max((.48 if hand_detail else .53)*width-crop_width/2, 0), width-crop_width)
     crop_top = max(0,crop_bottom-crop_height)
     return (crop_left/width,crop_top/height,
             (crop_left+crop_width)/width,crop_bottom/height)

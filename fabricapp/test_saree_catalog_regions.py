@@ -14,6 +14,19 @@ from fabricapp.test_catalog_engine import data, picture, post
 
 
 class SareeCatalogRegionTests(SimpleTestCase):
+    def test_front_keeps_full_product_and_separately_exposes_body_fabric(self):
+        definition = get_definition('saree')
+        shot = next(s for s in definition.shots if s.key == 'front')
+        for identity in (None, 'poonam'):
+            request = data(face_choice=identity, options={'fabric_crop_box': [0, 0, 64, 100]})
+            config = definition.build_config(request, shot, 42)
+            self.assertIsNone(config['fabric_crop_box'])
+            self.assertEqual(config['fabric_reference_crops'], {'saree_body': [0, 0, 64, 100]})
+            self.assertIn(f'Image {3 if identity else 2} is an enlarged source BODY', config['prompt'])
+            self.assertIn('ALL recessed lower pleats', config['prompt'])
+            self.assertIn('Preserve white or pale motifs ONLY', config['prompt'])
+            self.assertEqual(request['options']['fabric_crop_box'], [0, 0, 64, 100])
+
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.test/a.png'})
     @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
     def test_face_and_border_have_separate_slots_and_back_receives_no_identity(self, provider, upload):
@@ -35,7 +48,7 @@ class SareeCatalogRegionTests(SimpleTestCase):
             events = [json.loads(chunk) for chunk in response.streaming_content]
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
-        self.assertEqual(len(captured), 4)
+        self.assertEqual(len(captured), 3)
         self.assertEqual(set(captured[1]), {'input_image_0', 'input_image_1', 'input_image_2', 'input_image_3'})
         with Image.open(io.BytesIO(captured[1]['input_image_3'])) as border:
             self.assertEqual(border.getpixel((border.width-1, border.height//2)), (0, 0, 255))
@@ -47,12 +60,11 @@ class SareeCatalogRegionTests(SimpleTestCase):
         configs = {s.key: definition.build_config(request, s, 42)
                    for s in definition.shots if s.key in ('fabric_texture', 'border')}
         self.assertIsNone(configs['fabric_texture']['fabric_crop_box'])
-        self.assertIsNone(configs['border']['fabric_crop_box'])
+        self.assertNotIn('fabric_crop_box', configs['border'])
         self.assertIn('COMPLETE SAREE FLAT-LAY', configs['fabric_texture']['prompt'])
         self.assertIn('BOTH long side borders', configs['fabric_texture']['prompt'])
         self.assertEqual(configs['fabric_texture']['fabric_region'], 'full_saree')
-        self.assertIn('Replace ALL visible saree cloth', configs['border']['prompt'])
-        self.assertNotEqual(configs['fabric_texture']['prompt_version'], configs['border']['prompt_version'])
+        self.assertNotIn('prompt', configs['border'])
         self.assertEqual(request['options'], {'fabric_crop_box': [0, 0, 40, 80]})
 
     def test_reject_bad_or_out_of_bounds_regions_before_generation(self):
@@ -95,13 +107,13 @@ class SareeCatalogRegionTests(SimpleTestCase):
             events = [json.loads(chunk) for chunk in response.streaming_content]
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
-        self.assertEqual(len(seen), 4)
-        self.assertEqual(seen[-1], (255, 0, 0))  # Complete product, not the isolated blue band.
+        self.assertEqual(len(seen), 3)
 
         self.assertEqual(product_references, [(0, 0, 255)])
         border = next(e['image'] for e in events if e['event'] == 'image_ready' and e['image']['view'] == 'border')
-        self.assertIsNone(border['generation']['fabric_crop_box'])  # Already prepared border-only input.
-        self.assertEqual(border['generation']['fabric_region'], 'hand_drape')
+        self.assertEqual(border['generation']['kind'], 'derived_crop')
+        self.assertEqual(border['generation']['source_view'], 'front')
+        self.assertTrue(border['generation']['no_new_ai_generation'])
         pleats = next(e['image'] for e in events if e['event'] == 'image_ready' and e['image']['view'] == 'pleats')
         self.assertEqual(pleats['generation']['kind'], 'derived_crop')
         self.assertEqual(pleats['generation']['source_view'], 'front')

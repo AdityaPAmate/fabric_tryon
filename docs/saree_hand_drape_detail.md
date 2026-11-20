@@ -1,26 +1,43 @@
-# Saree fifth panel: hand-held drape
+# Saree fifth panel: hand detail derived from front
 
-The user replaced the isolated border macro with a tight photograph of two hands,
-bangles and saree cloth draped underneath. The supplied PNG was copied unchanged
-to `05_hand_drape.png`; manifest provenance records its SHA-256 and native size
-113x147. No enhancement or additional reference generation was performed.
+The user supplied the hand screenshot as framing guidance, not a separate AI
+pose template. The fifth panel now uses the same crop operation as the sixth
+pleats panel. Both depend on the generated front and preserve its exact pixels,
+fabric, wearer, hand anatomy and seed. No independent hand generation is made.
+The screenshot asset remains in the manifest as historical framing guidance;
+it is not sent to the provider. The public shot key remains `border` for clients.
 
-The public shot key remains `border`, preserving six-image ordering and existing
-clients. Its framing is now `hand_drape_detail`, and prompt revision is
-`saree-hand-drape-v1`. Image 0 is the exact user template; image 1 is the full
-submitted saree product. No separate identity is sent for this detail shot.
-The edit preserves hand anatomy, bangles, crop and fold geometry, replaces all
-visible cloth, removes template red/gold ornament absent from the product, and
-uses even neutral white light. No isolated strip, diagonal placement guide or
-automatic border-detection success is required. Older crop options remain accepted
-for compatibility and side-view product evidence; they do not crop the fifth input.
+The fifth ROI follows the front waist/hand framing, centred at 48% of source width,
+covering 39%-61% of source height for the normal front aspect. Width is derived
+from the 532x704 panel aspect and bounded to 96% of the source. The sixth ROI is
+unchanged. Coordinates are independent of fabric colour and print. A changed
+front pose can move hands outside this framing; crop is not a hand detector.
 
-The now-unused shared edit-input callback was removed. Other garment code and
-the Saree rear-view identity rejection remain unchanged. Full source photography,
-front-derived pleats, 3:4 layout and normally four AI edits per catalog are retained.
+Normal catalogs use three AI edits (front, side, back), original full product
+photography, and two front-derived crops. If the front fails, both derived panels
+fail as dependencies instead of generating unrelated fallback photographs.
+Back-view face/person prohibition and other garment pipelines remain unchanged.
 
-Verification uses mocked provider calls and a local HTTP stand-in, including two
-fabric colours, ambiguous fabric without a detectable border, exact reference bytes,
-full product input despite crop options, and absent identity inputs. No new paid
-generation was performed for this replacement. Its visual quality has not been
-live-verified; the small native reference limits visible hand/fabric detail.
+## White lower-skirt defect
+
+The supplied screenshot shows a large white lower-left pleat area while the
+pallu has been replaced. The white front pose template contains cloth in that
+same location. The previous front prompt had a general all-cloth replacement
+instruction but no explicit lower skirt/recessed-pleat region assignment. It also
+allowed an options-level fabric crop to replace the full product input.
+
+The front now keeps complete product evidence in image 1 and explicitly assigns
+the wrapped lower skirt, inner tucks and recessed pleats to the actual saree body.
+A separately available body ROI is sent as image 2 (no identity) or image 3
+(identity present), with minimum size/aspect checks. White source motifs remain
+allowed; no global white-pixel recolouring is performed. The screenshot alone
+cannot prove which inference decision left that region unchanged. The correction
+has local routing tests but has not been live-quality verified.
+
+## Verification
+
+Six saved front outputs (3309, 3302, 3295, 3288, 3281, 3274) were used for local
+crop previews. Evidence is under `outputs/saree_hand_crop_20261120/`. Tests compare
+complete hand-panel pixels against the expected crop for several fabric colours,
+verify no provider call, source hash/seed, dependency failure and bounded aspect.
+No new paid generation was performed.

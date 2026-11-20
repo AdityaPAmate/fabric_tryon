@@ -40,7 +40,7 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         expected = {'01_front_pallu.png', '02_three_quarter.png', '03_back_view.png',
                     '04_fabric_texture.png', '05_hand_drape.png', '06_pleats_hem.png'}
         self.assertEqual({shot.reference.name for shot in definition.shots if shot.reference},
-                         expected-{'06_pleats_hem.png'})
+                         expected-{'05_hand_drape.png', '06_pleats_hem.png'})
         self.assertEqual({path.name for path in root.iterdir() if path.suffix in ('.png', '.jpg', '.jpeg')}, expected)
         manifest = json.loads((root / 'manifest.json').read_text())
         for filename in expected:
@@ -113,13 +113,10 @@ class SareeCatalogReferenceTests(SimpleTestCase):
     def test_fifth_panel_is_a_hand_drape_edit_not_an_extracted_border(self):
         definition = get_definition('saree')
         shot = next(shot for shot in definition.shots if shot.key == 'border')
-        self.assertEqual(shot.operation, 'template_edit')
-        self.assertEqual(shot.dependencies, ())
-        self.assertIsNone(shot.source_crop)
-        config = definition.build_config(data(), shot, 42)
-        self.assertEqual(shot.reference.name, '05_hand_drape.png')
-        self.assertIn('two hands', config['prompt'])
-        self.assertIn('plain finished edge', config['prompt'])
+        self.assertEqual(shot.operation, 'crop')
+        self.assertEqual(shot.dependencies, ('front',))
+        self.assertIsNone(shot.reference)
+        self.assertNotIn('prompt', definition.build_config(data(), shot, 42))
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.test/a.png'})
     @patch('fabricapp.catalog.generate_edit', side_effect=CloudflareGenerationError('provider unavailable'))
@@ -127,7 +124,7 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         events = list(generate_catalog(data(), threading.Event()))
         self.assertEqual(events[-1]['failed_views'], ['front', 'side_portrait', 'back_pallu', 'border', 'pleats'])
         self.assertEqual([im['view'] for im in events[-1]['images']], ['fabric_texture'])
-        self.assertEqual(edit.call_count, 4)
+        self.assertEqual(edit.call_count, 3)
 
     def test_editorial_catalogs_are_3_by_4_and_other_defaults_are_9_by_16(self):
         for garment in DEFAULTS:

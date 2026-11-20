@@ -24,11 +24,8 @@ FULL_FABRIC_PROMPT = (
 )
 
 def build_detail_config(data, shot, seed):
-    if shot.key == 'border':
-        from fabricapp.ai.garments.saree.catalog.border_ai import build_border_config
-        return build_border_config(data, seed)
-    if shot.key == 'pleats':
-        raise ValueError('Pleats must be cropped from the generated front, not generated independently.')
+    if shot.key in ('border', 'pleats'):
+        raise ValueError('Hand detail and pleats must be cropped from the generated front, not generated independently.')
     options = data.get('options') or {}
     if shot.key != 'fabric_texture':
         raise ValueError(f'Unsupported Saree detail: {shot.key}')

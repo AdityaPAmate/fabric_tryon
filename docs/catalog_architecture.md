@@ -1,14 +1,15 @@
 # Catalog edition ownership
 
-Saree editorial-v1 now uses the user-supplied hand-held drape photograph as the
-fifth panel template. The public key remains `border` for client compatibility,
-but its framing is `hand_drape_detail`: retain the hands and folds while replacing
-all textile using the full submitted product. No border extraction is required.
-All other panels and the rear identity guard remain unchanged. See
-[hand-drape detail](saree_hand_drape_detail.md). Earlier descriptions of isolated
-or deterministic fifth-panel border rendering below are historical.
+Saree editorial-v1 derives BOTH the fifth hand detail (public key `border`) and
+sixth pleats panel from the generated front. Neither makes an independent AI
+request. The user screenshot supplies framing guidance only. Three wearer edits,
+one full-source product photo and two front crops retain the 3:4 layout. The
+front preserves full product input and can add body-region evidence for recessed
+lower pleats. The rear identity prohibition is unchanged. See
+[hand-detail crop](saree_hand_drape_detail.md). Earlier fifth-panel generation
+and border-rendering descriptions below are historical.
 
-Shirt defaults to `editorial-v1`, exporting an image-only 1800 × 2400 collage.
+Shirt defaults to `editorial-v1`, exporting an image-only 1800 Ã— 2400 collage.
 The numbered front, side and back photographs supply their own pose templates.
 The rear shot depends on the generated front for identity and finished-fabric
 appearance while keeping its own rear-pose template and the original swatch.
@@ -382,9 +383,9 @@ a body-only swatch; the requested fallback is a plain finished selvedge.
 
 
 
-All default layouts export 9:16. Saree reflows to 1800×3200; shirt retains native
+All default layouts export 9:16. Saree reflows to 1800Ã—3200; shirt retains native
 
-photo dimensions, centered in 1296×2304. Output metadata records width, height and
+photo dimensions, centered in 1296Ã—2304. Output metadata records width, height and
 
 aspect_ratio and the UI displays the actual export ratio. Back-pallu and border
 
