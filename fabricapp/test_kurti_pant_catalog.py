@@ -13,7 +13,7 @@ from fabricapp.test_catalog_engine import picture, post
 
 
 class KurtiPantCatalogTests(SimpleTestCase):
-    @override_settings(SAVE_DEBUG_FILES=False)
+    @override_settings(SAVE_DEBUG_FILES=False, CATALOG_GENERATION_WORKERS=1)
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.test/image.png'})
     @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
     def test_default_catalog_streams_six_reference_edits_and_a_3x4_export(self, provider, upload):

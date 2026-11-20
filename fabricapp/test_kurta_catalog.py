@@ -3,7 +3,7 @@ import json
 from unittest.mock import Mock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 from PIL import Image
 from rest_framework.test import APIClient
 
@@ -122,6 +122,7 @@ class PlainKurtaCatalogTests(SimpleTestCase):
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
     @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
+    @override_settings(CATALOG_GENERATION_WORKERS=1)
     def test_both_sources_generate_all_six_reference_views(self, post, upload):
         views = ['front', 'side', 'back', 'collar', 'cuff', 'side_slit']
         for source in ('fabric_image', 'garment_image'):
@@ -327,6 +328,7 @@ class PathaniCatalogTests(SimpleTestCase):
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
+    @override_settings(CATALOG_GENERATION_WORKERS=1)
     def test_pathani_uses_six_references_in_each_source_mode(self, edit, upload):
         for source, extract in (('fabric_image', False), ('garment_image', False), ('garment_image', True)):
             with self.subTest(source=source, extract=extract):
@@ -418,6 +420,7 @@ class SherwaniCatalogTests(SimpleTestCase):
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.com/shot.png'})
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
+    @override_settings(CATALOG_GENERATION_WORKERS=1)
     def test_sherwani_uses_six_references_for_each_source_mode(self, edit, upload):
         for source, extract in (('fabric_image', False), ('garment_image', False), ('garment_image', True)):
             with self.subTest(source=source, extract=extract):

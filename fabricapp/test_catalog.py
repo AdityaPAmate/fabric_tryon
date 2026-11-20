@@ -77,7 +77,9 @@ class CatalogTests(SimpleTestCase):
         self.assertEqual([call.kwargs['camera_view'] for call in front.call_args_list], ['front', 'close_up'])
         front_args, close_args = [call.kwargs for call in front.call_args_list]
         from fabricapp.ai.garments.shirt.catalog.definition import _pipeline_options
-        self.assertEqual(close_args, {**front_args, 'camera_view': 'close_up',
+        self.assertEqual(close_args['fabric_image'].getvalue(), front_args['fabric_image'].getvalue())
+        self.assertIsNot(close_args['fabric_image'], front_args['fabric_image'])
+        self.assertEqual(close_args, {**front_args, 'fabric_image': close_args['fabric_image'], 'camera_view': 'close_up',
                                      'options': {'draft_mode': False, **_pipeline_options('close_up')}})
         self.assertEqual(front_args['options']['_catalog_config']['output_dimensions'], (576, 1920))
         self.assertEqual(close_args['body_type'], 'trim')

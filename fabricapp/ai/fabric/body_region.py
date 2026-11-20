@@ -66,7 +66,11 @@ def select_body_fabric_region(data):
     source = data.get('fabric_image')
     if source is None:
         return None, 'full_source'
+    from fabricapp.ai.fabric.analysis_cache import cached_analysis
+    return cached_analysis(source, ('body_region',), lambda: _detect_body_fabric_region(source))
 
+
+def _detect_body_fabric_region(source):
     position = source.tell()
     try:
         source.seek(0)

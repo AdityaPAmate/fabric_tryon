@@ -49,7 +49,8 @@ def generate_shot(data, shot, definition, shot_bytes, seeds, services):
         with Image.open(io.BytesIO(cropped)) as image:
             image = ImageOps.fit(image, config['output_dimensions'], method=Image.Resampling.LANCZOS)
             output = io.BytesIO()
-            image.save(output, 'PNG')
+            from fabricapp.ai.images.catalog_encoding import save_catalog_png
+            save_catalog_png(image, output)
         return GenerationResult(output.getvalue(), seed, {
             'kind': 'derived_crop', 'source_view': source_key,
             'source_image_sha256': hashlib.sha256(source).hexdigest(),
@@ -106,6 +107,15 @@ def generate_shot(data, shot, definition, shot_bytes, seeds, services):
 
 
 def generate_catalog(data, stopped, services):
+    from django.conf import settings
+    if getattr(settings, 'CATALOG_PERFORMANCE_ENABLED', True):
+        from fabricapp.catalog_engine.scheduling import generate_catalog as scheduled
+        yield from scheduled(data, stopped, services, definition=get_request_definition(data))
+    else:
+        yield from generate_catalog_serial(data, stopped, services)
+
+
+def generate_catalog_serial(data, stopped, services):
     definition = get_request_definition(data)
     layout = validate_definition(definition, data.get('catalog_product'))
     plan = definition.shots

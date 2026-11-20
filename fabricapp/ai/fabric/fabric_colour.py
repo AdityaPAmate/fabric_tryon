@@ -33,6 +33,14 @@ def colour_name(rgb):
 
 
 def measure_fabric_colours(source, crop_box=None, *, palette_size=5, min_coverage=.03):
+    from fabricapp.ai.fabric.analysis_cache import cached_analysis
+    return cached_analysis(source, ('palette', tuple(crop_box) if crop_box is not None else None,
+                                   palette_size, min_coverage),
+                           lambda: _measure_fabric_colours(source, crop_box,
+                               palette_size=palette_size, min_coverage=min_coverage))
+
+
+def _measure_fabric_colours(source, crop_box=None, *, palette_size=5, min_coverage=.03):
     """Sample original RGB pixels; restore the caller's stream even on failure.
 
     Nearest-neighbour sampling avoids averaging tiny print colours together.

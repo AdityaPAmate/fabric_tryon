@@ -2,6 +2,7 @@
 import io
 from pathlib import Path
 from PIL import Image, ImageOps, ImageDraw, ImageFont
+from fabricapp.ai.images.catalog_encoding import save_catalog_png
 
 FONT_DIR = Path(__file__).resolve().parent / "assets" / "fonts"
 
@@ -47,5 +48,5 @@ def render_catalog(shots, swatch, layout):
             value = value[:-1]
         draw.text(text.position, value, font=font, fill=text.fill, anchor=text.anchor)
     output = io.BytesIO()
-    canvas.save(output, "PNG")
+    save_catalog_png(canvas, output)
     return output.getvalue()

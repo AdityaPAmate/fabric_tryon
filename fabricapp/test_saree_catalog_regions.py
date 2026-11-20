@@ -34,10 +34,11 @@ class SareeCatalogRegionTests(SimpleTestCase):
         source.paste('blue', (64, 0, 96, 128))
         buffer = io.BytesIO()
         source.save(buffer, 'PNG')
-        captured = []
+        captured = {}
         def reply(url, **kwargs):
             files, fields = kwargs['files'], kwargs['data']
-            captured.append({key: value[1].getvalue() for key, value in files.items()})
+            role = 'side' if 'FINAL POSE:' in fields['prompt'] else 'back' if 'FINAL REAR GEOMETRY:' in fields['prompt'] else 'front'
+            captured[role] = {key: value[1].getvalue() for key, value in files.items()}
             return Mock(status_code=200, headers={'Content-Type': 'image/png'},
                         content=picture(size=(fields['width'], fields['height'])))
         provider.side_effect = reply
@@ -49,10 +50,10 @@ class SareeCatalogRegionTests(SimpleTestCase):
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
         self.assertEqual(len(captured), 3)
-        self.assertEqual(set(captured[1]), {'input_image_0', 'input_image_1', 'input_image_2', 'input_image_3'})
-        with Image.open(io.BytesIO(captured[1]['input_image_3'])) as border:
+        self.assertEqual(set(captured['side']), {'input_image_0', 'input_image_1', 'input_image_2', 'input_image_3'})
+        with Image.open(io.BytesIO(captured['side']['input_image_3'])) as border:
             self.assertEqual(border.getpixel((border.width-1, border.height//2)), (0, 0, 255))
-        self.assertEqual(set(captured[2]), {'input_image_0', 'input_image_1'})
+        self.assertEqual(set(captured['back']), {'input_image_0', 'input_image_1'})
 
     def test_body_and_border_have_distinct_tasks_and_crop_precedence(self):
         definition = get_definition('saree')
@@ -93,7 +94,7 @@ class SareeCatalogRegionTests(SimpleTestCase):
         def answer(url, **kwargs):
             image = Image.open(io.BytesIO(kwargs['files']['input_image_1'][1].getvalue()))
             seen.append(image.convert('RGB').getpixel((image.width//2, image.height//2)))
-            if len(seen) == 2:
+            if 'FINAL POSE:' in kwargs['data']['prompt']:
                 extra = Image.open(io.BytesIO(kwargs['files']['input_image_2'][1].getvalue()))
                 product_references.append(extra.convert('RGB').getpixel((extra.width-1, extra.height//2)))
             fields = kwargs['data']

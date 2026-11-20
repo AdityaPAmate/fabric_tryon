@@ -4,7 +4,7 @@ from itertools import product
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 from PIL import Image
 from rest_framework.test import APIClient
 
@@ -240,6 +240,7 @@ class CasualBlazerCatalogTests(SimpleTestCase):
             self.assertEqual(output.getpixel((38, 160)), image.getpixel((38, 160)))
             self.assertEqual(output.getpixel((127, 270)), image.getpixel((127, 270)))
 
+    @override_settings(CATALOG_GENERATION_WORKERS=1)
     def test_each_view_passes_its_style_reference_to_the_model(self):
         styles = {'casual': CASUAL_REFERENCES, 'wedding': WEDDING_REFERENCES}
         for style, source_key in product(styles, ('fabric_image', 'garment_image')):

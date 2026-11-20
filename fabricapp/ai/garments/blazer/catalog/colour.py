@@ -67,7 +67,8 @@ def encode_portrait(generation, original, image, diagnostics):
     if image is original:
         return generation
     output = BytesIO()
-    image.save(output, 'PNG')
+    from fabricapp.ai.images.catalog_encoding import save_catalog_png
+    save_catalog_png(image, output)
     return replace(generation, image_bytes=output.getvalue(), diagnostics={
         **(generation.diagnostics or {}), **diagnostics,
     })

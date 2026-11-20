@@ -11,6 +11,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv()
 
+# One switch restores the previous serial execution and PNG compression policy.
+CATALOG_PERFORMANCE_ENABLED = os.getenv('CATALOG_PERFORMANCE_ENABLED', 'true').lower() == 'true'
+CATALOG_GENERATION_WORKERS = max(1, min(2, int(os.getenv('CATALOG_GENERATION_WORKERS', '2'))))
+CATALOG_PNG_COMPRESS_LEVEL = max(0, min(9, int(os.getenv('CATALOG_PNG_COMPRESS_LEVEL', '3'))))
+
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
     api_key=os.getenv("CLOUDINARY_API_KEY"),

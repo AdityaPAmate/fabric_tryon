@@ -6,14 +6,13 @@ from PIL import Image, ImageFilter, ImageOps
 
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
 from fabricapp.ai.fabric.body_region import select_body_fabric_region
+from fabricapp.ai.images.catalog_encoding import save_catalog_png
+from fabricapp.catalog_engine.composite_assets import reference_maps
 
 
 def render_swatch_shot(data, shot, target_rgb=None):
-    with Image.open(shot.reference) as image, Image.open(shot.reference_mask) as mask:
-        reference = image.convert('RGB')
-        fabric_mask = mask.convert('L')
-    if fabric_mask.size != reference.size:
-        raise ValueError(f'Cloth mask does not match {shot.reference.name}')
+    maps = reference_maps(shot)
+    reference, fabric_mask = maps['reference'], maps['mask']
 
     options = data.get('options', {})
     source = data['fabric_image']
@@ -33,9 +32,7 @@ def render_swatch_shot(data, shot, target_rgb=None):
     texture = ImageOps.fit(swatch, reference.size, Image.Resampling.LANCZOS, centering=(.5, 1))
     # Transfer only broad, neutral fold shading. The reference's original
     # colour and embroidery never enter the swatch pixels.
-    luminance = np.asarray(reference.convert('L').filter(ImageFilter.GaussianBlur(8)), dtype=np.float32)
-    inside = np.asarray(fabric_mask) > 240
-    midtone = max(1, float(np.median(luminance[inside])))
+    luminance, inside, midtone = maps['luminance'], maps['inside'], maps['midtone']
     shading = np.clip(luminance / midtone, .82 if shot.swatch_body_only else .76,
                       1.0 if shot.swatch_body_only else 1.06)
     pixels = np.asarray(texture, dtype=np.float32)
@@ -53,11 +50,8 @@ def render_swatch_shot(data, shot, target_rgb=None):
         # A neutral map carries construction shadows and highlights independently
         # of the reference textile's colour. Its alpha marks a separate welt
         # whose cut of the same cloth has a different pattern alignment.
-        with Image.open(shot.composite_relief) as image:
-            if image.size != reference.size:
-                raise ValueError(f'Composite relief does not match {shot.reference.name}')
-            shading *= np.asarray(image.convert('L'), dtype=np.float32) / 128
-            welt = np.asarray(image.getchannel('A'), dtype=np.float32)[:, :, None] / 255
+        shading *= maps['relief']
+        welt = maps['welt']
         offset = max(1, reference.width // 24)
         shifted = np.pad(pixels, ((0, 0), (0, offset), (0, 0)), mode='edge')[:, offset:]
         pixels = pixels * (1 - welt) + shifted * welt
@@ -77,7 +71,7 @@ def render_swatch_shot(data, shot, target_rgb=None):
     if options.get('draft_mode'):
         result.thumbnail((768, 768), Image.Resampling.LANCZOS)
     output = io.BytesIO()
-    result.save(output, 'PNG')
+    save_catalog_png(result, output)
     diagnostics = {
         'kind': 'swatch_composite', 'reference_mask': shot.reference_mask.name,
         'fabric_crop_box': crop, 'output_dimensions': list(result.size), 'no_new_ai_generation': True,
