@@ -28,22 +28,6 @@ class SareeProductDetailTests(SimpleTestCase):
         self.assertEqual(result.diagnostics['photo_fit'],'side_band_diagonal_1_to_3')
         self.assertTrue(result.diagnostics['no_new_ai_generation'])
 
-    def test_pleats_edit_task_leads_for_plain_and_patterned_fabrics(self):
-        definition=get_definition('saree');shot=next(s for s in definition.shots if s.key=='pleats')
-        for material in ('unspecified','cotton','silk','velvet'):
-            for patterned in (False,True):
-                source=Image.new('RGB',(180,240),'teal')
-                if patterned:
-                    source.paste('gold',(50,0,70,240));source.paste('white',(140,0,160,240))
-                payload=io.BytesIO();source.save(payload,'PNG');payload.seek(0)
-                config=definition.build_config(data(fabric_image=payload,fabric_type=material,options={}),shot,42)
-                self.assertTrue(config['prompt'].startswith('EDIT IMAGE 0 IN PLACE:'))
-                self.assertIn('FOLDED TEXTILE',config['prompt'])
-                self.assertNotIn('saree body and pallu',config['prompt'])
-                self.assertNotIn('Keep the garment construction',config['prompt'])
-                self.assertIn('exact pleat count',config['prompt'])
-                self.assertTrue(config['fabric_colour_reference']['colours'])
-
     def test_narrow_border_input_keeps_design_and_gains_real_source_context(self):
         from fabricapp.ai.garments.saree.catalog.product_details import border_reference_box
         from fabricapp.ai.garments.saree.catalog.regions import source_regions
@@ -54,9 +38,6 @@ class SareeProductDetailTests(SimpleTestCase):
         self.assertGreaterEqual(box[2]-box[0],185)
         self.assertLessEqual(box[0],281);self.assertGreaterEqual(box[2],312)
         self.assertEqual(source.crop(box).getpixel((281-box[0],100)),(0,0,255))
-        definition=get_definition('saree');shot=next(s for s in definition.shots if s.key=='pleats')
-        config=definition.build_config(request,shot,42)
-        self.assertEqual(config['fabric_reference_crops']['side_border'],box)
 
     def test_full_side_preserves_terminal_product_evidence_and_uses_full_body_reference(self):
         definition=get_definition('saree');shot=next(s for s in definition.shots if s.key=='side_portrait')
@@ -67,28 +48,6 @@ class SareeProductDetailTests(SimpleTestCase):
         self.assertIn('FULL-LENGTH head-to-floor',config['prompt'])
         self.assertNotIn('head-to-upper-thigh',config['prompt'])
         self.assertNotIn('pallu end stays below the frame',config['prompt'])
-
-    @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
-    def test_report_sized_narrow_border_is_not_sent_as_a_31_pixel_input(self, provider):
-        from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image
-        source=Image.new('RGB',(1000,1000),'ivory');source.paste('blue',(281,0,312,740))
-        payload=io.BytesIO();source.save(payload,'PNG');payload.seek(0)
-        request=data(fabric_image=payload,options={'fabric_border_crop_box':[281,0,312,740]})
-        definition=get_definition('saree');shot=next(s for s in definition.shots if s.key=='pleats')
-        config=definition.build_config(request,shot,42)
-        def reply(url,**kwargs):
-            with Image.open(kwargs['files']['input_image_2'][1]) as extra:
-                self.assertGreaterEqual(min(extra.size),128)
-                self.assertLessEqual(max(extra.size),1024)
-            fields=kwargs['data']
-            return Mock(status_code=200,headers={'Content-Type':'image/png'},
-                        content=picture(size=(fields['width'],fields['height'])))
-        provider.side_effect=reply
-        with patch('django.conf.settings.SAVE_DEBUG_FILES',False):
-            result=generate_tryon_image(garment_type='saree',fabric_image=payload,
-                person_image=io.BytesIO(shot.reference.read_bytes()),scenario='person_photo',
-                options=request['options'],prompt_config=config)
-        self.assertEqual(result.diagnostics['input_dimensions']['input_image_2'],[128,511])
 
     def test_full_photo_keeps_all_four_coloured_corners_despite_body_crop(self):
         source = Image.new('RGB', (532, 820), 'purple')

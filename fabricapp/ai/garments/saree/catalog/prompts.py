@@ -6,6 +6,7 @@ from fabricapp.ai.garments.saree.catalog.layout import OUTPUT_SIZES
 from fabricapp.ai.garments.saree.catalog.detail_prompts import build_detail_config
 from fabricapp.ai.garments.saree.catalog.regions import source_regions
 from fabricapp.ai.garments.saree.catalog.product_details import border_reference_box
+from fabricapp.ai.garments.saree.catalog.front_crop import crop_config
 
 
 def _reference_output_size(data, shot):
@@ -114,11 +115,13 @@ def _side_portrait_config(data, shot, seed):
 
 
 def build_config(data, shot, seed):
+    if shot.key == 'pleats':
+        return crop_config(data,shot,seed)
     if shot.key == 'side_portrait':
         return _side_portrait_config(data, shot, seed)
     if shot.key == 'back_pallu':
         return _back_reference_config(data, shot, seed)
-    if shot.key in ('fabric_texture', 'border', 'pleats'):
+    if shot.key in ('fabric_texture', 'border'):
         return build_detail_config(data, shot, seed)
     identity = bool(shot.identity_from and (shot.identity_from != 'request' or
                     data.get('person_image') or data.get('face_image') or data.get('face_choice')))

@@ -75,6 +75,10 @@ garment or a sibling edition.
 
 # Current saree revision: 3:4
 
+Current detail behavior: [pleats cropped from generated front](saree_pleats_from_front.md).
+The last panel is a dependency-based local crop, not a fourth AI edit. It uses
+the front's original pixels and seed; the old sixth reference is not sent.
+
 Latest revision: [floor-length pallu, diagonal real border and cloth-only pleats](saree_floor_pallu_diagonal_border.md).
 Back covers the lower skirt with one floor-touching pallu. Border is oriented
 from top-left to bottom-right. Pleats owns its conditioning and keeps its folded

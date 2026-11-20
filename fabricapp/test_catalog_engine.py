@@ -144,7 +144,7 @@ class SareeCatalogTests(SimpleTestCase):
         self.assertEqual(events[-1]['collage']['aspect_ratio'], '3:4')
         self.assertEqual((events[-1]['collage']['width'], events[-1]['collage']['height']), (1800, 2400))
         self.assertFalse(events[-1]['collage']['includes_original_swatch'])
-        self.assertEqual(edit.call_count, 4)
+        self.assertEqual(edit.call_count, 3)
         self.assertEqual(upload.call_count, 7)
         pipeline.assert_not_called()
         definition = get_definition('saree')
@@ -175,17 +175,17 @@ class SareeCatalogTests(SimpleTestCase):
     def test_front_failure_keeps_other_five_template_shots(self, edit, upload):
         edit.side_effect = [CloudflareGenerationError('rejected')] + [GenerationResult(picture(), 42)] * 5
         events = list(generate_catalog(data(), threading.Event()))
-        self.assertEqual(events[-1]['failed_views'], ['front'])
-        self.assertEqual([image['view'] for image in events[-1]['images']], ['side_portrait', 'back_pallu', 'fabric_texture', 'border', 'pleats'])
+        self.assertEqual(events[-1]['failed_views'], ['front', 'pleats'])
+        self.assertEqual([image['view'] for image in events[-1]['images']], ['side_portrait', 'back_pallu', 'fabric_texture', 'border'])
         self.assertEqual(events[-1]['status'], 'partial')
-        self.assertEqual(edit.call_count, 4)
+        self.assertEqual(edit.call_count, 3)
 
     @patch('fabricapp.catalog.upload_generated_image')
     @patch('fabricapp.catalog.generate_edit', return_value=GenerationResult(picture(), 42))
     def test_front_upload_failure_keeps_anchor_for_dependents(self, edit, upload):
         upload.side_effect = [RuntimeError('upload failed')] + [{'url': 'https://example.com/a.png'}] * 6
         events = list(generate_catalog(data(), threading.Event()))
-        self.assertEqual(edit.call_count, 4)
+        self.assertEqual(edit.call_count, 3)
         self.assertEqual(events[-1]['failed_views'], ['front'])
         self.assertEqual(len(events[-1]['images']), 5)
 
@@ -239,7 +239,7 @@ class SareeCatalogTests(SimpleTestCase):
             events = [json.loads(chunk) for chunk in response.streaming_content]
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
-        self.assertEqual(len(seen), 4)
+        self.assertEqual(len(seen), 3)
         self.assertEqual(len(set(fabric_hashes)), 1)
         ready = [event['image'] for event in events if event['event'] == 'image_ready']
         self.assertTrue(all(image['generation']['input_hashes']['input_image_1'] == fabric_hashes[0]
@@ -262,7 +262,7 @@ class SareeCatalogTests(SimpleTestCase):
         self.assertEqual(events[-1]['status'], 'partial')
         failures = [event for event in events if event['event'] == 'image_failed']
         self.assertEqual(failures[0]['error'], 'invalid_provider_output')
-        self.assertEqual(provider.call_count, 4)  # Two additional shots use original product pixels.
+        self.assertEqual(provider.call_count, 3)  # Two additional shots use original product pixels.
         self.assertEqual(upload.call_count, 2)  # Two original-product shots still succeed.
 
     @patch('fabricapp.catalog.upload_generated_image')
@@ -378,11 +378,10 @@ class CatalogHttpBoundaryTests(SimpleTestCase):
                 response.close()
             self.assertEqual(events[-1]['status'], 'completed')
             generated = [fields for path, fields in calls if path == '/generate']
-            self.assertEqual(len(generated), 4)
+            self.assertEqual(len(generated), 3)
             self.assertEqual(sum(path == '/upload' for path, fields in calls), 7)
             self.assertTrue(all('input_image_2' in generated[index] for index in (0, 1)))
             self.assertEqual({key for key in generated[2] if key.startswith('input_image_')}, {'input_image_0', 'input_image_1'})
-            self.assertNotIn('input_image_2', generated[3])
         finally:
             session.close()
             server.shutdown()

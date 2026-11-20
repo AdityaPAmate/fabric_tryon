@@ -2,10 +2,6 @@
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.garments.saree.catalog.layout import OUTPUT_SIZES
 from fabricapp.ai.garments.saree.catalog.regions import source_regions
-from fabricapp.ai.garments.saree.catalog.product_details import border_reference_box
-from fabricapp.ai.fabric.fabric_colour import measure_fabric_colours
-from fabricapp.ai.fabric.fabric_material import validate_fabric_type
-from fabricapp.ai.pipeline.router import PromptRoutingError
 
 
 FULL_FABRIC_PROMPT = (
@@ -28,46 +24,6 @@ FULL_FABRIC_PROMPT = (
     'No wearer, mannequin, blouse, face, hands, text, inset or collage. '
 )
 
-PLEATS_PROMPT = (
-    'EDIT IMAGE 0 IN PLACE: this is a tightly cropped photograph of FOLDED TEXTILE. '
-    'Change only its cloth surface using image 1. Keep exactly the existing fan of '
-    'vertical folds on the left, the diagonal overlapping cloth at the upper left, '
-    'and the straight hanging cloth panel on the right. Keep all overlap boundaries, '
-    'fold shadows, camera distance and the curved stitched bottom hem fixed. '
-    'At the top edge there is only cropped fabric; the complete lower hem remains '
-    'near the bottom. Keep the same tiny grey floor area under that hem. '
-    'Copy the supplied cloth colour, print, motif scale and weave into these existing '
-    'folds. Keep the hanging panel lower edge exactly where image 0 puts it. '
-    'Do not zoom out or reconstruct a whole garment display. '
-    'No mannequin, body parts, blouse, hanger, stand, new scene, inset or text. '
-)
-
-
-def _condition_pleats(config, context):
-    """Cloth-detail conditioning; no whole-outfit prompt before the edit task.
-
-    Every fabric uses this same path, including majority-colour patterned cloth.
-    Shared utilities measure samples but do not change this shot's subject.
-    """
-    material = context.get('fabric_type','unspecified')
-    error = validate_fabric_type(material,'saree')
-    if error:
-        raise PromptRoutingError(error)
-    profile = measure_fabric_colours(context['fabric_image'],
-        (context.get('options') or {}).get('fabric_crop_box'),palette_size=24,min_coverage=.005)
-    samples = ', '.join(sample['hex'] for sample in profile['colours'][:8])
-    if samples:
-        config['prompt'] += (' Measured cloth samples: '+samples+'. Image 1 determines their '
-                             'actual positions and proportions; keep its print on the existing folds. ')
-    surface = {
-        'unspecified': 'Keep the actual photographed weave and finish from image 1.',
-        'cotton': 'Use a fine matte cotton weave with soft diffuse fold highlights.',
-        'silk': 'Use a fine silk weave with restrained lustre and smooth fold highlights.',
-        'velvet': 'Use dense velvet pile with soft directional nap and broad fold highlights.',
-    }[material]
-    config['prompt'] += ' MATERIAL: '+surface+' Change only the photographed cloth surface. '
-    return {**config,'fabric_type':material,'fabric_colour_reference':profile}
-
 BORDER_PROMPT = (
     'Edit image 0 into a macro photograph of the LONG SIDE BORDER / SELVEDGE from image 1. '
     'Image 0 supplies only the curved outer cloth boundary, fold and camera framing. '
@@ -87,39 +43,28 @@ BORDER_PROMPT = (
 
 
 def build_detail_config(data, shot, seed):
+    if shot.key == 'pleats':
+        raise ValueError('Pleats must be cropped from the generated front, not generated independently.')
     options = data.get('options') or {}
     flatlay = shot.key == 'fabric_texture'
     regions = source_regions(data)
-    if shot.key == 'pleats':
-        regions = {**regions}
-        regions['border'] = border_reference_box(data, regions)
-    crop = None if flatlay else regions['body' if shot.key == 'pleats' else 'border']
+    crop = None if flatlay else regions['border']
     context = {**data, 'options': {**options, 'fabric_crop_box': crop}}
     dimensions = OUTPUT_SIZES[shot.key]
     if options.get('draft_mode', False):
         scale = min(1, 512 / max(dimensions))
         dimensions = tuple(max(256, round(value * scale / 32) * 32) for value in dimensions)
     config = {
-        'prompt': FULL_FABRIC_PROMPT if flatlay else PLEATS_PROMPT if shot.key == 'pleats' else BORDER_PROMPT,
+        'prompt': FULL_FABRIC_PROMPT if flatlay else BORDER_PROMPT,
         'seed': seed, 'guidance': data.get('guidance', 7),
         'output_dimensions': dimensions, 'safety_retry_count': 0,
         'fabric_source_format': 'PNG', 'classified_recovery': True,
         'fabric_crop_box': crop,
-        'fabric_region': 'full_saree' if flatlay else 'body' if shot.key == 'pleats' else 'border',
-        'fabric_region_selection': 'full_source' if flatlay else regions['body_selection' if shot.key == 'pleats' else 'border_selection'],
+        'fabric_region': 'full_saree' if flatlay else 'border',
+        'fabric_region_selection': 'full_source' if flatlay else regions['border_selection'],
     }
-    config = (_condition_pleats(config,context) if shot.key == 'pleats' else
-              apply_fabric_conditioning(config,context,'saree',lead_with_edit=flatlay))
-    if shot.key == 'pleats' and regions['border'] is not None:
-        config['fabric_reference_crops'] = {'side_border': regions['border']}
-        config['prompt'] += (' Image 2 is only the actual long-side border cloth. Use its design '
-                             'on the existing narrow edge and lower hem; do not put broad pallu '
-                             'end artwork there. Keep image 0’s tight pleats crop.')
+    config = apply_fabric_conditioning(config,context,'saree',lead_with_edit=flatlay)
     config['prompt'] += ' Use even neutral white light. Preserve the actual source colour and pattern.'
-    if shot.key == 'pleats':
-        config['prompt'] += (' FINAL EDIT LIMIT: replace textile appearance only. Keep image 0’s '
-                             'exact pleat count, fold boundaries, overlapping edges and hem contour. '
-                             'Do not generate a different drape or a new garment pose.')
     if flatlay:
         config['prompt'] += (' FINAL COMPOSITION: the same flat rectangular cloth as image 0, '
                              'all four corners on the table; no body, no blouse and no draped wearer.')
