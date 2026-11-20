@@ -72,7 +72,7 @@ class SareeBorderExtractionTests(SimpleTestCase):
             self.assertEqual(events[-1]['status'],'completed')
             border=next(e['image'] for e in events if e['event']=='image_ready' and e['image']['view']=='border')
             self.assertEqual(border['operation'],'template_edit')
-            self.assertEqual(edit.call_args.kwargs['prompt_config']['prompt_version'],'saree-border-ai-detail-v1')
+            self.assertEqual(edit.call_args.kwargs['prompt_config']['prompt_version'],'saree-hand-drape-v1')
 
     def test_explicit_band_cannot_leak_bright_body_or_terminal_artwork(self):
         source=Image.new('RGB',(300,600),'red')
@@ -114,12 +114,11 @@ class SareeBorderExtractionTests(SimpleTestCase):
 
     @patch('fabricapp.catalog.upload_generated_image',return_value={'url':'https://example.test/a.png'})
     @patch('fabricapp.catalog.generate_edit',return_value=GenerationResult(picture(),42))
-    def test_ambiguous_border_surfaces_selection_error_in_catalog_stream(self,edit,upload):
+    def test_hand_drape_does_not_require_automatic_border_detection(self,edit,upload):
         source=Image.fromarray(np.random.default_rng(7).integers(80,190,(200,200,3),dtype=np.uint8))
         buffer=io.BytesIO();source.save(buffer,'PNG')
         response=post(fabric_image=SimpleUploadedFile('ambiguous.png',buffer.getvalue(),'image/png'))
         events=[json.loads(chunk) for chunk in response.streaming_content];response.close()
-        failure=next(e for e in events if e['event']=='image_failed' and e['view']=='border')
-        self.assertEqual(failure['error'],'border_selection_required')
-        self.assertEqual(events[-1]['failed_views'],['border'])
-        self.assertEqual(edit.call_count,3)
+        self.assertEqual(events[-1]['failed_views'],[])
+        self.assertEqual(events[-1]['status'],'completed')
+        self.assertEqual(edit.call_count,4)

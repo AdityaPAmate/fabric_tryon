@@ -1,5 +1,7 @@
 # Saree fifth panel: AI border detail
 
+Historical implementation, superseded by [the hand-drape reference](saree_hand_drape_detail.md).
+
 The editorial-v1 fifth panel now calls the configured image-edit provider once,
 instead of delivering the enlarged source crop as the final panel. Other panels
 are unchanged: three wearer edits, original full product photograph, and a crop

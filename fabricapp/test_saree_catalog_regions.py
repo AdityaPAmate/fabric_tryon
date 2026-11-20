@@ -51,7 +51,7 @@ class SareeCatalogRegionTests(SimpleTestCase):
         self.assertIn('COMPLETE SAREE FLAT-LAY', configs['fabric_texture']['prompt'])
         self.assertIn('BOTH long side borders', configs['fabric_texture']['prompt'])
         self.assertEqual(configs['fabric_texture']['fabric_region'], 'full_saree')
-        self.assertIn('not the main body print', configs['border']['prompt'])
+        self.assertIn('Replace ALL visible saree cloth', configs['border']['prompt'])
         self.assertNotEqual(configs['fabric_texture']['prompt_version'], configs['border']['prompt_version'])
         self.assertEqual(request['options'], {'fabric_crop_box': [0, 0, 40, 80]})
 
@@ -96,12 +96,12 @@ class SareeCatalogRegionTests(SimpleTestCase):
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
         self.assertEqual(len(seen), 4)
-        self.assertEqual(seen[-1], (0, 0, 255))
+        self.assertEqual(seen[-1], (255, 0, 0))  # Complete product, not the isolated blue band.
 
         self.assertEqual(product_references, [(0, 0, 255)])
         border = next(e['image'] for e in events if e['event'] == 'image_ready' and e['image']['view'] == 'border')
         self.assertIsNone(border['generation']['fabric_crop_box'])  # Already prepared border-only input.
-        self.assertEqual(border['generation']['fabric_region'], 'border')
+        self.assertEqual(border['generation']['fabric_region'], 'hand_drape')
         pleats = next(e['image'] for e in events if e['event'] == 'image_ready' and e['image']['view'] == 'pleats')
         self.assertEqual(pleats['generation']['kind'], 'derived_crop')
         self.assertEqual(pleats['generation']['source_view'], 'front')

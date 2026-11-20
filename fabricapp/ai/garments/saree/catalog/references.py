@@ -6,6 +6,6 @@ REFERENCES = {
     'side_portrait': CATALOG_REFERENCE_DIR / 'saree' / '02_three_quarter.png',
     'back_pallu': CATALOG_REFERENCE_DIR / 'saree' / '03_back_view.png',
     'fabric_texture': CATALOG_REFERENCE_DIR / 'saree' / '04_fabric_texture.png',
-    'border': CATALOG_REFERENCE_DIR / 'saree' / '05_border_closeup.png',
+    'border': CATALOG_REFERENCE_DIR / 'saree' / '05_hand_drape.png',
     'pleats': CATALOG_REFERENCE_DIR / 'saree' / '06_pleats_hem.png',
 }

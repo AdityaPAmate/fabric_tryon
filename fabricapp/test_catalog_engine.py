@@ -159,8 +159,7 @@ class SareeCatalogTests(SimpleTestCase):
             if shot.scenario == 'person_pose' and shot.identity_crop:
                 from fabricapp.ai.images.image_utils import crop_identity_reference
                 source = crop_identity_reference(source, shot.identity_crop)
-            if shot.key != 'border':
-                self.assertEqual(call.kwargs['person_image'].getvalue(), source)
+            self.assertEqual(call.kwargs['person_image'].getvalue(), source)
             if shot.identity_from == 'front':
                 expected = picture()
                 if shot.identity_crop:
@@ -245,10 +244,10 @@ class SareeCatalogTests(SimpleTestCase):
             response.close()
         self.assertEqual(events[-1]['status'], 'completed')
         self.assertEqual(len(seen), 4)
-        self.assertEqual(len(set(fabric_hashes[:3])), 1)
+        self.assertEqual(len(set(fabric_hashes)), 1)
         ready = [event['image'] for event in events if event['event'] == 'image_ready']
         self.assertTrue(all(image['generation']['input_hashes']['input_image_1'] == fabric_hashes[0]
-                            for image in ready if image['operation'] == 'template_edit' and image['view'] != 'border'))
+                            for image in ready if image['operation'] == 'template_edit'))
         for shot, slots in zip([shot for shot in get_definition('saree').shots if shot.operation == 'template_edit'], seen):
             expected = {'input_image_0', 'input_image_1'}
             if shot.identity_from or shot.reference_role == 'composition':

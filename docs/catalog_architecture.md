@@ -1,10 +1,12 @@
 # Catalog edition ownership
 
-Saree editorial-v1 now generates the fifth (border) detail with AI using only
-the actual extracted border as product and placement evidence. It no longer
-delivers an enlarged source crop as the final fifth panel. All other panels and
-the rear identity guard remain unchanged. See [AI border detail](saree_border_ai_detail.md).
-Earlier descriptions of deterministic fifth-panel rendering below are historical.
+Saree editorial-v1 now uses the user-supplied hand-held drape photograph as the
+fifth panel template. The public key remains `border` for client compatibility,
+but its framing is `hand_drape_detail`: retain the hands and folds while replacing
+all textile using the full submitted product. No border extraction is required.
+All other panels and the rear identity guard remain unchanged. See
+[hand-drape detail](saree_hand_drape_detail.md). Earlier descriptions of isolated
+or deterministic fifth-panel border rendering below are historical.
 
 Shirt defaults to `editorial-v1`, exporting an image-only 1800 × 2400 collage.
 The numbered front, side and back photographs supply their own pose templates.

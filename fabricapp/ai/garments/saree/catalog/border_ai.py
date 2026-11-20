@@ -1,24 +1,25 @@
-"""Saree-only AI border detail: genuine source evidence, never template ornament."""
-import io
-
-from fabricapp.ai.garments.saree.catalog.border_extraction import extract_band, render_from_source
-from fabricapp.ai.garments.saree.catalog.product_details import _load
+"""Fifth panel: hand-held saree drape, replacing the isolated border macro."""
 
 
 BORDER_PROMPT = (
-    'Create ONE sharp macro product photograph of the actual saree LONG SIDE BORDER / SELVEDGE. '
-    'Image 0 is a low-resolution placement guide made ONLY from the submitted border: '
-    'keep its continuous diagonal band running from TOP LEFT to BOTTOM RIGHT. '
-    'Image 1 is a close-up of that SAME real border and is the only textile design authority. '
-    'Re-photograph the border with crisp, clearly resolved motif edges and natural woven texture. '
-    'Preserve the exact source colours, motif shapes, stripe count, motif order and orientation. '
-    'Keep one complete border width visible, with a small neutral light-grey studio area '
-    'outside its finished edges. Show only this narrow long-side border, not the whole saree, '
-    'the broad pallu end artwork; this is not the main body print or scattered body motifs. Do not add designs, flowers, '
-    'stripes, metallic shine or embroidery absent from image 1. For plain cloth, show a '
-    'plain finished edge; invent no ornamental border. Use even neutral white light, '
-    'natural fabric thickness and subtle physical relief. No sunlight, colour cast, '
-    'harsh shadow, blur, pasted cutout, person, mannequin, hands, text or collage. '
+    'Edit image 0 IN PLACE into ONE natural saree fabric-detail photograph. '
+    'Keep the EXACT tight framing, two hands, wrist positions, bangles and soft hanging '
+    'cloth folds from image 0. Show the same hands resting over the draped saree; '
+    'do not introduce a face, head, full body, mannequin or extra hands. '
+    'Image 0 supplies ONLY hand pose, anatomy, framing and drape geometry. '
+    'Image 1 is the submitted saree product and the ONLY source of fabric colour and design. '
+    'Replace ALL visible saree cloth in image 0, including cloth behind the hands and '
+    'the hanging front fold, with image 1 fabric. Preserve its actual body colour, '
+    'motif shapes, pattern scale and weave. Keep body print on body cloth and use only '
+    'the actual narrow long-side border along the hanging finished edge. '
+    'Do not move the broad pallu end artwork onto the body. '
+    'Remove every template red/maroon patch, gold border, dot, zigzag and stripe unless '
+    'it exists in image 1. If the source shows no decorative border, use a plain finished edge '
+    'matching the source fabric; never invent zari, embroidery or stripes. '
+    'Render crisp textile detail wrapped naturally around the existing three-dimensional '
+    'folds, with the hands naturally occluding the cloth. Do not paste fabric over skin or bangles. '
+    'Use even neutral white light and gentle physical fold shading, no sunlight, '
+    'warm cast, harsh shadows, cutout edges, text, inset or collage. '
 )
 
 
@@ -30,23 +31,6 @@ def build_border_config(data, seed):
         'subject_input_max_side': 768, 'fabric_crop_box': None,
         'fabric_source_format': 'PNG', 'classified_recovery': True,
         'fabric_type': data.get('fabric_type', 'unspecified'),
-        'fabric_region': 'border', 'fabric_region_selection': 'extracted_side_band_ai_edit',
-        'prompt_version': 'saree-border-ai-detail-v1', 'safety_retry_count': 0,
+        'fabric_region': 'hand_drape', 'fabric_region_selection': 'full_source',
+        'prompt_version': 'saree-hand-drape-v1', 'safety_retry_count': 0,
     }
-
-
-def prepare_edit_inputs(data, shot, source, garment_source):
-    if shot.key != 'border':
-        return source, garment_source
-    image, _ = _load(data)
-    strip, metadata = extract_band(image, data.get('options') or {})
-    guide = render_from_source(image, strip, metadata, (532, 704))
-    # Supply a local repeat at usable aspect. Sending a 35x609 strip through the
-    # provider's 511px limit would shrink the border width to only 29 pixels.
-    height = min(strip.height, max(1, strip.width * 4))
-    top = (strip.height - height) // 2
-    detail = strip.crop((0, top, strip.width, top + height))
-    subject, fabric = io.BytesIO(), io.BytesIO()
-    guide.save(subject, 'PNG'); detail.save(fabric, 'PNG')
-    subject.seek(0); fabric.seek(0)
-    return subject.getvalue(), fabric

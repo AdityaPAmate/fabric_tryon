@@ -77,5 +77,3 @@ class CatalogDefinition:
     swatch_colour: Callable | None = None
     validate_shot: Callable | None = None
     render_product: Callable | None = None
-    # Optional garment-owned product/composition buffers; defaults preserve inputs.
-    prepare_edit_inputs: Callable | None = None

@@ -38,7 +38,7 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         definition = get_definition('saree')
         root = definition.shots[0].reference.parent
         expected = {'01_front_pallu.png', '02_three_quarter.png', '03_back_view.png',
-                    '04_fabric_texture.png', '05_border_closeup.png', '06_pleats_hem.png'}
+                    '04_fabric_texture.png', '05_hand_drape.png', '06_pleats_hem.png'}
         self.assertEqual({shot.reference.name for shot in definition.shots if shot.reference},
                          expected-{'06_pleats_hem.png'})
         self.assertEqual({path.name for path in root.iterdir() if path.suffix in ('.png', '.jpg', '.jpeg')}, expected)
@@ -110,15 +110,15 @@ class SareeCatalogReferenceTests(SimpleTestCase):
         self.assertIn('torso facing away', str(parts))
         self.assertIn('broad', str(parts))
 
-    def test_border_is_a_side_edge_generation_not_a_body_crop(self):
+    def test_fifth_panel_is_a_hand_drape_edit_not_an_extracted_border(self):
         definition = get_definition('saree')
         shot = next(shot for shot in definition.shots if shot.key == 'border')
         self.assertEqual(shot.operation, 'template_edit')
         self.assertEqual(shot.dependencies, ())
         self.assertIsNone(shot.source_crop)
         config = definition.build_config(data(), shot, 42)
-        self.assertIn('LONG SIDE BORDER / SELVEDGE', config['prompt'])
-        self.assertIn('not the main body print', config['prompt'])
+        self.assertEqual(shot.reference.name, '05_hand_drape.png')
+        self.assertIn('two hands', config['prompt'])
         self.assertIn('plain finished edge', config['prompt'])
 
     @patch('fabricapp.catalog.upload_generated_image', return_value={'url': 'https://example.test/a.png'})

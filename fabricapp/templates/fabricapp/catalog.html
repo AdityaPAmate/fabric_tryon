@@ -19,8 +19,8 @@ body{font:16px system-ui;background:#f5f4f0;color:#172a28;margin:0}main{max-widt
 <label>Quality<select id="quality"><option value="final">Final</option><option value="draft">Draft (preview)</option></select></label>
 
 <label data-saree-region hidden>Main body crop (optional)<input id="bodyCrop" placeholder="left, upper, right, lower"><small>For side and pleats views. Blank uses detected body cloth. The full-saree flat-lay always sees the whole upload.</small></label>
-<label data-saree-region hidden>Side border crop (optional)<input id="borderCrop" placeholder="left, upper, right, lower"><small>Original fabric pixels, including the actual long edge, not the pallu end. Blank uses a detected side band when available.</small></label>
-<label data-saree-region hidden>Border orientation<select id="borderRotation"><option value="auto">Auto (outer edge on left)</option><option value="0">Keep source direction</option><option value="180">Rotate 180 degrees</option></select></label>
+<label data-saree-region hidden>Side-view border reference crop (optional)<input id="borderCrop" placeholder="left, upper, right, lower"><small>Original fabric pixels for side-view product evidence. The fifth hand-drape shot uses the full product and its own fixed pose reference.</small></label>
+<label hidden>Legacy border orientation<select id="borderRotation"><option value="auto">Auto (outer edge on left)</option><option value="0">Keep source direction</option><option value="180">Rotate 180 degrees</option></select></label>
 <button id="generate">Generate Catalog</button></form>
 <p id="status" role="status">Images will appear here as they are ready. Keep this page open during generation.</p><div id="images"></div></main>
 <script>

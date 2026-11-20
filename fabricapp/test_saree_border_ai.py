@@ -1,53 +1,44 @@
-"""Production border inputs and isolation; no paid inference."""
+"""Hand-drape reference routing and product fidelity without paid inference."""
 import io
 from unittest.mock import Mock
 
 from django.test import SimpleTestCase
-from PIL import Image
 
-from fabricapp.ai.garments.saree.catalog.border_ai import prepare_edit_inputs
 from fabricapp.catalog_engine.registry import get_definition
 from fabricapp.catalog_engine.runner import Services, generate_shot
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
 from fabricapp.test_catalog_engine import data, picture
 
 
-class SareeBorderAITests(SimpleTestCase):
-    def test_border_uses_product_pixels_not_old_template_or_identity(self):
-        image = Image.new('RGB', (200, 800), 'red')
-        image.paste('blue', (0, 0, 40, 800))
-        image.paste('yellow', (0, 0, 40, 400))
-        buffer = io.BytesIO(); image.save(buffer, 'PNG'); buffer.seek(0)
+class SareeHandDrapeTests(SimpleTestCase):
+    def test_user_reference_is_sent_unchanged_without_face_or_border_extraction(self):
         definition = get_definition('saree')
         shot = next(s for s in definition.shots if s.key == 'border')
-        request = data(fabric_image=buffer, person_image=io.BytesIO(picture()), face_choice='anaya',
-                       options={'fabric_border_crop_box': [0, 0, 40, 800],
-                                'fabric_body_crop_box': [80, 0, 200, 800]})
-        subjects = []
-        for rotation in (0, 180):
-            request['options']['fabric_border_rotation'] = rotation
+        for colour in ('blue', 'purple'):
+            fabric = picture(colour)
+            request = data(fabric_image=io.BytesIO(fabric), person_image=io.BytesIO(picture()),
+                           face_choice='anaya', options={'fabric_body_crop_box': [0, 0, 40, 80],
+                                                        'fabric_border_crop_box': [0, 0, 10, 80]})
             edit = Mock(return_value=GenerationResult(picture(), 42))
             result = generate_shot(request, shot, definition, {}, {}, Services(None, edit, None))
-            self.assertEqual(result.image_bytes, picture())  # Return AI result, not cropped pixels.
+            self.assertEqual(result.image_bytes, picture())
             kwargs = edit.call_args.kwargs
             self.assertNotIn('face_image', kwargs); self.assertNotIn('face_choice', kwargs)
-            self.assertNotEqual(kwargs['person_image'].getvalue(), shot.reference.read_bytes())
-            with Image.open(kwargs['fabric_image']) as detail:
-                self.assertLessEqual(detail.height, detail.width * 4)
-                self.assertNotIn((255, 0, 0), detail.getdata())
-                subjects.append(detail.copy())
+            self.assertEqual(kwargs['person_image'].getvalue(), shot.reference.read_bytes())
+            self.assertEqual(kwargs['fabric_image'].getvalue(), fabric)
+            self.assertEqual(shot.reference.name, '05_hand_drape.png')
             self.assertIsNone(kwargs['prompt_config']['fabric_crop_box'])
-            self.assertIn('TOP LEFT to BOTTOM RIGHT', kwargs['prompt_config']['prompt'])
+            self.assertNotIn('fabric_reference_crops', kwargs['prompt_config'])
+            self.assertEqual(kwargs['prompt_config']['fabric_region'], 'hand_drape')
             self.assertEqual(edit.call_count, 1)
-        self.assertEqual(subjects[0].getpixel((20, 5)), subjects[1].getpixel((20, 154)))
-        self.assertEqual(buffer.tell(), 0)
 
-    def test_other_shots_bypass_input_hook(self):
+    def test_prompt_preserves_hands_and_replaces_all_template_textile(self):
         definition = get_definition('saree')
-        for shot in definition.shots:
-            if shot.key == 'border':
-                continue
-            source, fabric = b'original', io.BytesIO(b'fabric')
-            actual = prepare_edit_inputs({}, shot, source, fabric)
-            self.assertEqual(actual[0], source); self.assertIs(actual[1], fabric)
-
+        shot = next(s for s in definition.shots if s.key == 'border')
+        config = definition.build_config(data(), shot, 42)
+        for instruction in ('two hands', 'Replace ALL visible saree cloth',
+                            'Remove every template red/maroon patch',
+                            'Do not paste fabric over skin or bangles', 'no sunlight'):
+            self.assertIn(instruction, config['prompt'])
+        self.assertEqual(config['prompt_version'], 'saree-hand-drape-v1')
+        self.assertNotIn('TOP LEFT to BOTTOM RIGHT', config['prompt'])
