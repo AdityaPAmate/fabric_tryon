@@ -5,6 +5,7 @@ from fabricapp.ai.pipeline.scenario_composer import _person_description
 from fabricapp.ai.garments.saree.catalog.layout import OUTPUT_SIZES
 from fabricapp.ai.garments.saree.catalog.detail_prompts import build_detail_config
 from fabricapp.ai.garments.saree.catalog.regions import source_regions
+from fabricapp.ai.garments.saree.catalog.product_details import border_reference_box
 
 
 def _reference_output_size(data, shot):
@@ -31,6 +32,8 @@ def _back_reference_config(data, shot, seed):
         'Do not invent a decorative border or pallu artwork absent from image 1. '
         'The blouse is separate, opaque and solid-coloured to coordinate with the source; '
         'no saree artwork on it. '
+        'Do not retain any old blouse piping, sleeve stripes, horizontal pallu lines or '
+        'hem stripes from a prior template; only image 1 can supply textile designs. '
         'Keep the template wearer, hair and rear-facing torso. No face/person identity '
         'reference is used. EXACTLY ONE PERSON, the existing wearer in image 0. '
         'Do not add another head, body, person, duplicate silhouette or an overlapping figure. '
@@ -52,7 +55,7 @@ def _back_reference_config(data, shot, seed):
     config['prompt'] += (' FINAL REAR GEOMETRY: keep image 0’s existing single wearer and pallu geometry, '
                          'including the visible lower skirt. Keep all cloth edges '
                          'inside the frame. Use even neutral white light, not warm sunlight.')
-    config['prompt_version'] = 'saree-catalog-single-back-v3'
+    config['prompt_version'] = 'saree-catalog-neutral-back-v4'
     return config
 
 
@@ -60,14 +63,17 @@ def _side_portrait_config(data, shot, seed):
     has_identity = bool(data.get('face_image') or data.get('face_choice') or data.get('person_image'))
     prompt = (
         'Edit image 0 in place. Keep its exact three-quarter/side-facing body and head angle, '
-        'camera crop, hand positions, blouse silhouette and hanging pallu shape. '
-        'Image 1 is the product fabric swatch. Replace all visible saree cloth with its exact '
+        'FULL-LENGTH head-to-floor camera crop, hand positions, blouse silhouette and hanging pallu shape. '
+        'Image 1 is the complete product fabric photograph. Replace all visible saree cloth with its exact '
         'colours, print, motif scale and texture, following the existing folds. '
         'Keep the same angle rather than turning the model to face the camera. '
         'The blouse remains a separate opaque solid coordinating garment. '
-        'The long pallu continues BELOW the bottom frame edge. Its terminal end and broad '
-        'decorative end panel are outside this head-to-upper-thigh crop; show only its '
-        'continuing length, never a short pallu ending beside the hand or knee. '
+        'Keep the complete lower skirt and floor-level hem visible, with natural adult '
+        'head-to-body proportions. Do not compress the body into a half-length portrait. '
+        'The pallu hangs long beside the skirt as in image 0, ending near the lower calf '
+        'or ankle, never at the hand or knee. Apply actual terminal artwork only at its real end. '
+        'Use body motifs on the wrapped skirt and broad pallu artwork only on the hanging end; '
+        'keep the source side border along the actual long edges. '
         'Remove the template white cloth and black stripes unless the product references '
         'actually show them. Use only an evidenced side border, or a plain matching edge. '
     )
@@ -82,22 +88,25 @@ def _side_portrait_config(data, shot, seed):
         scale = min(1, 512 / max(dimensions))
         dimensions = tuple(max(256, round(value * scale / 32) * 32) for value in dimensions)
     regions = source_regions(data)
-    crop = regions['body']
+    # A full-length view now includes the terminal end. A body-only crop would
+    # remove the actual pallu artwork from the model's product evidence.
+    crop = None
     context = {**data, 'options': {**data.get('options', {}), 'fabric_crop_box': crop}}
     config = apply_fabric_conditioning({
         'prompt': prompt, 'seed': seed, 'guidance': data.get('guidance', 7),
         'output_dimensions': dimensions, 'safety_retry_count': 0,
         'fabric_source_format': 'PNG', 'classified_recovery': True,
         'subject_input_max_side': 768, 'fabric_crop_box': crop,
-        'fabric_region': 'body', 'fabric_region_selection': regions['body_selection'],
+        'fabric_region': 'full_saree', 'fabric_region_selection': 'full_source',
     }, context, 'saree')
-    if regions['border'] is not None:
+    border = border_reference_box(data, regions)
+    if border is not None:
         slot = 3 if has_identity else 2
-        config['fabric_reference_crops'] = {'side_border': regions['border']}
+        config['fabric_reference_crops'] = {'side_border': border}
         config['prompt'] += f' Image {slot} supplies only the actual narrow side border for the visible long edge. '
-    config['prompt_version'] = 'saree-catalog-side-template-v2'
-    config['prompt'] += (' FINAL POSE: preserve image 0 side angle and exact crop, not a frontal portrait. '
-                         'The pallu end stays below the frame, with no visible terminal end panel. '
+    config['prompt_version'] = 'saree-catalog-full-side-v3'
+    config['prompt'] += (' FINAL POSE: preserve image 0 side angle and full head-to-hem crop, not a frontal portrait. '
+                         'Keep the complete natural-height wearer and full skirt inside the frame. '
                          'Use even neutral white light on the cloth, with no direct sunlight or warm cast.')
     return config
 

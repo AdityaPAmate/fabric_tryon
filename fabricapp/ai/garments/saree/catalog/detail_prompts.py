@@ -2,7 +2,7 @@
 from fabricapp.ai.fabric.fabric_conditioning import apply_fabric_conditioning
 from fabricapp.ai.garments.saree.catalog.layout import OUTPUT_SIZES
 from fabricapp.ai.garments.saree.catalog.regions import source_regions
-from fabricapp.ai.garments.saree.catalog.product_details import selected_border
+from fabricapp.ai.garments.saree.catalog.product_details import border_reference_box
 
 
 FULL_FABRIC_PROMPT = (
@@ -64,7 +64,7 @@ def build_detail_config(data, shot, seed):
     regions = source_regions(data)
     if shot.key == 'pleats':
         regions = {**regions}
-        regions['border'], regions['border_selection'] = selected_border(data, regions)
+        regions['border'] = border_reference_box(data, regions)
     crop = None if flatlay else regions['body' if shot.key == 'pleats' else 'border']
     context = {**data, 'options': {**options, 'fabric_crop_box': crop}}
     dimensions = OUTPUT_SIZES[shot.key]
@@ -93,5 +93,5 @@ def build_detail_config(data, shot, seed):
     if flatlay:
         config['prompt'] += (' FINAL COMPOSITION: the same flat rectangular cloth as image 0, '
                              'all four corners on the table; no body, no blouse and no draped wearer.')
-    config['prompt_version'] = 'saree-catalog-v5-' + shot.key
+    config['prompt_version'] = 'saree-catalog-v6-' + shot.key
     return config

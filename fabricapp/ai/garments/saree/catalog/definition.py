@@ -12,7 +12,7 @@ SHOTS = tuple(
          scenario='pose_reference' if identity or key == 'back_pallu' else 'person_photo')
     for key, description, framing, identity in (
         ('front', 'very tall full-length front portrait matching image 0, complete head and saree hem, pallu hanging down the front', 'full_body', 'request'),
-        ('side_portrait', 'side-facing head-to-upper-thigh portrait, long pallu continuing below the bottom frame edge with its terminal end out of view', 'side_portrait', 'request'),
+        ('side_portrait', 'full-length side-facing portrait matching image 0, natural adult proportions, complete head, lower skirt and floor-level hem inside the frame', 'side_full_body', 'request'),
         ('back_pallu', 'one full-length rear-facing wearer matching the supplied back reference exactly, with its pallu and lower hem visible', 'rear_full_body', None),
         ('fabric_texture', 'complete overhead flat-lay of the supplied saree showing body, both side borders and the complete pallu end together', 'full_fabric_layout', None),
         ('border', 'close-up of the saree long SIDE EDGE: a narrow continuous border or finished selvedge beside the main body cloth, with the outer edge and background clearly visible', 'side_border_detail', None),

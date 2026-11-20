@@ -15,24 +15,18 @@
     ]
   },
   "02_three_quarter.png": {
-    "sha256": "eccf43c6d508d84a29bb1e938549a22b3fff3f9223da2aa52110cd26e5462f42",
-    "source": "white_saree_catalog_final_corrected_3x4.png",
-    "source_sha256": "dbf7263ebe08e1c9ba02db3f4e852412456fc3650a242896057d5da35e12554d",
-    "crop_box": [
-      432,
-      0,
-      759,
-      702
-    ],
+    "sha256": "a0a1dfbe5a16251e2cb99c1eb6024dfd6d033616b58f89b81714d28311194cfd",
+    "previous_asset_sha256": "eccf43c6d508d84a29bb1e938549a22b3fff3f9223da2aa52110cd26e5462f42",
+    "source": "Full-length side extension and neutral textile edit via built-in image_gen",
     "size": [
-      327,
-      702
+      854,
+      1840
     ]
   },
   "03_back_view.png": {
-    "sha256": "77641da6cbb6555b9197cb43eedbeb5c56c14bfc595e5b26119b621f835664f6",
-    "source": "User replacement in fe43910; rear geometry is authoritative",
-    "previous_asset_sha256": "6193380b6c5901899066d3cd35cd00a35eb53f8f2a7f6cd3b2c6010ee916b784",
+    "sha256": "9ee9aa9a2139e1c42d72d1b219591196f12621293e4142ebd8ea44653c2514b7",
+    "previous_asset_sha256": "77641da6cbb6555b9197cb43eedbeb5c56c14bfc595e5b26119b621f835664f6",
+    "source": "Remove original saree and blouse marks, preserve user rear geometry via built-in image_gen",
     "size": [
       841,
       1870

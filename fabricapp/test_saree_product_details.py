@@ -14,6 +14,52 @@ from fabricapp.test_catalog_engine import data, picture
 
 
 class SareeProductDetailTests(SimpleTestCase):
+    def test_narrow_border_input_keeps_design_and_gains_real_source_context(self):
+        from fabricapp.ai.garments.saree.catalog.product_details import border_reference_box
+        from fabricapp.ai.garments.saree.catalog.regions import source_regions
+        source = Image.new('RGB',(1000,1000),'ivory');source.paste('blue',(281,0,312,740))
+        payload=io.BytesIO();source.save(payload,'PNG');payload.seek(0)
+        request=data(fabric_image=payload,options={'fabric_border_crop_box':[281,0,312,740]})
+        box=border_reference_box(request,source_regions(request))
+        self.assertGreaterEqual(box[2]-box[0],185)
+        self.assertLessEqual(box[0],281);self.assertGreaterEqual(box[2],312)
+        self.assertEqual(source.crop(box).getpixel((281-box[0],100)),(0,0,255))
+        definition=get_definition('saree');shot=next(s for s in definition.shots if s.key=='pleats')
+        config=definition.build_config(request,shot,42)
+        self.assertEqual(config['fabric_reference_crops']['side_border'],box)
+
+    def test_full_side_preserves_terminal_product_evidence_and_uses_full_body_reference(self):
+        definition=get_definition('saree');shot=next(s for s in definition.shots if s.key=='side_portrait')
+        config=definition.build_config(data(options={'fabric_body_crop_box':[0,0,40,80]}),shot,42)
+        self.assertIsNone(config['fabric_crop_box'])
+        self.assertEqual(config['fabric_region'],'full_saree')
+        self.assertEqual(shot.framing,'side_full_body')
+        self.assertIn('FULL-LENGTH head-to-floor',config['prompt'])
+        self.assertNotIn('head-to-upper-thigh',config['prompt'])
+        self.assertNotIn('pallu end stays below the frame',config['prompt'])
+
+    @patch('fabricapp.ai.providers.cloudflare_engine.requests.post')
+    def test_report_sized_narrow_border_is_not_sent_as_a_31_pixel_input(self, provider):
+        from fabricapp.ai.providers.cloudflare_engine import generate_tryon_image
+        source=Image.new('RGB',(1000,1000),'ivory');source.paste('blue',(281,0,312,740))
+        payload=io.BytesIO();source.save(payload,'PNG');payload.seek(0)
+        request=data(fabric_image=payload,options={'fabric_border_crop_box':[281,0,312,740]})
+        definition=get_definition('saree');shot=next(s for s in definition.shots if s.key=='pleats')
+        config=definition.build_config(request,shot,42)
+        def reply(url,**kwargs):
+            with Image.open(kwargs['files']['input_image_2'][1]) as extra:
+                self.assertGreaterEqual(min(extra.size),128)
+                self.assertLessEqual(max(extra.size),1024)
+            fields=kwargs['data']
+            return Mock(status_code=200,headers={'Content-Type':'image/png'},
+                        content=picture(size=(fields['width'],fields['height'])))
+        provider.side_effect=reply
+        with patch('django.conf.settings.SAVE_DEBUG_FILES',False):
+            result=generate_tryon_image(garment_type='saree',fabric_image=payload,
+                person_image=io.BytesIO(shot.reference.read_bytes()),scenario='person_photo',
+                options=request['options'],prompt_config=config)
+        self.assertEqual(result.diagnostics['input_dimensions']['input_image_2'],[128,511])
+
     def test_full_photo_keeps_all_four_coloured_corners_despite_body_crop(self):
         source = Image.new('RGB', (532, 820), 'purple')
         for box, colour in [((0,0,20,20),'red'),((512,0,532,20),'green'),

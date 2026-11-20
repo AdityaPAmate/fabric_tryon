@@ -42,7 +42,14 @@ def border_box(image, data, regions):
         chroma = np.ptp(pixels, axis=2)
         vertical = image.height >= image.width
         strength = (chroma > 38).mean(axis=0 if vertical else 1)
-        active = strength > .55
+        # Sparse floral borders need not cover most rows with saturated ink.
+        # Compare against actual body coverage so a printed body is not simply
+        # mistaken for a border because it contains some coloured motifs.
+        body_box = regions['body']
+        body_pixels = np.asarray(image.crop(body_box) if body_box else image, dtype=np.float32)
+        body_coverage = float((np.ptp(body_pixels, axis=2) > 38).mean())
+        threshold = max(.12, min(.55, body_coverage+.08))
+        active = strength > threshold
         runs, start = [], None
         for index, yes in enumerate(np.append(active, False)):
             if yes and start is None:
@@ -69,10 +76,34 @@ def _whole_photo(image, size):
     return image.resize(size, Image.Resampling.LANCZOS)
 
 
-def selected_border(data, regions):
+def border_reference_box(data, regions):
+    """Real side band plus enough neighbouring cloth for a usable image input.
+
+    Keep explicit/selected border coordinates intact for display. The model gets
+    additional genuine source context rather than a near-one-dimensional strip.
+    """
     image, _ = _load(data)
     box, selection = border_box(image, data, regions)
-    return (None if selection == 'body_only_no_confirmed_border' else box), selection
+    if selection == 'body_only_no_confirmed_border' or min(image.size) < 64:
+        return None
+    left, top, right, bottom = box
+    width, height = right-left, bottom-top
+    wanted_width = min(image.width, max(width, 128, round(height/4)))
+    wanted_height = min(image.height, max(height, 128, round(width/4)))
+    # Grow toward the source centre to retain body cloth beside an edge band.
+    if left+right < image.width:
+        right = min(image.width, left+wanted_width)
+        left = max(0, right-wanted_width)
+    else:
+        left = max(0, right-wanted_width)
+        right = min(image.width, left+wanted_width)
+    if top+bottom < image.height:
+        bottom = min(image.height, top+wanted_height)
+        top = max(0, bottom-wanted_height)
+    else:
+        top = max(0, bottom-wanted_height)
+        bottom = min(image.height, top+wanted_height)
+    return [left, top, right, bottom]
 
 
 def render_product(data, shot):

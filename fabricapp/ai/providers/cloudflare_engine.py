@@ -390,6 +390,12 @@ def generate_tryon_image(
             },
             "attempts": [],
         }
+        # Prepared dimensions make narrow/oversized product-reference failures
+        # reviewable from a report without exposing the image contents.
+        diagnostics['input_dimensions'] = {}
+        for slot, (_, buffer, _) in files.items():
+            with Image.open(io.BytesIO(buffer.getvalue())) as prepared:
+                diagnostics['input_dimensions'][slot] = list(prepared.size)
         if prompt_config.get('fabric_region'):
             diagnostics['fabric_region'] = prompt_config['fabric_region']
             diagnostics['fabric_region_selection'] = prompt_config['fabric_region_selection']

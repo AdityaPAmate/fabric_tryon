@@ -75,6 +75,11 @@ garment or a sibling edition.
 
 # Current saree revision: 3:4
 
+Latest: [full-side reference and border-input correction](saree_full_side_and_border_2026-11-20.md).
+Side is now full length and consumes the full source, including terminal artwork.
+Side/back templates contain no old textile stripe designs. Extra border inputs
+include source context; prepared input dimensions are recorded in generation traces.
+
 20 November update: `fabric_texture` and `border` use the Saree-owned
 `product_details.render_product` through the generic `product_source` operation.
 They display original uploaded product pixels without AI reconstruction. Full

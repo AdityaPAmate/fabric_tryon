@@ -38,7 +38,7 @@ class SareeCatalogRegionTests(SimpleTestCase):
         self.assertEqual(len(captured), 4)
         self.assertEqual(set(captured[1]), {'input_image_0', 'input_image_1', 'input_image_2', 'input_image_3'})
         with Image.open(io.BytesIO(captured[1]['input_image_3'])) as border:
-            self.assertEqual(border.getpixel((border.width//2, border.height//2)), (0, 0, 255))
+            self.assertEqual(border.getpixel((border.width-1, border.height//2)), (0, 0, 255))
         self.assertEqual(set(captured[2]), {'input_image_0', 'input_image_1'})
         self.assertEqual(set(captured[3]), {'input_image_0', 'input_image_1', 'input_image_2'})
 
@@ -84,7 +84,7 @@ class SareeCatalogRegionTests(SimpleTestCase):
             seen.append(image.convert('RGB').getpixel((image.width//2, image.height//2)))
             if len(seen) in (2, 4):
                 extra = Image.open(io.BytesIO(kwargs['files']['input_image_2'][1].getvalue()))
-                product_references.append(extra.convert('RGB').getpixel((extra.width//2, extra.height//2)))
+                product_references.append(extra.convert('RGB').getpixel((extra.width-1, extra.height//2)))
             fields = kwargs['data']
             return Mock(status_code=200, headers={'Content-Type': 'image/png'},
                         content=picture(size=(fields['width'], fields['height'])))
