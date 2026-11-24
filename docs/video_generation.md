@@ -17,10 +17,10 @@ runs that exact image pipeline, persists the image, uploads it to Gimmeclip, pol
 the saved edit, and stores the MP4 in Cloudinary. Image settings affect the source
 photo; Gimmeclip does not expose the image engine's seed/guidance controls.
 
-Video has one fixed inspection motion: glance down, make a small torso swivel to
-one side and return, keeping the arms still. The prompt treats the supplied photo
-as the only scene, explicitly locks camera, background, lighting, exposure and
-white balance, preserves garment colour/pattern and face, and prohibits full turns,
+Video has one fixed inspection motion: turn in place from front to back (a half-turn),
+then reverse the same turn to face front, keeping the arms still. The prompt treats
+the supplied photo as the only scene, requests a fixed camera, background and light,
+preserves garment colour/pattern and face, and prohibits a full spin,
 cuts, fades, zoom, relighting and scene changes. It does not ask the model to add
 a mirror or build a new setting. There is no motion selector or user-supplied
 motion parameter; cached auto/turn/subtle fields are ignored.
@@ -33,6 +33,12 @@ fallback when aiClip is absent. This choice does not guarantee the model itself
 will preserve every frame; no reference-strength, temporal-lock or negative-prompt
 control is exposed by this endpoint. Inspect real generated output for scene and
 fabric drift before treating the quality as verified.
+
+For existing jobs, the operator-authenticated read-only endpoint
+`GET /api/video-jobs/<uuid>/inspect-provider/` reports the saved prompt/version and
+validated raw, rendered and stored clip IDs. It polls the existing provider edit;
+it never uploads a photo, submits generation or retries a job. Responses are
+marked `Cache-Control: no-store`. This distinguishes model drift from edit effects.
 
 Photo animation in this API supports 4, 6 or 8 seconds, so this flow requests 8
 seconds. It does not stretch or loop footage to claim a 10-second result. Reference:
