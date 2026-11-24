@@ -10,9 +10,9 @@ function createRequestTimer(element, clock = performance, scheduler = window) {
   }
 
   return {
-    start() {
+    start(initialElapsedMs = 0) {
       if (intervalId !== null) scheduler.clearInterval(intervalId);
-      startedAt = clock.now();
+      startedAt = clock.now() - Math.max(0, Number(initialElapsedMs) || 0);
       elapsedMs = null;
       element.classList.remove("hidden");
       render(true);

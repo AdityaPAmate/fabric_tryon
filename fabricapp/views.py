@@ -16,6 +16,7 @@ from fabricapp.ai.providers.cloudflare_engine import CloudflareGenerationError
 from fabricapp.ai.providers.provider_errors import failure_message
 from fabricapp.ai.main import generate_tryon_image
 from fabricapp.serializers import FabricTryOnRequestSerializer
+from fabricapp.services.tryon_service import generate_image
 from fabricapp.services.cloudinary_service import (
     CloudinaryUploadError,
     upload_generated_image,
@@ -55,26 +56,7 @@ class FabricTryOnView(APIView):
 
         try:
             with timed_stage("generation_total"):
-                generation = generate_tryon_image(
-                    person_image=data.get("person_image"),
-                    fabric_image=data.get("fabric_image"),
-                    garment_image=data.get("garment_image"),
-                    garment_type=data.get("garment_type"),
-                    garment_style=data.get("garment_style"),
-                    fabric_type=data.get("fabric_type", "unspecified"),
-                    gender=data.get("gender"),
-                    body_type=data.get("body_type"),
-                    face_choice=data.get("face_choice"),
-                    face_image=data.get("face_image"),
-                    camera_view=data.get("camera_view"),
-                    background=data.get("background"),
-                    additional_style_note=data.get("additional_style_note"),
-                    pose=data.get("pose"),
-                    garment_details=data.get("garment_details", []),
-                    options=data.get("options", {}),
-                    seed=data.get("seed"),
-                    guidance=data.get("guidance"),
-                )
+                generation = generate_image(data, generate=generate_tryon_image)
         except CloudflareGenerationError as exc:
             logger.error("Generation failed: %s", exc)
             if exc.failure_type:

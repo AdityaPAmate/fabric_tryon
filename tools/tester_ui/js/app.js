@@ -60,19 +60,19 @@ const catalogGrid = document.querySelector('#catalog-grid');
 const catalogResults = document.querySelector('#catalog-results');
 const catalogSummary = document.querySelector('#catalog-summary');
 let requestController = null;
+let videoUI = null;
 
 function setGenerationMode() {
   const fabric = garmentSource.value === 'fabric';
   const catalog = generationMode.value === 'catalog';
+  const sareeRegions = fabric && catalog && garmentType.value === 'saree';
+  document.querySelector('#saree-region-fields').classList.toggle('hidden', !sareeRegions);
+  document.querySelectorAll('#saree-region-fields input, #saree-region-fields select').forEach(input => input.disabled = !sareeRegions);
+
   const extractFabric = !fabric && catalog && readyCatalog.value.endsWith(':swatch');
   document.querySelector('#ready-catalog-field').classList.toggle('hidden', fabric || !catalog);
   readyCatalog.disabled = fabric || !catalog;
   readyCatalog.required = !readyCatalog.disabled;
-  document.querySelectorAll('[data-saree-detail-crop]').forEach(field => {
-    const enabled = fabric && catalog && garmentType.value === 'saree';
-    field.classList.toggle('hidden', !enabled);
-    field.querySelector('input').disabled = !enabled;
-  });
   document.querySelector('#fabric-type-field').classList.toggle('hidden', !fabric);
   document.querySelector('#fabric-crop-field').classList.toggle('hidden', !fabric && !extractFabric);
   fabricType.disabled = !fabric;
@@ -84,13 +84,19 @@ function setGenerationMode() {
     ? (fabric
       ? (garmentType.value === 'blazer' && garmentStyle.value === 'business'
         ? 'Business Blazer produces three full-length views, three close-ups and a 3:4 collage.'
-        : 'Generate the garment’s catalog views and a finished collage.')
+        : 'One request generates catalog shots and a finished collage. Keep this page open.')
       : 'Choose a catalog layout and how to use the uploaded garment.')
     : 'Generate one image with your selected pose and camera view.';
+  videoUI?.setMode(generationMode.value === 'video');
+  if (generationMode.value === 'video') {
+    generateButton.textContent = 'Generate video';
+    document.querySelector('#mode-help').textContent = 'Use all your image settings, then animate that generated photo into an 8-second video.';
+  }
   setReferencePoseAvailability();
 }
 
 function displayOutput(output) {
+  videoUI?.onImage(output);
   resultImage.src = output.url;
   outputPreview.src = output.url;
   outputFormat.textContent = (output.format || 'image').toUpperCase();
@@ -343,14 +349,14 @@ function readFileAsDataUrl(file) {
   });
 }
 
-async function saveOutputLocally(url, format) {
+async function saveOutputLocally(url, format, resource_type = "image") {
   localSaveMessage.textContent = "Saving output locally...";
 
   try {
     const response = await fetch("/save-output", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, format })
+      body: JSON.stringify({ url, format, resource_type })
     });
 
     const saved = await response.json();
@@ -366,7 +372,7 @@ async function saveOutputLocally(url, format) {
 
   } catch (error) {
     localSaveMessage.textContent =
-      `Image is visible above, but local save failed: ${error.message}`;
+      `Output is visible above, but local save failed: ${error.message}`;
 
     return null;
   }
@@ -412,6 +418,7 @@ form.addEventListener("submit", async (event) => {
 
   if (generateButton.disabled) return;
 
+  const isVideo = generationMode.value === 'video';
   const isCatalog = generationMode.value === 'catalog';
   const usesFabric = garmentSource.value === 'fabric';
   if (isCatalog && !usesFabric && !readyCatalog.value) {
@@ -432,6 +439,7 @@ form.addEventListener("submit", async (event) => {
   feedbackSection.classList.add("hidden");
 
   latestGeneration = null;
+  videoUI?.reset();
   issueNote.value = "";
   reportSaveMessage.textContent = "";
   localSaveMessage.textContent = "";
@@ -449,7 +457,9 @@ form.addEventListener("submit", async (event) => {
 
   let apiUrl;
   try {
-    apiUrl = CatalogClient.endpoint(document.querySelector('#api-url').value.trim(), isCatalog);
+    apiUrl = isVideo
+      ? VideoClient.resolveEndpoint(document.querySelector('#api-url').value.trim(), 'video')
+      : CatalogClient.endpoint(document.querySelector('#api-url').value.trim(), isCatalog);
   } catch (error) {
     showError(error.message);
     statusMessage.textContent = 'Request failed.';
@@ -569,22 +579,24 @@ form.addEventListener("submit", async (event) => {
     }
     options.fabric_crop_box = box;
   }
-  if (usesFabric && isCatalog && garmentType.value === 'saree') {
+  if (isCatalog && usesFabric && garmentType.value === 'saree') {
     for (const region of ['body', 'border']) {
-      const raw = document.querySelector(`#fabric-${region}-crop-box`).value.trim();
+      const raw = document.querySelector('#saree-' + region + '-crop-box').value.trim();
       if (!raw) continue;
-      const values = raw.split(',');
-      const box = values.map(value => Number(value.trim()));
-      if (values.some(value => !value.trim()) || box.length !== 4 || !box.every(Number.isInteger) ||
+      const parts = raw.split(','), box = parts.map(value => Number(value.trim()));
+      if (parts.some(value => !value.trim()) || box.length !== 4 || !box.every(Number.isInteger) ||
           box[0] < 0 || box[1] < 0 || box[2] <= box[0] || box[3] <= box[1]) {
-        showError(`${region} crop must be left, upper, right, lower in original fabric pixels.`);
-        statusMessage.textContent = 'Request failed.';
+        showError('Saree ' + region + ' crop must be four integers: left, upper, right, lower.');
         generateButton.disabled = false;
         setGenerationMode();
         return;
       }
-      options[`fabric_${region}_crop_box`] = box;
+      options['fabric_' + region + '_crop_box'] = box;
     }
+  }
+  if (isCatalog && usesFabric && garmentType.value === 'saree') {
+    const rotation = document.querySelector('#saree-border-rotation').value;
+    if (rotation !== 'auto') options.fabric_border_rotation = Number(rotation);
   }
   payload.append('options', JSON.stringify(options));
 
@@ -595,7 +607,7 @@ form.addEventListener("submit", async (event) => {
 
   const reportRequest = {
     api_url: apiUrl,
-    generation_mode: isCatalog ? 'catalog' : 'single',
+    generation_mode: isVideo ? 'video' : (isCatalog ? 'catalog' : 'single'),
     ...(isCatalog ? {catalog_product: catalogProduct} : {}),
     fabric_type: usesFabric ? fabricType.value : 'unspecified',
     options,
@@ -644,6 +656,11 @@ form.addEventListener("submit", async (event) => {
   } : null;
   requestTimer.start();
   try {
+    if (isVideo) {
+      previewInputImages();
+      latestGeneration = await videoUI.generate(apiUrl,payload,requestController.signal,{request:reportRequest,...reportFiles});
+      return;
+    }
     const response = await fetch(apiUrl, {
       method: "POST",
       body: payload,
@@ -817,6 +834,16 @@ form.addEventListener("submit", async (event) => {
   } catch (error) {
     apiResponseMetadata.request_duration_ms = requestTimer.stop();
     const stopped = error.name === 'AbortError';
+    if (isVideo) {
+      videoUI.stop();
+      const job = videoUI.currentJob();
+      latestGeneration = {request:reportRequest,...reportFiles,output:job?.image || null,
+        video:job?.video || null,video_job:job,generation_error:error.message,...apiResponseMetadata};
+      statusMessage.textContent = stopped ? 'Stopped waiting; the server job continues.' : 'Video request failed.';
+      showError(stopped ? 'Use the saved job ID to resume checking the server job.' : error.message);
+      feedbackSection.classList.remove('hidden');
+      return;
+    }
     if (catalogReport) {
       if (catalogReport.status === 'in_progress') catalogReport.status = stopped ? 'cancelled' : 'interrupted';
       catalogReport.stream_error = error.message;
@@ -888,6 +915,9 @@ feedbackForm.addEventListener("submit", async (event) => {
         issue_text: issueNote.value.trim(),
         request: latestGeneration.request,
         output: latestGeneration.output,
+        video: latestGeneration.video || null,
+        video_job: latestGeneration.video_job || null,
+        local_video_path: latestGeneration.local_video_path || null,
         local_output_path: latestGeneration.local_output_path,
         generation_error: latestGeneration.generation_error,
         generation_seed: latestGeneration.generation_seed ?? null,
@@ -936,5 +966,13 @@ document.querySelector('#camera-view').addEventListener('change', setReferencePo
 cancelButton.addEventListener('click', () => {
   requestController?.abort();
   cancelButton.disabled = true;
+});
+videoUI = createVideoUI({
+  form,api:document.querySelector('#api-url'),mode:generationMode,status:statusMessage,
+  timer:requestTimer,cancel:cancelButton,feedback:feedbackSection,
+  displayOutput,save:saveOutputLocally,showError,clearError,
+  isBusy:()=>generateButton.disabled,
+  getRecord:()=>latestGeneration,setRecord:record=>{latestGeneration=record;},
+  setController:controller=>{requestController=controller;},refreshMode:setGenerationMode
 });
 setGenerationMode();

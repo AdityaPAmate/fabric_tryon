@@ -15,3 +15,10 @@ media/
 debug/
 .idea/
 *.log
+# Never bake local secrets, backups or tester reports into deployment images.
+.env.*
+.memory/
+output/
+outputs/
+tools/tester_ui/outputs/
+tools/tester_ui/reports/

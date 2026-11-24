@@ -1,3 +1,14 @@
+# Fabric TryOn tester: image, catalog and video
+
+The new Generate video mode uses the same image options, then animates the generated
+photo with Gimmeclip. All original garment/person/face/pose/camera controls remain.
+Enter your backend API URL and VIDEO_API_TOKEN; do not enter the provider key.
+Live total and video timers appear above the result. Use Inspect/resume for a saved
+job; Stop waiting only stops browser polling. "Make video from this image" skips
+image generation for a selected single image/catalog shot. Reports include video.
+
+See [video configuration and API](../../docs/video_generation.md).
+
 # Fabric Try-On Tester UI
 
 Run `python server.py` from this folder and open `http://localhost:5500`.

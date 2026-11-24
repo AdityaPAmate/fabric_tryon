@@ -22,17 +22,18 @@ ROOT = Path(__file__).resolve().parent
 OUTPUTS_DIR = ROOT / "outputs"
 REPORTS_DIR = ROOT / "reports"
 ALLOWED_IMAGE_HOST_SUFFIX = ".cloudinary.com"
-EXTENSIONS = {"jpg": "jpg", "jpeg": "jpg", "png": "png", "webp": "webp", "avif": "avif"}
+EXTENSIONS = {"jpg": "jpg", "jpeg": "jpg", "png": "png", "webp": "webp", "avif": "avif", "mp4": "mp4", "webm": "webm", "mov": "mov"}
 
 
-def next_output_path(extension: str) -> Path:
+def next_output_path(extension: str, is_video=False) -> Path:
     OUTPUTS_DIR.mkdir(exist_ok=True)
     highest = 0
-    for file_path in OUTPUTS_DIR.glob("generated_*.*"):
-        match = re.fullmatch(r"generated_(\d+)\.[a-z0-9]+", file_path.name, re.IGNORECASE)
+    prefix = "video" if is_video else "generated"
+    for file_path in OUTPUTS_DIR.glob(f"{prefix}_*.*"):
+        match = re.fullmatch(rf"{prefix}_(\d+)\.[a-z0-9]+", file_path.name, re.IGNORECASE)
         if match:
             highest = max(highest, int(match.group(1)))
-    return OUTPUTS_DIR / f"generated_{highest + 1:04d}.{extension}"
+    return OUTPUTS_DIR / f"{prefix}_{highest + 1:04d}.{extension}"
 
 
 def is_cloudinary_url(url: str) -> bool:
@@ -127,9 +128,9 @@ class TesterRequestHandler(SimpleHTTPRequestHandler):
             payload = self.read_json_body()
             image_url = str(payload["url"])
             if not is_cloudinary_url(image_url):
-                raise ValueError("Only HTTPS Cloudinary image URLs can be saved.")
+                raise ValueError("Only HTTPS Cloudinary media URLs can be saved.")
             extension = EXTENSIONS.get(str(payload.get("format", "jpg")).lower(), "jpg")
-            destination = next_output_path(extension)
+            destination = next_output_path(extension, payload.get('resource_type') == 'video' or extension in ('mp4','webm','mov'))
             with urlopen(Request(image_url, headers={"User-Agent": "Fabric-Tryon-Tester/1.0"}), timeout=60) as remote_image:
                 destination.write_bytes(remote_image.read())
             self.send_json(HTTPStatus.OK, {"filename": str(destination.relative_to(ROOT))})
@@ -177,6 +178,26 @@ class TesterRequestHandler(SimpleHTTPRequestHandler):
                     output_copy.unlink(missing_ok=True)
                     output_copy = None
 
+            video_data = payload.get('video') or {}
+            video_copy = None
+            video_error = None
+            if video_data.get('url'):
+                try:
+                    candidate = (ROOT / str(payload.get('local_video_path') or '')).resolve()
+                    video_copy = report_dir / 'generated_video.mp4'
+                    if candidate.is_file() and OUTPUTS_DIR.resolve() in candidate.parents:
+                        shutil.copy2(candidate, video_copy)
+                    elif is_cloudinary_url(str(video_data['url'])):
+                        with urlopen(Request(video_data['url'], headers={'User-Agent':'Fabric-Tryon-Tester/1.0'}), timeout=120) as remote:
+                            video_copy.write_bytes(remote.read())
+                    else:
+                        raise ValueError('No saved video or HTTPS Cloudinary video URL available.')
+                except Exception as error:
+                    video_error = str(error)
+                    if video_copy:
+                        video_copy.unlink(missing_ok=True)
+                    video_copy = None
+
             (report_dir / "issue.txt").write_text(issue_text + "\n", encoding="utf-8")
             report_data = {
                 "schema_version": 2,
@@ -192,7 +213,11 @@ class TesterRequestHandler(SimpleHTTPRequestHandler):
                 "request_duration_ms": payload.get("request_duration_ms"),
                 "request": request_data,
                 "catalog": save_catalog_outputs(payload.get('catalog'), report_dir),
+                "video_job": payload.get('video_job'),
+                "video": video_data or None,
                 "files": {
+                    "generated_video": {'local_output_path': video_copy.name if video_copy else None,
+                                        'copy_error': video_error} if video_data else None,
                     "garment_source": source_info,
                     "person": person_info,
                     "face_reference": face_info,
@@ -243,6 +268,8 @@ class TesterRequestHandler(SimpleHTTPRequestHandler):
                 "report_path": report_path,
                 "aggregate_path": str(aggregate_path.relative_to(ROOT)),
             }
+            if video_error:
+                response_data['warning'] = 'Video copy failed: ' + video_error
             if output_save_error:
                 response_data["warning"] = (
                     "Report and request data were saved, but the generated image "

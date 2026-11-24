@@ -51,6 +51,19 @@ class ReportTests(unittest.TestCase):
             'output': {'format': 'png', 'url': 'https://res.cloudinary.com/example.png'},
             'local_output_path': 'outputs/generated_0001.png', 'generation_seed': 42}
 
+    def test_video_report_keeps_image_video_and_job_timing(self):
+        video = server_module.OUTPUTS_DIR / 'video_0001.mp4'
+        video.write_bytes(b'test video bytes')
+        payload = self.payload()
+        payload.update(video={'url':'https://res.cloudinary.com/test/video.mp4','duration':8},
+                       local_video_path='outputs/video_0001.mp4',
+                       video_job={'job_id':'test-job','timing':{'video_generation_seconds':125}})
+        payload['request']['generation_mode'] = 'video'
+        report = self.post(payload)
+        self.assertEqual(report['video_job']['timing']['video_generation_seconds'],125)
+        self.assertEqual(report['files']['generated_video']['local_output_path'],'generated_video.mp4')
+        self.assertIsNone(report['files']['generated_video']['copy_error'])
+
     def test_material_crop_and_actual_person_settings_survive_report(self):
         report = self.post(self.payload())
         self.assertEqual(report['schema_version'], 2)

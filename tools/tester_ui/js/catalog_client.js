@@ -2,10 +2,10 @@
 (function (root) {
   function endpoint(value, catalog) {
     const url = new URL(value);
-    if (!/^https?:$/.test(url.protocol) || !/\/(replace-fabric|generate-catalog)\/?$/.test(url.pathname)) {
-      throw new Error('Enter an API URL ending in /api/replace-fabric/ or /api/generate-catalog/.');
+    if (!/^https?:$/.test(url.protocol) || !/\/(replace-fabric|generate-catalog|generate-tryon-video|animate-image)\/?$/.test(url.pathname)) {
+      throw new Error('Enter an API URL ending in /api/replace-fabric/ /api/generate-catalog/, or /api/generate-tryon-video/.');
     }
-    url.pathname = url.pathname.replace(/(replace-fabric|generate-catalog)\/?$/, catalog ? 'generate-catalog/' : 'replace-fabric/');
+    url.pathname = url.pathname.replace(/(replace-fabric|generate-catalog|generate-tryon-video|animate-image)\/?$/, catalog ? 'generate-catalog/' : 'replace-fabric/');
     return url.href;
   }
 

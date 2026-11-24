@@ -47,11 +47,26 @@
               <span>Generation mode</span>
               <select id="generation-mode">
                 <option value="single">Single image</option>
+                <option value="video">Generate video — image first, then animation</option>
                 <option value="catalog">Generate Catalog — six separate images</option>
               </select>
               <small id="mode-help">Generate one image with your selected pose and camera view.</small>
             </label>
-
+            <section id="video-settings" class="field field-wide hidden" aria-label="Video options">
+              <h3>Video options</h3>
+              <label>Video API Token <input id="video-token" type="password" autocomplete="off" placeholder="VIDEO_API_TOKEN from your backend"></label>
+              <small>The Gimmeclip key stays on the backend. All existing image settings remain available.</small>
+              <label>Video motion
+                <select id="video-motion">
+                  <option value="auto">Auto — adapt to the selected pose and camera</option>
+                  <option value="turn">Slow side and back turn — hands still</option>
+                  <option value="subtle">Gentle movement — preserve the starting pose</option>
+                </select>
+              </label>
+              <label>Saved video job ID <input id="video-job-id" placeholder="Paste job UUID to inspect or resume"></label>
+              <button id="lookup-video" type="button" class="secondary-button">Inspect / resume job</button>
+              <button id="retry-video" type="button" class="secondary-button hidden">Retry saved job</button>
+            </section>
             <label id="fabric-type-field" class="field field-wide">
               <span>Fabric material</span>
               <select id="fabric-type" name="fabric_type">
@@ -94,13 +109,15 @@
               <span>Ready garment catalog <b>*</b></span>
               <select id="ready-catalog" disabled>
                 <option value="" selected disabled>Choose a catalog</option>
-                <option value="general">General — automatic detail crops</option>
+                <option value="general">General (automatic detail crops)</option>
                 <option value="blazer:business">Blazer · Business — preserve finished garment</option>
                 <option value="blazer:business:swatch">Blazer · Business — use garment fabric</option>
-                <option value="kurta:plain">Kurta · Plain — collar, cuff and side slit references</option>
+                <option value="kurta:plain">Kurta · Plain (collar, cuff and side slit references)</option>
                 <option value="kurta:plain:swatch">Kurta · Plain — use garment fabric</option>
                 <option value="kurta:sherwani">Kurta · Sherwani — collar, cuff and side slit references</option>
                 <option value="kurta:sherwani:swatch">Kurta · Sherwani — use garment fabric</option>
+                <option value="kurta:pathani">Kurta · Pathani — collar, cuff and pocket references</option>
+                <option value="kurta:pathani:swatch">Kurta · Pathani — use garment fabric</option>
                 <option value="kurta:jodhpuri">Kurta · Jodhpuri — collar, cuff and pocket references</option>
                 <option value="kurta:jodhpuri:swatch">Kurta · Jodhpuri — use garment fabric</option>
               </select>
@@ -243,20 +260,27 @@
           <details class="advanced-options">
             <summary>Advanced options</summary>
             <div class="form-grid advanced-content">
+              <div id="saree-region-fields" class="field field-wide hidden">
+                <label class="field">Saree border orientation
+                  <select id="saree-border-rotation">
+                    <option value="auto">Auto (outer edge on left)</option>
+                    <option value="0">Keep source direction</option>
+                    <option value="180">Rotate 180 degrees</option>
+                  </select>
+                </label>
+                <label class="field">Saree body crop (optional)
+                  <input id="saree-body-crop-box" placeholder="left, upper, right, lower">
+                  <small>Original image pixels for side and pleats. Blank uses detected body cloth.</small>
+                </label>
+                <label class="field">Saree long-side border crop (optional)
+                  <input id="saree-border-crop-box" placeholder="left, upper, right, lower">
+                  <small>Include the actual side edge, not the broad pallu end. The full-fabric view uses the entire upload.</small>
+                </label>
+              </div>
               <label id="fabric-crop-field" class="field field-wide">
                 <span>Fabric crop (optional)</span>
                 <input id="fabric-crop-box" placeholder="left, upper, right, lower — original image pixels">
                 <small>Leave blank to use the whole swatch. Example: 0, 0, 400, 600.</small>
-              </label>
-              <label data-saree-detail-crop class="field field-wide hidden">
-                <span>Main body region (optional, saree catalog)</span>
-                <input id="fabric-body-crop-box" placeholder="left, upper, right, lower">
-                <small>Original fabric pixels. Select body cloth without border. Blank uses the fabric crop above.</small>
-              </label>
-              <label data-saree-detail-crop class="field field-wide hidden">
-                <span>Side border region (optional, saree catalog)</span>
-                <input id="fabric-border-crop-box" placeholder="left, upper, right, lower">
-                <small>Include the actual long edge and adjacent body. Blank uses the whole original fabric photo. An unseen border cannot be recovered.</small>
               </label>
               <label class="field"
                 ><span>Output quality</span
@@ -299,7 +323,7 @@
           <button id="generate-button" class="primary-button" type="submit">
             Generate image
           </button>
-          <button id="cancel-generation" class="secondary-button hidden" type="button">Stop generation</button>
+          <button id="cancel-generation" class="secondary-button hidden" type="button">Stop waiting</button>
         </form>
 
         <section class="panel output-panel" aria-live="polite">
@@ -314,6 +338,13 @@
             aria-live="off"
             style="font-variant-numeric: tabular-nums"
           ></p>
+          <p id="video-progress" class="hidden" role="status"></p>
+          <p id="video-generation-time" class="hidden" role="timer" aria-live="off" style="font-variant-numeric:tabular-nums"></p>
+          <video id="result-video" class="hidden" controls playsinline preload="metadata" style="width:100%;max-height:600px"></video>
+          <div id="video-actions" class="result-actions hidden">
+            <a id="open-video" class="secondary-button" target="_blank" rel="noopener">Open video</a>
+            <a id="download-video" class="secondary-button" download>Download video</a>
+          </div>
           <div id="image-placeholder" class="image-placeholder">
             Your Cloudinary image will appear here.
           </div>
@@ -333,6 +364,7 @@
               >Download image</a
             >
           </div>
+          <button id="animate-result" type="button" class="secondary-button hidden">Make video from this image</button>
           <pre id="error-box" class="error-box hidden"></pre>
           <section id="catalog-results" class="hidden" aria-label="Separate catalog images">
             <h3>Catalog images</h3>
@@ -409,9 +441,11 @@
         </form>
       </section>
     </main>
-    <script src="js/request_timer.js?v=20261029"></script>
+    <script src="js/request_timer.js?v=fabric-video-v3"></script>
     <script src="js/api_options.js?v=20261102"></script>
     <script src="js/catalog_client.js?v=20261102"></script>
-    <script src="js/app.js?v=jodhpuri-catalog"></script>
+    <script src="js/video_client.js?v=fabric-video-v3"></script>
+    <script src="js/video_ui.js?v=fabric-video-v3"></script>
+    <script src="js/app.js?v=fabric-video-v3"></script>
   </body>
 </html>

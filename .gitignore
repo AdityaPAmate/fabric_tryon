@@ -19,3 +19,8 @@ tools/tester_ui/reports/
 # Local generated artifacts and scratch files
 /outputs/
 /tmp/
+
+# Local configuration and backups
+/.memory/
+/env-vars.yaml
+!.env.example
