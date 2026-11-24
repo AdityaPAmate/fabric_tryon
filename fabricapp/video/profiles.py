@@ -1,14 +1,14 @@
 """One source-photo animation; preservation takes priority over motion."""
 GARMENTS = ('shirt', 'saree', 'kurta', 'kurti_pant', 'pant', 'blazer')
 PROMPT = (
-    'Mirror POV, fixed camera. Check outfit front, lightly touch fabric once without gripping, pulling or lifting. '
-    'Turn sideways to show back, reverse to front. Hands relaxed. Keep face, fabric colour/pattern, '
-    'background and light unchanged. Fluid motion. No full spin, cuts, fades, zoom or text.'
+    'Locked camera, continuous shot. Right fingertips lightly touch fabric once, then rest at the side; '
+    'left arm stays down. Slowly turn in place to show the back, then reverse to face front. '
+    'Original background, lighting, face and fabric colour/pattern remain identical throughout.'
 )
 
 
 def select_profile(data):
-    return {'version': 'fabric-gimme-light-touch-v6', 'motion': 'mirror_check',
+    return {'version': 'fabric-gimme-controlled-touch-v7', 'motion': 'mirror_check',
             'seconds': 8, 'prompt': PROMPT}
 
 

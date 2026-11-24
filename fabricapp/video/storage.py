@@ -1,7 +1,9 @@
 """Keep completed video in durable Cloudinary storage, not web-server media."""
 import cloudinary.uploader
+from pathlib import Path
 from .errors import VideoError
 from .gimmeclip import GimmeclipClient, checked_url
+from .continuity import check_continuity
 
 
 def validate_download_url(url):
@@ -16,19 +18,22 @@ def store_video(url, job_id):
             if response.status_code != 200:
                 raise VideoError('download_failed', 'Generated video could not be downloaded.', True)
             import tempfile
-            with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024) as content:
+            with tempfile.TemporaryDirectory(prefix='fabric-video-') as directory:
+                path = Path(directory) / 'animation.mp4'
                 total = 0
-                for chunk in response.iter_content(64 * 1024):
-                    total += len(chunk)
-                    if total > 100 * 1024 * 1024:
-                        raise VideoError('video_too_large', 'Generated video exceeds the 100 MB limit.')
-                    content.write(chunk)
-                content.seek(0)
-                if b'ftyp' not in content.read(32):
-                    raise VideoError('invalid_video', 'Provider output is not an MP4 video.', True)
-                content.seek(0)
-                result = cloudinary.uploader.upload(content, resource_type='video',
-                    folder='vastra-tryon/videos', public_id=str(job_id), overwrite=True)
+                with path.open('wb') as content:
+                    for chunk in response.iter_content(64 * 1024):
+                        total += len(chunk)
+                        if total > 100 * 1024 * 1024:
+                            raise VideoError('video_too_large', 'Generated video exceeds the 100 MB limit.')
+                        content.write(chunk)
+                with path.open('rb') as content:
+                    if b'ftyp' not in content.read(32):
+                        raise VideoError('invalid_video', 'Provider output is not an MP4 video.', True)
+                continuity = check_continuity(path)
+                with path.open('rb') as content:
+                    result = cloudinary.uploader.upload(content, resource_type='video',
+                        folder='vastra-tryon/videos', public_id=str(job_id), overwrite=True)
     except VideoError:
         raise
     except Exception:
@@ -36,4 +41,5 @@ def store_video(url, job_id):
     if not isinstance(result, dict) or not result.get('secure_url'):
         raise VideoError('video_storage_failed', 'Video storage returned no delivery URL.', True)
     return {'url': result['secure_url'], 'public_id': result.get('public_id'),
-            'duration': result.get('duration'), 'format': result.get('format', 'mp4')}
+            'duration': result.get('duration'), 'format': result.get('format', 'mp4'),
+            'continuity': continuity}

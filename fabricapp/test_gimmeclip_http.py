@@ -15,12 +15,12 @@ from fabricapp.video.profiles import PROFILES
 from fabricapp.models import VideoJob
 from fabricapp.video.service import process_job
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
+from fabricapp.test_video_continuity import animation_bytes
 
 PHOTO = BASE + '/api/v0/photos/' + 'a' * 32
 JOB = BASE + '/api/v0/edits/' + 'b' * 64
 EDITED_VIDEO = BASE + '/api/v0/clips/' + 'c' * 64 + '/file'
 VIDEO = BASE + '/api/v0/clips/' + 'd' * 64 + '/file'
-MP4 = b'\x00\x00\x00\x18ftypisom' + b'\0' * 32
 
 
 def photo_bytes():
@@ -34,6 +34,7 @@ class GimmeclipHTTPTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.stable_video = animation_bytes()
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *args):
                 pass
@@ -50,7 +51,7 @@ class GimmeclipHTTPTests(TestCase):
                 elif self.path.startswith('/api/v0/edits/'):
                     code, body = cls.poll_reply
                 elif self.path in (urlsplit(VIDEO).path, urlsplit(EDITED_VIDEO).path):
-                    code, body = 200, MP4
+                    code, body = 200, cls.video_payload
                 else:
                     code, body = 501, {'error': 'Endpoint not modeled'}
                 self.send_response(code)
@@ -76,6 +77,7 @@ class GimmeclipHTTPTests(TestCase):
         self.__class__.calls = []
         self.__class__.submit_reply = (202, {'id': 'b' * 64})
         self.__class__.poll_reply = (200, {'state': 'done', 'clip': {'id': 'c' * 64}, 'aiClip': 'd' * 64})
+        self.__class__.video_payload = self.stable_video
         self.session = requests.Session()
         self.session.trust_env = False
         self.addCleanup(self.session.close)
@@ -104,7 +106,7 @@ class GimmeclipHTTPTests(TestCase):
         self.assertNotIn('seed', body)
         self.assertEqual(client.poll(JOB), EDITED_VIDEO)
         with client.download(EDITED_VIDEO) as response:
-            self.assertEqual(response.content, MP4)
+            self.assertEqual(response.content, self.stable_video)
         self.assertEqual(len(self.calls), 5)
         for _, _, headers, _ in self.calls:
             self.assertEqual(headers['Authorization'], 'Bearer fake-gimme-key')
@@ -222,4 +224,27 @@ class GimmeclipHTTPTests(TestCase):
                 generate.assert_not_called()
                 store.assert_called_once()
             self.assertEqual(sum(method=='POST' and path=='/api/v0/photos' for method,path,_,_ in self.calls),1)
+            self.assertEqual(sum(method=='POST' and path=='/api/v0/edits' for method,path,_,_ in self.calls),1)
+
+    def test_quality_failure_keeps_image_and_does_not_upload_or_queue_again(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory, override_settings(MEDIA_ROOT=directory):
+            response=self.client.post('/api/animate-image/', {
+                'source_image':SimpleUploadedFile('result.png',photo_bytes(),'image/png'),
+                'garment_type':'shirt'}, HTTP_AUTHORIZATION='Bearer test-token')
+            self.assertEqual(response.status_code,202)
+            job=VideoJob.objects.get(pk=response.json()['job_id'])
+            self.__class__.video_payload=animation_bytes('saturation')
+            with patch('fabricapp.video.service.upload_generated_image',return_value={'url':'https://cdn.example/photo.png'}), \
+                 patch('fabricapp.video.storage.cloudinary.uploader.upload') as upload:
+                process_job(job)
+            self.assertEqual(job.status,'failed')
+            self.assertEqual(job.error_code,'video_continuity_failed')
+            self.assertFalse(job.retryable)
+            self.assertEqual(job.image['url'],'https://cdn.example/photo.png')
+            self.assertFalse(job.video)
+            upload.assert_not_called()
+            retry=self.client.post(f'/api/video-jobs/{job.pk}/retry/', HTTP_AUTHORIZATION='Bearer test-token')
+            self.assertEqual(retry.status_code,409)
             self.assertEqual(sum(method=='POST' and path=='/api/v0/edits' for method,path,_,_ in self.calls),1)
