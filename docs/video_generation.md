@@ -17,11 +17,20 @@ runs that exact image pipeline, persists the image, uploads it to Gimmeclip, pol
 the saved edit, and stores the MP4 in Cloudinary. Image settings affect the source
 photo; Gimmeclip does not expose the image engine's seed/guidance controls.
 
-Motion is independent: `auto`, `turn`, or `subtle`. Auto uses detail movement for
-close-ups, gentle movement for custom poses/person references/side views, and a
-slow side/back display for a normal front photo. Hands remain still. Each job
-saves its complete 8-second motion profile so deployment changes cannot alter a
-resumed request. Video quality and accurate unseen back details remain model dependent.
+Video has one fixed mirror-check motion: glance down at the garment, smoothly turn
+slightly sideways to reveal a little of the back, then ease front. Arms stay still.
+The prompt asks for continuous natural movement and breathing, with no freezes,
+pauses, cuts or text, and preserves the source face, colour, pattern, texture and
+fit. There is no motion selector and no user-supplied motion parameter. Old cached
+clients' auto/turn/subtle fields are ignored; all new jobs use the same behavior.
+
+Photo animation in this API supports 4, 6 or 8 seconds, so this flow requests 8
+seconds. It does not stretch or loop footage to claim a 10-second result. Reference:
+https://gimmeclip.com/openapi.json (EditRecipe.aiEdit.animate).
+
+Each job saves its complete motion profile. Existing accepted/running jobs keep
+their original profile; the new prompt applies to newly created jobs. Video quality
+and accurate unseen garment details still require visual review of real output.
 
 ## API
 
@@ -29,13 +38,12 @@ Video endpoints require `Authorization: Bearer <VIDEO_API_TOKEN>`.
 `GIMMECLIP_API_KEY` remains on the server. Without video configuration the existing
 image/catalog endpoints still start and work; video endpoints return 503.
 
-- POST `/api/generate-tryon-video/`: original image multipart fields plus optional
-  `motion` (`auto` default). Returns 202 with job_id/status_url; queues only.
+- POST `/api/generate-tryon-video/`: original image multipart fields. Returns 202 with job_id/status_url; queues only.
 - POST `/api/animate-image/`: multipart `source_image` (PNG/JPEG/WebP), optional
-  garment_type, camera_view, pose and motion. Reuses those photo bytes, skipping
+  garment_type, camera_view and pose. Reuses those photo bytes, skipping
   image generation. The UI's "Make video from this image" uploads its selected
   generated single image/catalog shot, not the collage or an arbitrary server URL.
-- GET `/api/video-jobs/<uuid>/`: status, image/video, garment_type, chosen motion,
+- GET `/api/video-jobs/<uuid>/`: status, image/video, garment_type, fixed motion,
   timing, and error.retryable. Internal paths, provider URLs and keys stay private.
 - POST `/api/video-jobs/<uuid>/retry/`: only failed retryable jobs; resumes the same
   image, uploaded Gimmeclip photo, accepted provider edit, or finished MP4 as available.
@@ -57,7 +65,7 @@ The prototype has a shared operator token, not individual customer accounts.
 
 The repository copy is tools/tester_ui; the Desktop copy is fabric_tryon_tester_ui.
 Choose Single image, Catalog, or Generate video. Image controls remain available.
-For video, enter the backend VIDEO_API_TOKEN and choose Auto/Turn/Subtle motion.
+For video, enter the backend VIDEO_API_TOKEN. Mirror-check motion is fixed.
 The result area shows a live total timer and a separate live video timer, progress,
 source image, MP4 player, downloads, and saved job UUID. Inspect/resume can recover
 polling after refresh; retry appears only when the backend permits it.

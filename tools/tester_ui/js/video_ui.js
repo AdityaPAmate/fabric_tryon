@@ -2,7 +2,6 @@
 function createVideoUI(h) {
   const el = id => document.getElementById(id);
   const token = el('video-token');
-  const motion = el('video-motion');
   const lookup = el('video-job-id');
   const progress = el('video-progress');
   const stageTime = el('video-generation-time');
@@ -140,7 +139,6 @@ function createVideoUI(h) {
     if (!response.ok) throw new Error('Could not read the generated photo for animation.');
     const form = new FormData();
     form.append('source_image',await response.blob(),'generated.png');
-    form.append('motion',motion.value);
     const garment = previous.request?.garment_type;
     if (['shirt','saree','kurta','kurti_pant','pant','blazer'].includes(garment)) form.append('garment_type',garment);
     const view = previous.request?.camera_view;
@@ -164,7 +162,6 @@ function createVideoUI(h) {
     stop:stopClock,
     currentJob:()=>current,
     async generate(apiUrl,payload,signal,context) {
-      payload.append('motion',motion.value);
       const job = await VideoClient.createVideoJob(apiUrl,payload,getToken(),signal);
       return poll(job,signal,context);
     }

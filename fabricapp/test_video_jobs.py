@@ -75,7 +75,7 @@ class VideoJobTests(TestCase):
         self.assertEqual(response.status_code, 202, response.content)
         job = VideoJob.objects.get(pk=response.json()['job_id'])
         self.assertEqual(set(job.inputs), {'person_image', 'garment_image'})
-        self.assertEqual(job.motion_profile['motion'], 'subtle')
+        self.assertEqual(job.motion_profile['motion'], 'mirror_check')
         self.assertNotIn('person_image', job.payload)
 
     def test_existing_generated_photo_skips_image_generation(self):
@@ -86,7 +86,7 @@ class VideoJobTests(TestCase):
         self.assertEqual(response.status_code, 202, response.content)
         job = VideoJob.objects.get(pk=response.json()['job_id'])
         self.assertTrue(job.image_file)
-        self.assertEqual(job.motion_profile['motion'], 'detail')
+        self.assertEqual(job.motion_profile['motion'], 'mirror_check')
         with patch('fabricapp.video.service.generate_image') as generate, \
              patch('fabricapp.video.service.upload_generated_image', return_value={'url': 'https://cdn.example/photo.png'}), \
              patch('fabricapp.video.service.GimmeclipClient') as provider, \
@@ -269,7 +269,7 @@ class VideoJobTests(TestCase):
         self.assertEqual(response.status_code,202,response.content)
         job = VideoJob.objects.get(pk=response.json()['job_id'])
         profile = dict(job.motion_profile)
-        self.assertEqual(profile['motion'],'detail')
+        self.assertEqual(profile['motion'],'mirror_check')
         with patch('fabricapp.video.service.generate_image', return_value=GenerationResult(image_bytes(),19)) as generate, \
              patch('fabricapp.video.service.upload_generated_image', return_value={'url':'https://cdn.example/photo.png'}), \
              patch('fabricapp.video.service.select_profile', side_effect=AssertionError('Do not change saved motion')), \
@@ -286,3 +286,12 @@ class VideoJobTests(TestCase):
         self.assertEqual(data['options'],{'draft_mode':False,'fabric_crop_box':[0,0,32,64]})
         self.assertEqual(provider.return_value.submit.call_args.args[1],profile)
         self.assertEqual(job.status,'completed')
+
+    def test_legacy_motion_choices_do_not_override_the_fixed_mirror_flow(self):
+        for previous_choice in ('auto', 'turn', 'subtle'):
+            with self.subTest(previous_choice=previous_choice):
+                response = self.create(motion=previous_choice)
+                self.assertEqual(response.status_code,202,response.content)
+                job = VideoJob.objects.get(pk=response.json()['job_id'])
+                self.assertEqual(job.motion_profile['motion'],'mirror_check')
+                self.assertNotIn('motion',job.payload)
