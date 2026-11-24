@@ -62,7 +62,14 @@ CORS_URLS_REGEX = r"^/api/.*$"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR)))
+MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(DATA_DIR / "media")))
+
+# Optional video credentials do not prevent the existing image API from starting.
+GIMMECLIP_API_KEY = os.getenv('GIMMECLIP_API_KEY', '')
+VIDEO_API_TOKEN = os.getenv('VIDEO_API_TOKEN', '')
+VIDEO_POLL_INTERVAL = max(1, float(os.getenv('VIDEO_POLL_INTERVAL', '5')))
+VIDEO_POLL_TIMEOUT = max(1, float(os.getenv('VIDEO_POLL_TIMEOUT', '1200')))
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -112,7 +119,8 @@ WSGI_APPLICATION = 'tryon.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': Path(os.getenv('DATABASE_PATH', str(DATA_DIR / 'db.sqlite3'))),
+        'OPTIONS': {'timeout': 30},
     }
 }
 
