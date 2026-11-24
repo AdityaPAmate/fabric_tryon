@@ -295,27 +295,3 @@ class VideoJobTests(TestCase):
                 job = VideoJob.objects.get(pk=response.json()['job_id'])
                 self.assertEqual(job.motion_profile['motion'],'mirror_check')
                 self.assertNotIn('motion',job.payload)
-
-    def test_provider_inspection_is_authenticated_read_only_and_submits_nothing(self):
-        job=self.job()
-        job.polling_url='https://gimmeclip.com/api/v0/edits/'+'b'*64
-        job.provider_video_url='https://gimmeclip.com/api/v0/clips/'+'c'*64+'/file'
-        job.status='completed'
-        job.save()
-        url=f'/api/video-jobs/{job.pk}/inspect-provider/'
-        with patch('fabricapp.video.views.GimmeclipClient') as provider:
-            self.assertEqual(self.client.get(url).status_code,401)
-            provider.assert_not_called()
-            provider.return_value.status.return_value={'state':'done','aiClip':'d'*64,'clip':{'id':'c'*64}}
-            response=self.client.get(url,**self.auth)
-        self.assertEqual(response.status_code,200)
-        data=response.json()
-        self.assertEqual(data['profile_version'],job.profile_version)
-        self.assertEqual(data['stored_output_kind'],'rendered')
-        self.assertEqual(data['raw_clip_id'],'d'*64)
-        self.assertEqual(response['Cache-Control'],'no-store')
-        provider.return_value.submit.assert_not_called()
-        provider.return_value.upload_photo.assert_not_called()
-        job.refresh_from_db()
-        self.assertEqual(job.status,'completed')
-        self.assertEqual(job.attempts,0)

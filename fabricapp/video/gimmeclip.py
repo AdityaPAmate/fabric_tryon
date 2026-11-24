@@ -90,11 +90,8 @@ class GimmeclipClient:
             raise VideoError('submission_unknown', 'Gimmeclip did not return a valid job ID. Check provider history.')
         return BASE + '/api/v0/edits/' + job_id
 
-    def status(self, url):
-        return self._json('GET', checked_url(url, 'job'))
-
     def poll(self, url):
-        result = self.status(url)
+        result = self._json('GET', checked_url(url, 'job'))
         state = result.get('state')
         if state in ('source', 'generating', 'transcribing', 'translating', 'rendering', 'saving'):
             return None
@@ -102,12 +99,12 @@ class GimmeclipClient:
             raise VideoError('provider_failed', 'Gimmeclip could not generate this video.')
         if state != 'done':
             raise VideoError('invalid_provider_response', 'Gimmeclip returned an unknown state.', True)
-        clip = result.get('clip')
-        # Use the raw animation before the edit renderer's framing/effects.
-        # The request intentionally contains no look/light/zoom/transition edits.
-        clip_id = result.get('aiClip') or (clip.get('id') if isinstance(clip, dict) else None)
+        # Only use the source-photo animation, before framing/captions/effects.
+        # A rendered edit is not a substitute when the raw animation is missing.
+        clip_id = result.get('aiClip')
         if not isinstance(clip_id, str) or not re.fullmatch(r'[a-f0-9]{64}', clip_id):
-            raise VideoError('invalid_video_response', 'Gimmeclip completed without a valid clip ID.', True)
+            raise VideoError('invalid_video_response',
+                             'Gimmeclip did not return the original AI animation. Retry will check the same job.', True)
         return BASE + '/api/v0/clips/' + clip_id + '/file'
 
     def download(self, url):

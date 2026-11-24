@@ -27,18 +27,13 @@ motion parameter; cached auto/turn/subtle fields are ignored.
 
 The submitted recipe has only source, frame=original and aiEdit.animate. No filters,
 colour look, lighting, zoom or transitions are requested. When Gimmeclip returns
-both aiClip and clip, downloads prefer aiClip: the API describes it as the AI output
-before framing, captions and effects. The edited clip remains a compatibility
-fallback when aiClip is absent. This choice does not guarantee the model itself
-will preserve every frame; no reference-strength, temporal-lock or negative-prompt
-control is exposed by this endpoint. Inspect real generated output for scene and
-fabric drift before treating the quality as verified.
-
-For existing jobs, the operator-authenticated read-only endpoint
-`GET /api/video-jobs/<uuid>/inspect-provider/` reports the saved prompt/version and
-validated raw, rendered and stored clip IDs. It polls the existing provider edit;
-it never uploads a photo, submits generation or retries a job. Responses are
-marked `Cache-Control: no-store`. This distinguishes model drift from edit effects.
+both aiClip and clip, only aiClip is accepted: the API describes it as the AI output
+before framing, captions and effects. A missing or invalid aiClip fails with a
+retryable error; retry checks the same provider job without regenerating the photo
+or submitting another edit. A rendered clip is never substituted silently.
+This does not guarantee the model itself will preserve every frame; this endpoint
+has no reference-strength, temporal-lock or negative-prompt control. Inspect real
+output for scene and fabric drift before treating the quality as verified.
 
 Photo animation in this API supports 4, 6 or 8 seconds, so this flow requests 8
 seconds. It does not stretch or loop footage to claim a 10-second result. Reference:

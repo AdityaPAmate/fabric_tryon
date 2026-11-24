@@ -1,5 +1,4 @@
 import hmac
-import re
 from django.conf import settings
 from django.http import Http404
 from rest_framework import status
@@ -12,8 +11,6 @@ from rest_framework.views import APIView
 from fabricapp.models import VideoJob
 from .serializers import VideoRequestSerializer, AnimateImageSerializer
 from .service import create_job, job_response
-from .gimmeclip import GimmeclipClient
-from .errors import VideoError
 
 
 class VideoNotConfigured(APIException):
@@ -76,35 +73,3 @@ class RetryVideoJobView(VideoJobView):
             return Response({'detail': 'Only retryable failed jobs can be queued again.'}, status=409)
         job.refresh_from_db()
         return Response(job_response(job), status=202)
-
-
-class InspectVideoProviderView(VideoJobView):
-    """Operator-only, read-only evidence for an existing job; never submit work."""
-    def get(self, request, job_id):
-        job = self.get_job(job_id)
-        provider = {}
-        if job.polling_url:
-            try:
-                provider = GimmeclipClient().status(job.polling_url)
-            except VideoError as exc:
-                return Response({'detail': str(exc), 'code': exc.code}, status=503)
-
-        def clip_id(value):
-            return value if isinstance(value, str) and re.fullmatch(r'[a-f0-9]{64}', value) else None
-
-        raw = clip_id(provider.get('aiClip'))
-        rendered = provider.get('clip')
-        rendered = clip_id(rendered.get('id')) if isinstance(rendered, dict) else None
-        stored = re.fullmatch(r'https://gimmeclip\.com/api/v0/clips/([a-f0-9]{64})/file', job.provider_video_url)
-        stored = stored.group(1) if stored else None
-        response = Response({
-            'job_id': str(job.pk), 'profile_version': job.profile_version,
-            'prompt': job.motion_profile.get('prompt'),
-            'seconds': job.motion_profile.get('seconds'),
-            'provider_state': provider.get('state'),
-            'raw_clip_id': raw, 'rendered_clip_id': rendered, 'stored_clip_id': stored,
-            'stored_output_kind': ('raw' if stored and stored == raw else
-                                   'rendered' if stored and stored == rendered else 'unknown'),
-        })
-        response['Cache-Control'] = 'no-store'
-        return response

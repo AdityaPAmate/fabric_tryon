@@ -109,13 +109,17 @@ class GimmeclipHTTPTests(TestCase):
         for _, _, headers, _ in self.calls:
             self.assertEqual(headers['Authorization'], 'Bearer fake-gimme-key')
 
-    def test_raw_animation_is_preferred_and_edited_clip_is_only_a_fallback(self):
+    def test_edited_clip_never_substitutes_for_missing_or_invalid_raw_animation(self):
         client=GimmeclipClient()
         self.assertEqual(client.poll(JOB),VIDEO)
-        self.__class__.poll_reply=(200,{'state':'done','clip':{'id':'c'*64}})
-        self.assertEqual(client.poll(JOB),EDITED_VIDEO)
-        with client.download(EDITED_VIDEO) as response:
-            self.assertEqual(response.content,MP4)
+        for raw in (None, '', 'not-a-clip-id', 'https://evil.example/video', 42):
+            with self.subTest(raw=raw):
+                self.__class__.poll_reply=(200,{'state':'done','aiClip':raw,'clip':{'id':'c'*64}})
+                with self.assertRaises(VideoError) as error:
+                    client.poll(JOB)
+                self.assertEqual(error.exception.code,'invalid_video_response')
+                self.assertTrue(error.exception.retryable)
+        self.assertFalse(any(path == urlsplit(EDITED_VIDEO).path for _,path,_,_ in self.calls))
 
     def test_pending_errors_and_invalid_completion(self):
         client = GimmeclipClient()
@@ -184,3 +188,35 @@ class GimmeclipHTTPTests(TestCase):
                 process_job(job)
                 self.assertEqual(len(self.calls), before)
                 self.assertEqual(generate.call_count, 1)
+
+    def test_missing_raw_animation_retry_reuses_photo_and_existing_provider_job(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory, override_settings(MEDIA_ROOT=directory):
+            response=self.client.post('/api/animate-image/', {
+                'source_image':SimpleUploadedFile('result.png',photo_bytes(),'image/png'),
+                'garment_type':'shirt'}, HTTP_AUTHORIZATION='Bearer test-token')
+            self.assertEqual(response.status_code,202)
+            job=VideoJob.objects.get(pk=response.json()['job_id'])
+            with patch('fabricapp.video.service.generate_image') as generate, \
+                 patch('fabricapp.video.service.upload_generated_image',return_value={'url':'https://cdn.example/photo.png'}), \
+                 patch('fabricapp.video.storage.cloudinary.uploader.upload',return_value={'secure_url':'https://cdn.example/video.mp4'}) as store:
+                self.__class__.poll_reply=(200,{'state':'done','clip':{'id':'c'*64}})
+                process_job(job)
+                self.assertEqual(job.status,'failed')
+                self.assertEqual(job.error_code,'invalid_video_response')
+                self.assertTrue(job.retryable)
+                self.assertEqual(job.polling_url,JOB)
+                self.assertFalse(job.provider_video_url)
+                store.assert_not_called()
+                retry=self.client.post(f'/api/video-jobs/{job.pk}/retry/', HTTP_AUTHORIZATION='Bearer test-token')
+                self.assertEqual(retry.status_code,202)
+                job.refresh_from_db()
+                self.__class__.poll_reply=(200,{'state':'done','clip':{'id':'c'*64},'aiClip':'d'*64})
+                process_job(job)
+                self.assertEqual(job.status,'completed',job.error_message)
+                self.assertEqual(job.provider_video_url,VIDEO)
+                generate.assert_not_called()
+                store.assert_called_once()
+            self.assertEqual(sum(method=='POST' and path=='/api/v0/photos' for method,path,_,_ in self.calls),1)
+            self.assertEqual(sum(method=='POST' and path=='/api/v0/edits' for method,path,_,_ in self.calls),1)
