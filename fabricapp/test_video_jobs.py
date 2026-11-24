@@ -56,6 +56,16 @@ class VideoJobTests(TestCase):
             self.assertEqual(self.create().status_code, 503)
         self.assertEqual(VideoJob.objects.count(), 0)
 
+    def test_quality_failure_without_saved_provider_clip_cannot_resubmit(self):
+        job=self.job()
+        job.status='failed'
+        job.error_code='video_continuity_failed'
+        job.retryable=False
+        job.save()
+        response=self.client.get(f'/api/video-jobs/{job.pk}/',**self.auth)
+        self.assertFalse(response.json()['error']['retryable'])
+        self.assertEqual(self.client.post(f'/api/video-jobs/{job.pk}/retry/',**self.auth).status_code,409)
+
     def test_video_keeps_all_valid_image_choices(self):
         for changes in ({'garment_type': 'saree'}, {'gender': 'boy'},
                         {'gender': 'girl'}, {'camera_view': 'close_up'},

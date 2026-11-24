@@ -1,9 +1,9 @@
-"""Conservative outer-frame drift check, not a garment/identity quality score.
+"""Advisory outer-frame drift check, not a garment/identity quality score.
 
 For a locked camera, the image edges should stay still while the central person
 turns. Sample at 4 Hz, ignore letterboxing and compare blurred edge colours with
-the first frame. Reject sustained large changes; small motion/compression passes.
-This heuristic can miss subtle changes and can reject subjects moving at edges.
+the first frame. Flag sustained large changes; small motion/compression passes.
+This heuristic can miss subtle changes and can flag subjects moving at edges.
 """
 from .errors import VideoError
 
@@ -44,6 +44,7 @@ def check_continuity(path):
         baseline = descriptor(first, box)
         step = max(1, round(fps / 4))
         streak, samples, decoded = 0, 1, 1
+        review_required = False
         max_rgb = max_saturation = 0.0
         while True:
             ok, frame = cap.read()
@@ -65,12 +66,11 @@ def check_continuity(path):
             changed = rgb_change > 18 or (saturation >= 15 and chroma >= 5)
             streak = streak + 1 if changed else 0
             if streak >= 2:
-                raise VideoError('video_continuity_failed',
-                    'Video quality check detected a background or lighting change. '
-                    'Your generated image is saved. Make a new video from that image.')
+                review_required = True
         if decoded < count - 2 or samples < 2:
             raise invalid()
-        return {'check': 'outer-frame-v1', 'samples': samples,
+        return {'check': 'outer-frame-v2', 'samples': samples,
+                'status': 'review_required' if review_required else 'passed',
                 'max_rgb_change': round(max_rgb, 2),
                 'max_saturation_change': round(max_saturation, 2)}
     finally:

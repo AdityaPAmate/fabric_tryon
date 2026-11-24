@@ -64,6 +64,11 @@ function createVideoUI(h) {
       el('open-video').href = job.video.url;
       el('download-video').href = job.video.url;
       el('download-video').download = `fabric-tryon-${job.job_id}.mp4`;
+      if (job.video.continuity?.status === 'review_required') {
+        h.status.textContent = 'Video ready — visual review needed';
+        progress.textContent = `Video ready — visual review needed | Job: ${job.job_id}`;
+        h.showError('Review needed: possible background or lighting change. The video is available below; visual consistency is not verified.');
+      }
     }
   }
 

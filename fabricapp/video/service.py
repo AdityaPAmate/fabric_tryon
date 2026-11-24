@@ -120,15 +120,25 @@ def process_job(job):
                             else 'This stage failed. Retry will reuse saved work.'), retryable=not ambiguous)
 
 
+def can_retry(job):
+    # Old visual-check failures already have a finished provider clip. Recover it
+    # under the advisory check instead of paying to generate the image/video again.
+    return job.status == 'failed' and (job.retryable or (
+        job.error_code == 'video_continuity_failed' and bool(job.provider_video_url)))
+
+
 def job_response(job):
+    message = job.error_message
+    if job.error_code == 'video_continuity_failed' and can_retry(job):
+        message = 'Saved video was blocked by an earlier visual check. Retry recovers the same clip for review; no new generation.'
     return {
         'job_id': str(job.pk), 'status': job.status,
         'status_url': f'/api/video-jobs/{job.pk}/',
         'image': job.image or None, 'video': job.video or None,
         'garment_type': job.payload.get('garment_type', 'garment'),
         'timing': timing_response(job), 'motion': job.motion_profile.get('motion'),
-        'error': ({'code': job.error_code, 'message': job.error_message,
-                   'retryable': job.retryable} if job.status == 'failed' else None),
+        'error': ({'code': job.error_code, 'message': message,
+                   'retryable': can_retry(job)} if job.status == 'failed' else None),
         'created_at': job.created_at.isoformat(), 'updated_at': job.updated_at.isoformat(),
     }
 

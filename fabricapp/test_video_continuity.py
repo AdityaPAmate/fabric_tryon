@@ -51,15 +51,16 @@ class VideoContinuityTests(SimpleTestCase):
         for letterbox, change in ((True, None), (False, None), (True, 'small')):
             with self.subTest(letterbox=letterbox, change=change):
                 result = self.check(animation_bytes(change, letterbox))
-                self.assertEqual(result['check'], 'outer-frame-v1')
+                self.assertEqual(result['check'], 'outer-frame-v2')
+                self.assertEqual(result['status'], 'passed')
                 self.assertGreater(result['samples'], 2)
 
-    def test_scene_saturation_and_exposure_changes_are_rejected(self):
+    def test_scene_saturation_and_exposure_changes_require_review(self):
         for change in ('cut', 'saturation', 'exposure'):
-            with self.subTest(change=change), self.assertRaises(VideoError) as error:
-                self.check(animation_bytes(change))
-            self.assertEqual(error.exception.code, 'video_continuity_failed')
-            self.assertFalse(error.exception.retryable)
+            with self.subTest(change=change):
+                result = self.check(animation_bytes(change))
+                self.assertEqual(result['status'], 'review_required')
+                self.assertGreater(result['samples'], 2)
 
     def test_mp4_header_alone_is_not_a_valid_video(self):
         with self.assertRaises(VideoError) as error:

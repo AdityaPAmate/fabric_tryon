@@ -226,7 +226,7 @@ class GimmeclipHTTPTests(TestCase):
             self.assertEqual(sum(method=='POST' and path=='/api/v0/photos' for method,path,_,_ in self.calls),1)
             self.assertEqual(sum(method=='POST' and path=='/api/v0/edits' for method,path,_,_ in self.calls),1)
 
-    def test_quality_failure_keeps_image_and_does_not_upload_or_queue_again(self):
+    def test_visual_warning_keeps_image_and_delivers_video_for_review(self):
         import tempfile
         from pathlib import Path
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory, override_settings(MEDIA_ROOT=directory):
@@ -237,14 +237,32 @@ class GimmeclipHTTPTests(TestCase):
             job=VideoJob.objects.get(pk=response.json()['job_id'])
             self.__class__.video_payload=animation_bytes('saturation')
             with patch('fabricapp.video.service.upload_generated_image',return_value={'url':'https://cdn.example/photo.png'}), \
-                 patch('fabricapp.video.storage.cloudinary.uploader.upload') as upload:
+                 patch('fabricapp.video.storage.cloudinary.uploader.upload',return_value={'secure_url':'https://cdn.example/review.mp4'}) as upload:
                 process_job(job)
-            self.assertEqual(job.status,'failed')
-            self.assertEqual(job.error_code,'video_continuity_failed')
-            self.assertFalse(job.retryable)
+            self.assertEqual(job.status,'completed',job.error_message)
             self.assertEqual(job.image['url'],'https://cdn.example/photo.png')
-            self.assertFalse(job.video)
-            upload.assert_not_called()
+            self.assertEqual(job.video['continuity']['status'],'review_required')
+            upload.assert_called_once()
             retry=self.client.post(f'/api/video-jobs/{job.pk}/retry/', HTTP_AUTHORIZATION='Bearer test-token')
             self.assertEqual(retry.status_code,409)
             self.assertEqual(sum(method=='POST' and path=='/api/v0/edits' for method,path,_,_ in self.calls),1)
+
+    def test_legacy_quality_failure_recovers_same_clip_without_new_generation(self):
+        job=VideoJob.objects.create(status='failed',error_code='video_continuity_failed',
+            error_message='Old blocking check',retryable=False,
+            provider_video_url=EDITED_VIDEO,polling_url=JOB,image={'url':'https://cdn.example/photo.png'})
+        auth={'HTTP_AUTHORIZATION':'Bearer test-token'}
+        response=self.client.get(f'/api/video-jobs/{job.pk}/',**auth)
+        self.assertTrue(response.json()['error']['retryable'])
+        retry=self.client.post(f'/api/video-jobs/{job.pk}/retry/',**auth)
+        self.assertEqual(retry.status_code,202)
+        self.assertEqual(self.client.post(f'/api/video-jobs/{job.pk}/retry/',**auth).status_code,409)
+        job.refresh_from_db()
+        self.__class__.video_payload=animation_bytes('saturation')
+        with patch('fabricapp.video.service.generate_image') as generate, \
+             patch('fabricapp.video.storage.cloudinary.uploader.upload',return_value={'secure_url':'https://cdn.example/recovered.mp4'}):
+            process_job(job)
+        self.assertEqual(job.status,'completed',job.error_message)
+        self.assertEqual(job.video['continuity']['status'],'review_required')
+        generate.assert_not_called()
+        self.assertEqual([(method,path) for method,path,_,_ in self.calls], [('GET',urlsplit(EDITED_VIDEO).path)])

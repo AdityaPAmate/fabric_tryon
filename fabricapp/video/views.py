@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from fabricapp.models import VideoJob
 from .serializers import VideoRequestSerializer, AnimateImageSerializer
-from .service import create_job, job_response
+from .service import create_job, job_response, can_retry
 
 
 class VideoNotConfigured(APIException):
@@ -66,8 +66,12 @@ class VideoJobView(VideoView):
 class RetryVideoJobView(VideoJobView):
     def post(self, request, job_id):
         job = self.get_job(job_id)
+        if not can_retry(job):
+            return Response({'detail': 'Only retryable failed jobs can be queued again.'}, status=409)
         # Atomic compare-and-set prevents two retry requests from queuing it twice.
-        updated = VideoJob.objects.filter(pk=job.pk, status='failed', retryable=True).update(
+        updated = VideoJob.objects.filter(pk=job.pk, status='failed',
+            error_code=job.error_code, retryable=job.retryable,
+            provider_video_url=job.provider_video_url).update(
             status='queued', error_code='', error_message='', retryable=False)
         if not updated:
             return Response({'detail': 'Only retryable failed jobs can be queued again.'}, status=409)

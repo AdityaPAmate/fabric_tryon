@@ -52,7 +52,7 @@ The v7 prompt keeps that action sequence, names each hand, and uses positive mot
 phrasing informed by the official image-to-video guidance below. Those sources
 describe other models; they do not establish which model Gimmeclip uses.
 
-## Continuity check before publishing
+## Advisory continuity check before publishing
 
 An MP4 header is not visual validation. Before Cloudinary upload, the worker now
 decodes the existing provider output locally with headless OpenCV. No additional
@@ -63,28 +63,35 @@ The check samples at 4 Hz, removes the first frame's black padding, blurs to red
 compression noise, and compares the outer 18.75% on each side against the first
 frame. Two consecutive samples with median RGB change above 18/255, or median
 saturation change at least 15/255 and Lab chroma distance at least 5 OpenCV units,
-reject the clip as `video_continuity_failed`. These are engineering thresholds,
+flag the clip as `video.continuity.status=review_required`. These are engineering thresholds,
 tested on the saved examples, not a general-purpose perceptual quality standard.
 Undecodable, truncated or oversized-duration/dimension videos are also rejected.
 
-A continuity failure is not retryable: polling the same finished edit cannot
-repair it. The UI shows the existing error and retained image, without displaying
-or uploading the rejected video. It never resubmits a paid generation automatically.
-The image can be used to request another animation explicitly.
+Visual estimates are advisory, not a generation failure. The original clip is
+uploaded unchanged and the UI displays it with a prominent review-needed warning;
+completion means processing finished, not that garment/background quality was
+certified. It never resubmits a paid generation automatically.
+
+Legacy `video_continuity_failed` jobs with a saved provider clip now expose
+error.retryable=true. The existing Retry button queues only storage/checking of
+that same output, preserving the image, prompt and provider job. Jobs without a
+saved clip cannot use this exception to submit a new generation. Double retry
+requests are still protected by an atomic compare-and-set.
 
 Scope: this is a conservative edge-continuity heuristic. It catches broad scene,
 exposure and saturation changes after the opening frame. It cannot guarantee exact
 fabric pattern/colour, unseen back details, hand pose, or changes already present
 in the opening frame. Subtle/local edits or changes between samples may pass;
-off-centre subjects moving at the edges can be rejected. Passing is not a garment
+off-centre subjects moving at the edges can be flagged. Passing is not a garment
 or identity certification. It does not repair failed footage or composite a new
 background, and does not replace visual review.
 
-Local evidence on 2026-11-24: saved video_0008 (saturation drift) rejected;
+Historical v1 evidence on 2026-11-24: saved video_0008 (saturation drift) rejected;
 video_0009 (job 7567de32-a792-4f27-9d1b-866423ccb13a) and the lab's saved
 person10 mirror clip passed. In a broader local run, videos 0001 and 0003-0008
 were rejected, and 0002/0009/the lab clip passed. Checks took 0.16-0.74 seconds
-locally; Render latency was not measured. No new provider generation was used
+locally; Render latency was not measured. V2 preserves those detection thresholds
+but reports warnings instead of rejecting playable footage. No new provider generation was used
 to establish these results. Fresh output with the v7 prompt is not yet reviewed.
 
 Research references:

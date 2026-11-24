@@ -30,17 +30,22 @@ class VideoStorageTests(SimpleTestCase):
         self.assertEqual(upload.call_args.kwargs['resource_type'], 'video')
         self.assertEqual(upload.call_args.kwargs['public_id'], 'test-job')
         client.return_value.download.assert_called_once_with(VIDEO)
-        self.assertEqual(result['continuity']['check'], 'outer-frame-v1')
+        self.assertEqual(result['continuity']['check'], 'outer-frame-v2')
 
-    def test_scene_drift_is_not_uploaded(self):
+    def test_scene_drift_is_available_for_review_without_altering_the_clip(self):
+        payload = animation_bytes('saturation')
         with patch('fabricapp.video.storage.GimmeclipClient') as client, \
              patch('fabricapp.video.storage.cloudinary.uploader.upload') as upload:
-            client.return_value.download.return_value = self.response(animation_bytes('saturation'))
-            with self.assertRaises(VideoError) as caught:
-                store_video(VIDEO, 'test-job')
-        self.assertEqual(caught.exception.code, 'video_continuity_failed')
-        self.assertFalse(caught.exception.retryable)
-        upload.assert_not_called()
+            client.return_value.download.return_value = self.response(payload)
+            seen = []
+            def store(content, **kwargs):
+                seen.append(content.read())
+                return {'secure_url':'https://cdn.example/review.mp4'}
+            upload.side_effect = store
+            result = store_video(VIDEO, 'test-job')
+        self.assertEqual(result['continuity']['status'], 'review_required')
+        self.assertEqual(result['url'], 'https://cdn.example/review.mp4')
+        self.assertEqual(seen, [payload])
 
     def test_html_output_is_not_uploaded(self):
         with patch('fabricapp.video.storage.GimmeclipClient') as client, \
