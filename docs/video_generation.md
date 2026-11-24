@@ -17,12 +17,22 @@ runs that exact image pipeline, persists the image, uploads it to Gimmeclip, pol
 the saved edit, and stores the MP4 in Cloudinary. Image settings affect the source
 photo; Gimmeclip does not expose the image engine's seed/guidance controls.
 
-Video has one fixed mirror-check motion: glance down at the garment, smoothly turn
-slightly sideways to reveal a little of the back, then ease front. Arms stay still.
-The prompt asks for continuous natural movement and breathing, with no freezes,
-pauses, cuts or text, and preserves the source face, colour, pattern, texture and
-fit. There is no motion selector and no user-supplied motion parameter. Old cached
-clients' auto/turn/subtle fields are ignored; all new jobs use the same behavior.
+Video has one fixed inspection motion: glance down, make a small torso swivel to
+one side and return, keeping the arms still. The prompt treats the supplied photo
+as the only scene, explicitly locks camera, background, lighting, exposure and
+white balance, preserves garment colour/pattern and face, and prohibits full turns,
+cuts, fades, zoom, relighting and scene changes. It does not ask the model to add
+a mirror or build a new setting. There is no motion selector or user-supplied
+motion parameter; cached auto/turn/subtle fields are ignored.
+
+The submitted recipe has only source, frame=original and aiEdit.animate. No filters,
+colour look, lighting, zoom or transitions are requested. When Gimmeclip returns
+both aiClip and clip, downloads prefer aiClip: the API describes it as the AI output
+before framing, captions and effects. The edited clip remains a compatibility
+fallback when aiClip is absent. This choice does not guarantee the model itself
+will preserve every frame; no reference-strength, temporal-lock or negative-prompt
+control is exposed by this endpoint. Inspect real generated output for scene and
+fabric drift before treating the quality as verified.
 
 Photo animation in this API supports 4, 6 or 8 seconds, so this flow requests 8
 seconds. It does not stretch or loop footage to claim a 10-second result. Reference:

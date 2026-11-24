@@ -18,7 +18,8 @@ from fabricapp.ai.providers.cloudflare_engine import GenerationResult
 
 PHOTO = BASE + '/api/v0/photos/' + 'a' * 32
 JOB = BASE + '/api/v0/edits/' + 'b' * 64
-VIDEO = BASE + '/api/v0/clips/' + 'c' * 64 + '/file'
+EDITED_VIDEO = BASE + '/api/v0/clips/' + 'c' * 64 + '/file'
+VIDEO = BASE + '/api/v0/clips/' + 'd' * 64 + '/file'
 MP4 = b'\x00\x00\x00\x18ftypisom' + b'\0' * 32
 
 
@@ -48,7 +49,7 @@ class GimmeclipHTTPTests(TestCase):
                     code, body = cls.submit_reply
                 elif self.path.startswith('/api/v0/edits/'):
                     code, body = cls.poll_reply
-                elif self.path == urlsplit(VIDEO).path:
+                elif self.path in (urlsplit(VIDEO).path, urlsplit(EDITED_VIDEO).path):
                     code, body = 200, MP4
                 else:
                     code, body = 501, {'error': 'Endpoint not modeled'}
@@ -97,6 +98,8 @@ class GimmeclipHTTPTests(TestCase):
         body = json.loads(self.calls[-1][3])['recipe']
         self.assertEqual(body['source'], {'url': PHOTO, 'start': 0, 'end': 8})
         self.assertTrue(body['aiEdit']['animate'])
+        self.assertEqual(set(body), {'v','source','frame','aiEdit'})
+        self.assertEqual(body['frame'],'original')
         self.assertLessEqual(len(body['aiEdit']['idea']), 300)
         self.assertNotIn('seed', body)
         self.assertEqual(client.poll(JOB), VIDEO)
@@ -105,6 +108,14 @@ class GimmeclipHTTPTests(TestCase):
         self.assertEqual(len(self.calls), 5)
         for _, _, headers, _ in self.calls:
             self.assertEqual(headers['Authorization'], 'Bearer fake-gimme-key')
+
+    def test_raw_animation_is_preferred_and_edited_clip_is_only_a_fallback(self):
+        client=GimmeclipClient()
+        self.assertEqual(client.poll(JOB),VIDEO)
+        self.__class__.poll_reply=(200,{'state':'done','clip':{'id':'c'*64}})
+        self.assertEqual(client.poll(JOB),EDITED_VIDEO)
+        with client.download(EDITED_VIDEO) as response:
+            self.assertEqual(response.content,MP4)
 
     def test_pending_errors_and_invalid_completion(self):
         client = GimmeclipClient()

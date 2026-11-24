@@ -100,7 +100,9 @@ class GimmeclipClient:
         if state != 'done':
             raise VideoError('invalid_provider_response', 'Gimmeclip returned an unknown state.', True)
         clip = result.get('clip')
-        clip_id = (clip.get('id') if isinstance(clip, dict) else None) or result.get('aiClip')
+        # Use the raw animation before the edit renderer's framing/effects.
+        # The request intentionally contains no look/light/zoom/transition edits.
+        clip_id = result.get('aiClip') or (clip.get('id') if isinstance(clip, dict) else None)
         if not isinstance(clip_id, str) or not re.fullmatch(r'[a-f0-9]{64}', clip_id):
             raise VideoError('invalid_video_response', 'Gimmeclip completed without a valid clip ID.', True)
         return BASE + '/api/v0/clips/' + clip_id + '/file'
