@@ -250,7 +250,7 @@ class GimmeclipHTTPTests(TestCase):
     def test_legacy_quality_failure_recovers_same_clip_without_new_generation(self):
         job=VideoJob.objects.create(status='failed',error_code='video_continuity_failed',
             error_message='Old blocking check',retryable=False,
-            provider_video_url=EDITED_VIDEO,polling_url=JOB,image={'url':'https://cdn.example/photo.png'})
+            provider_video_url=EDITED_VIDEO,image={'url':'https://cdn.example/photo.png'})
         auth={'HTTP_AUTHORIZATION':'Bearer test-token'}
         response=self.client.get(f'/api/video-jobs/{job.pk}/',**auth)
         self.assertTrue(response.json()['error']['retryable'])

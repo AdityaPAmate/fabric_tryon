@@ -83,7 +83,7 @@ def process_job(job):
                 image = upload_generated_image(content.read())
             save(job, image=image)
         client = GimmeclipClient()
-        if not job.polling_url:
+        if not job.polling_url and not job.provider_video_url:
             if not job.source_photo_url:
                 with default_storage.open(job.image_file, 'rb') as content:
                     photo_url = client.upload_photo(content.read())
