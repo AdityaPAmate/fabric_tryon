@@ -99,12 +99,12 @@ class GimmeclipClient:
             raise VideoError('provider_failed', 'Gimmeclip could not generate this video.')
         if state != 'done':
             raise VideoError('invalid_provider_response', 'Gimmeclip returned an unknown state.', True)
-        # Only use the source-photo animation, before framing/captions/effects.
-        # A rendered edit is not a substitute when the raw animation is missing.
-        clip_id = result.get('aiClip')
+        # Match GimmeVideoLab: the completed edit is the delivered output.
+        clip = result.get('clip')
+        clip_id = (clip.get('id') if isinstance(clip, dict) else None) or result.get('aiClip')
         if not isinstance(clip_id, str) or not re.fullmatch(r'[a-f0-9]{64}', clip_id):
             raise VideoError('invalid_video_response',
-                             'Gimmeclip did not return the original AI animation. Retry will check the same job.', True)
+                             'Gimmeclip completed without a valid clip ID. Retry will check the same job.', True)
         return BASE + '/api/v0/clips/' + clip_id + '/file'
 
     def download(self, url):

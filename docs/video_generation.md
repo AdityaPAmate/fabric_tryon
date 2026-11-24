@@ -18,22 +18,29 @@ the saved edit, and stores the MP4 in Cloudinary. Image settings affect the sour
 photo; Gimmeclip does not expose the image engine's seed/guidance controls.
 
 Video has one fixed inspection motion: turn in place from front to back (a half-turn),
-then reverse the same turn to face front, keeping the arms still. The prompt treats
+then reverse the same turn to face front, keeping the hands relaxed. The prompt treats
 the supplied photo as the only scene, requests a fixed camera, background and light,
 preserves garment colour/pattern and face, and prohibits a full spin,
-cuts, fades, zoom, relighting and scene changes. It does not ask the model to add
-a mirror or build a new setting. There is no motion selector or user-supplied
-motion parameter; cached auto/turn/subtle fields are ignored.
+cuts, fades, zoom, relighting and scene changes. Mirror POV follows the lab
+prompt: the camera represents the mirror, without requesting a new mirror or room.
+There is no motion selector or user-supplied motion parameter; cached
+auto/turn/subtle fields are ignored.
 
 The submitted recipe has only source, frame=original and aiEdit.animate. No filters,
 colour look, lighting, zoom or transitions are requested. When Gimmeclip returns
-both aiClip and clip, only aiClip is accepted: the API describes it as the AI output
-before framing, captions and effects. A missing or invalid aiClip fails with a
-retryable error; retry checks the same provider job without regenerating the photo
-or submitting another edit. A rendered clip is never substituted silently.
-This does not guarantee the model itself will preserve every frame; this endpoint
-has no reference-strength, temporal-lock or negative-prompt control. Inspect real
-output for scene and fabric drift before treating the quality as verified.
+both aiClip and clip, the completed clip is preferred, matching Desktop
+GimmeVideoLab/generate_video.py. aiClip is used when the final clip ID is absent.
+Missing/invalid clip IDs fail with a retryable error; retry checks the same job.
+
+On 2026-11-24 the saved lab job person10_mirror_604c9e915170 was checked against
+its provider status. Its local MP4 SHA-256 matched the rendered clip, not aiClip.
+Both existing clips were sampled at 0, 0.5, 1, 2, 3, 4, 6 and 7.5 seconds: the room
+background stayed consistent. The request recipe already matched Fabric TryOn;
+the lab-style Mirror POV motion prompt and completed-clip selection are now used
+here too. The motion wording keeps hands relaxed, reverses the turn, and explicitly
+preserves fabric/background/lighting. No generation or new photo upload was made
+for that comparison. This sample does not establish quality for other input photos;
+model-level scene or fabric drift still requires visual review of fresh output.
 
 Photo animation in this API supports 4, 6 or 8 seconds, so this flow requests 8
 seconds. It does not stretch or loop footage to claim a 10-second result. Reference:

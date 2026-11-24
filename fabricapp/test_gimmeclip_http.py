@@ -102,24 +102,25 @@ class GimmeclipHTTPTests(TestCase):
         self.assertEqual(body['frame'],'original')
         self.assertLessEqual(len(body['aiEdit']['idea']), 300)
         self.assertNotIn('seed', body)
-        self.assertEqual(client.poll(JOB), VIDEO)
-        with client.download(VIDEO) as response:
+        self.assertEqual(client.poll(JOB), EDITED_VIDEO)
+        with client.download(EDITED_VIDEO) as response:
             self.assertEqual(response.content, MP4)
         self.assertEqual(len(self.calls), 5)
         for _, _, headers, _ in self.calls:
             self.assertEqual(headers['Authorization'], 'Bearer fake-gimme-key')
 
-    def test_edited_clip_never_substitutes_for_missing_or_invalid_raw_animation(self):
+    def test_completed_clip_selection_matches_gimme_video_lab(self):
         client=GimmeclipClient()
+        self.assertEqual(client.poll(JOB),EDITED_VIDEO)
+        self.__class__.poll_reply=(200,{'state':'done','clip':{'id':'c'*64}})
+        self.assertEqual(client.poll(JOB),EDITED_VIDEO)
+        self.__class__.poll_reply=(200,{'state':'done','aiClip':'d'*64})
         self.assertEqual(client.poll(JOB),VIDEO)
-        for raw in (None, '', 'not-a-clip-id', 'https://evil.example/video', 42):
-            with self.subTest(raw=raw):
-                self.__class__.poll_reply=(200,{'state':'done','aiClip':raw,'clip':{'id':'c'*64}})
-                with self.assertRaises(VideoError) as error:
+        for value in ('not-a-clip-id', 'https://evil.example/video', 42):
+            with self.subTest(value=value):
+                self.__class__.poll_reply=(200,{'state':'done','clip':{'id':value}})
+                with self.assertRaises(VideoError):
                     client.poll(JOB)
-                self.assertEqual(error.exception.code,'invalid_video_response')
-                self.assertTrue(error.exception.retryable)
-        self.assertFalse(any(path == urlsplit(EDITED_VIDEO).path for _,path,_,_ in self.calls))
 
     def test_pending_errors_and_invalid_completion(self):
         client = GimmeclipClient()
@@ -189,7 +190,7 @@ class GimmeclipHTTPTests(TestCase):
                 self.assertEqual(len(self.calls), before)
                 self.assertEqual(generate.call_count, 1)
 
-    def test_missing_raw_animation_retry_reuses_photo_and_existing_provider_job(self):
+    def test_missing_clip_retry_reuses_photo_and_existing_provider_job(self):
         import tempfile
         from pathlib import Path
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory, override_settings(MEDIA_ROOT=directory):
@@ -201,7 +202,7 @@ class GimmeclipHTTPTests(TestCase):
             with patch('fabricapp.video.service.generate_image') as generate, \
                  patch('fabricapp.video.service.upload_generated_image',return_value={'url':'https://cdn.example/photo.png'}), \
                  patch('fabricapp.video.storage.cloudinary.uploader.upload',return_value={'secure_url':'https://cdn.example/video.mp4'}) as store:
-                self.__class__.poll_reply=(200,{'state':'done','clip':{'id':'c'*64}})
+                self.__class__.poll_reply=(200,{'state':'done'})
                 process_job(job)
                 self.assertEqual(job.status,'failed')
                 self.assertEqual(job.error_code,'invalid_video_response')
@@ -215,7 +216,9 @@ class GimmeclipHTTPTests(TestCase):
                 self.__class__.poll_reply=(200,{'state':'done','clip':{'id':'c'*64},'aiClip':'d'*64})
                 process_job(job)
                 self.assertEqual(job.status,'completed',job.error_message)
-                self.assertEqual(job.provider_video_url,VIDEO)
+                self.assertEqual(job.provider_video_url,EDITED_VIDEO)
+                self.assertTrue(any(method=='GET' and path==urlsplit(EDITED_VIDEO).path
+                                    for method,path,_,_ in self.calls))
                 generate.assert_not_called()
                 store.assert_called_once()
             self.assertEqual(sum(method=='POST' and path=='/api/v0/photos' for method,path,_,_ in self.calls),1)
