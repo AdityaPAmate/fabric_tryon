@@ -90,8 +90,11 @@ class GimmeclipClient:
             raise VideoError('submission_unknown', 'Gimmeclip did not return a valid job ID. Check provider history.')
         return BASE + '/api/v0/edits/' + job_id
 
+    def status(self, url):
+        return self._json('GET', checked_url(url, 'job'))
+
     def poll(self, url):
-        result = self._json('GET', checked_url(url, 'job'))
+        result = self.status(url)
         state = result.get('state')
         if state in ('source', 'generating', 'transcribing', 'translating', 'rendering', 'saving'):
             return None
