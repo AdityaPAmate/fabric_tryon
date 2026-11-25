@@ -35,42 +35,29 @@ is selected before queuing and saved with the job, not recomputed on retry.
 `video_motion` is removed from image inputs so original image generation stays
 unchanged. Both generate-tryon-video and animate-image accept the same choices.
 
-## Cinematic shirt commercial (separate provider)
+## Cinematic shirt commercial (Gimmeclip)
 
-`shirt_commercial` is shirt-only. It uses PixVerse V6 through Cloudflare's /ai/run,
-not a 300-character Gimmeclip approximation. It reads the same fabric-swapped
-image bytes already saved by the image stage. Its saved profile has 8 seconds,
-540p, 9:16, audio off, four timed shots, and a separate negative prompt.
-The user's supplied long prompt is retained in docs/prompts/shirt_commercial_reference.txt;
-commercial.py condenses its positive instructions within the documented 2048
-character limit, retaining collar/cuff/three-quarter backward tracking/35-45 degree
-hero angle, same head-to-mid-thigh framing, identity and garment consistency.
+`shirt_commercial` is an extra shirt-only option using the same Gimmeclip photo,
+edit, poll and download pipeline as Inspection and Walking. Cloudflare remains
+in the image stage only; video requests use GIMMECLIP_API_KEY and Gimmeclip quota.
+No additional video provider, model, billing account or configuration is needed.
 
-The reference MP4 was inspected locally: 576x1024, 24fps, about 8.04s. It contains
-collar/chest detail, sleeve/cuff detail and walking shots. Its last shot widens;
-the requested prompt instead keeps the head-to-mid-thigh hero framing. No local
-reference video is uploaded or committed to the repository.
+The supplied PixVerse clip is a style reference. The original prompt is preserved
+in docs/prompts/shirt_commercial_reference.txt. commercial.py adapts it to the
+Gimmeclip 300-character idea limit: collar macro slide, cuff close-up, eye-level
+three-quarter walking with backward tracking, then a 40-degree side tracking
+hero shot, keeping head-to-mid-thigh framing and the same face/shirt/colour/print/
+texture/fit. All three profiles request 8 seconds. Timing and camera instructions
+are model guidance, not guarantees of exact shot boundaries or visual identity.
+The existing Inspection and Walking prompts are unchanged.
 
-Existing CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN are reused. Third-party
-models also require Cloudflare AI Gateway Unified credits, separate from Workers
-AI image usage. Published 540p silent pricing is $0.035/second, approximately $0.28
-for 8 seconds (checked 2026-11-25). No automatic credit purchase or provider fallback
-is performed. The UI explains this provider/cost and checks backend support before
-submitting, so an older server cannot silently use the original motion instead.
-
-The synchronous provider POST is never automatically retried after an ambiguous
-response. Storage retries reuse the saved completed video URL. Only the documented
-https://media.pixverse.ai MP4 host is allowed for downloads, without Cloudflare
-credentials or redirects. Image/clip payloads and credentials are not logged.
-
-For this multi-shot profile only, outer-frame continuity status is not_applicable:
-cuts, slides and angle changes are intentional. Decode/duration/dimension checks
-remain active. Passing those checks does not certify shirt identity or exact shot
-timings. Model adherence still needs visual review of freshly generated output;
-the reference clip is an example, not a guarantee of identical camera trajectories.
-
-Sources: https://developers.cloudflare.com/ai/models/pixverse/v6/ and
-https://developers.cloudflare.com/ai-gateway/usage/rest-api/.
+Only this multi-shot profile marks outer-frame continuity as not_applicable,
+because camera slides, cuts and tracking intentionally change the image edges.
+Decode/duration/dimension checks remain active. Footage still needs visual review.
+Ambiguous submissions are never automatically repeated; storage retries reuse the
+saved Gimmeclip result. Saved jobs from the removed commercial provider are not
+silently resubmitted to Gimmeclip; their image and references remain available.
+The UI checks backend motion support before submitting to avoid silent fallback.
 
 The v8 profile adds only `Sharp focus at start.` to the v7 motion prompt. Job
 172cd901-293b-4ad9-a649-2eebf21a5397 has stable outer-frame colours but visible
@@ -80,8 +67,9 @@ is not a verified repair. No frames are trimmed, interpolated, sharpened or
 stabilised, and the existing clip is not replaced. The continuity heuristic does
 not detect this brief blur; fresh v8 footage still needs visual review.
 
-The submitted recipe has only source, frame=original and aiEdit.animate. No filters,
-colour look, lighting, zoom or transitions are requested. When Gimmeclip returns
+Each submitted recipe uses source, frame=original and aiEdit with idea/animate.
+Inspection and Walking request no filters, colour look, lighting changes, zoom
+or transitions; the Commercial idea intentionally requests cuts and tracking. When Gimmeclip returns
 both aiClip and clip, the completed clip is preferred, matching Desktop
 GimmeVideoLab/generate_video.py. aiClip is used when the final clip ID is absent.
 Missing/invalid clip IDs fail with a retryable error; retry checks the same job.

@@ -1,6 +1,6 @@
 Original user-supplied prompt (reference video: PixVerse V6 Image Text 540P).
-The runtime adaptation is in fabricapp/video/commercial.py. The positive text
-is condensed to the API limit; the Avoid section is sent as negative_prompt.
+The runtime adaptation is in fabricapp/video/commercial.py: a single Gimmeclip
+idea within its 300-character limit. The reference does not select a provider.
 
 Create an 8-second ultra-realistic premium cinematic fashion commercial using the provided reference image. The shirt is the primary product being advertised, not the trousers, shoes, or the model's overall appearance.
 

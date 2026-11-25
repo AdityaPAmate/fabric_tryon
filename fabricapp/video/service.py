@@ -12,7 +12,6 @@ from .gimmeclip import GimmeclipClient
 from .errors import VideoError
 from .profiles import select_profile
 from .storage import store_video
-from .pixverse import PixverseClient
 
 logger = logging.getLogger(__name__)
 
@@ -61,16 +60,13 @@ def process_job(job):
     try:
         if job.status == 'completed':
             return
-        commercial = job.motion_profile.get('provider') == 'cloudflare_pixverse'
+        if job.motion_profile.get('provider') == 'cloudflare_pixverse':
+            raise VideoError('legacy_provider_job', 'This saved commercial job used the removed provider. Its image is preserved; create a new Gimmeclip commercial job.')
         if job.polling_url and not job.polling_url.startswith('https://gimmeclip.com/api/v0/edits/'):
             raise VideoError('legacy_provider_job', 'This saved job belongs to the previous video provider. Its references are preserved; create a new Gimmeclip job.')
         if job.status == 'video_submitting' and not job.polling_url:
-            if commercial:
-                raise VideoError('submission_unknown', 'Worker stopped during PixVerse submission. Check Cloudflare AI Gateway history before generating again.')
             raise VideoError('submission_unknown', 'Worker stopped during submission. Check Gimmeclip history before submitting again.')
-        if commercial and not (settings.CLOUDFLARE_ACCOUNT_ID and settings.CLOUDFLARE_API_TOKEN):
-            raise VideoError('provider_not_configured', 'Shirt commercial needs Cloudflare credentials and AI Gateway credits.')
-        if not commercial and not settings.GIMMECLIP_API_KEY:
+        if not settings.GIMMECLIP_API_KEY:
             raise VideoError('provider_not_configured', 'GIMMECLIP_API_KEY is not configured.', True)
         timing = dict(job.timing)
         timing.setdefault('started_at', time.time())
@@ -90,9 +86,6 @@ def process_job(job):
             with default_storage.open(job.image_file, 'rb') as content:
                 image = upload_generated_image(content.read())
             save(job, image=image)
-        if commercial:
-            process_commercial(job)
-            return
         client = GimmeclipClient()
         if not job.polling_url and not job.provider_video_url:
             if not job.source_photo_url:
@@ -117,7 +110,10 @@ def process_job(job):
             else:
                 raise VideoError('poll_timeout', 'Video is still pending. Retry will check the same Gimmeclip job.', True)
         save(job, status='video_storing')
-        video = store_video(job.provider_video_url, job.pk)
+        if job.motion_profile.get('multi_shot'):
+            video = store_video(job.provider_video_url, job.pk, allow_cuts=True)
+        else:
+            video = store_video(job.provider_video_url, job.pk)
         save(job, video=video, status='completed', timing={**job.timing, 'completed_at': time.time()})
         logger.info('Video job %s completed: %s', job.pk, timing_response(job))
     except VideoError as exc:
@@ -128,24 +124,8 @@ def process_job(job):
         ambiguous = job.status == 'video_submitting' and not job.polling_url
         logger.exception('Video job %s failed in stage %s', job.pk, job.status)
         save(job, status='failed', error_code='submission_unknown' if ambiguous else 'stage_failed',
-             error_message=(('Submission outcome is unknown; check Cloudflare AI Gateway history.' if commercial
-                             else 'Submission outcome is unknown; check Gimmeclip history.') if ambiguous
+             error_message=('Submission outcome is unknown; check Gimmeclip history.' if ambiguous
                             else 'This stage failed. Retry will reuse saved work.'), retryable=not ambiguous)
-
-
-def process_commercial(job):
-    """Separate provider path; reuse the exact existing generated image bytes."""
-    if not job.provider_video_url:
-        with default_storage.open(job.image_file, 'rb') as content:
-            image_bytes = content.read()
-        save(job, status='video_submitting', timing={**job.timing, 'video_submitted_at': time.time()})
-        url = PixverseClient().generate(image_bytes, job.motion_profile)
-        save(job, provider_video_url=url, status='video_storing',
-             timing={**job.timing, 'video_ready_at': time.time()})
-    save(job, status='video_storing')
-    video = store_video(job.provider_video_url, job.pk, commercial=True)
-    save(job, video=video, status='completed', timing={**job.timing, 'completed_at': time.time()})
-    logger.info('Commercial video job %s completed: %s', job.pk, timing_response(job))
 
 
 def can_retry(job):

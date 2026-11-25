@@ -132,6 +132,58 @@ class GimmeclipHTTPTests(TestCase):
         self.assertEqual(recipe['aiEdit'],{'idea':WALKING_PROMPT,'animate':True})
         self.assertLessEqual(len(WALKING_PROMPT),300)
 
+    def test_commercial_recipe_uses_gimmeclip_with_four_shot_prompt(self):
+        profile = select_profile({'video_motion': 'shirt_commercial'})
+        self.assertEqual(GimmeclipClient().submit(PHOTO, profile), JOB)
+        recipe = json.loads(self.calls[-1][3])['recipe']
+        self.assertEqual(recipe['source'], {'url': PHOTO, 'start': 0, 'end': 8})
+        self.assertEqual(recipe['frame'], 'original')
+        self.assertEqual(recipe['aiEdit'], {'idea': profile['prompt'], 'animate': True})
+        self.assertLessEqual(len(profile['prompt']), 300)
+        for cue in ('collar', 'cuff', 'track back', 'side track', 'Same face', 'shirt colour/print/texture/fit'):
+            self.assertIn(cue, profile['prompt'])
+
+    def test_commercial_worker_animates_saved_image_via_gimmeclip_only(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory, override_settings(
+                MEDIA_ROOT=directory, CLOUDFLARE_ACCOUNT_ID='', CLOUDFLARE_API_TOKEN=''):
+            response = self.client.post('/api/animate-image/', {
+                'source_image': SimpleUploadedFile('result.png', photo_bytes(), 'image/png'),
+                'garment_type': 'shirt', 'video_motion': 'shirt_commercial'},
+                HTTP_AUTHORIZATION='Bearer test-token')
+            self.assertEqual(response.status_code, 202, response.content)
+            job = VideoJob.objects.get(pk=response.json()['job_id'])
+            self.__class__.video_payload = animation_bytes('saturation')
+            with patch('fabricapp.video.service.generate_image') as generate, \
+                 patch('fabricapp.video.service.upload_generated_image', return_value={'url': 'https://cdn.example/photo.png'}), \
+                 patch('fabricapp.video.storage.cloudinary.uploader.upload', return_value={'secure_url': 'https://cdn.example/commercial.mp4'}):
+                process_job(job)
+                self.assertEqual(job.status, 'completed', job.error_message)
+                self.assertEqual(job.provider_video_url, EDITED_VIDEO)
+                self.assertEqual(job.video['continuity']['status'], 'not_applicable')
+                self.assertEqual(next(c for c in self.calls if c[1] == '/api/v0/photos')[3], photo_bytes())
+                submitted = next(c for c in self.calls if c[1] == '/api/v0/edits')
+                self.assertEqual(json.loads(submitted[3])['recipe']['aiEdit']['idea'], job.motion_profile['prompt'])
+                generate.assert_not_called()
+                before = len(self.calls)
+                process_job(job)
+                self.assertEqual(len(self.calls), before)
+            self.assertEqual(sum(method == 'POST' and path == '/api/v0/edits'
+                                 for method, path, _, _ in self.calls), 1)
+
+    def test_removed_provider_job_is_not_silently_resubmitted_to_gimmeclip(self):
+        job = VideoJob.objects.create(status='queued',
+            motion_profile={'provider': 'cloudflare_pixverse', 'motion': 'shirt_commercial'},
+            image={'url': 'https://cdn.example/photo.png'})
+        with patch('fabricapp.video.service.generate_image') as generate:
+            process_job(job)
+        self.assertEqual(job.status, 'failed')
+        self.assertEqual(job.error_code, 'legacy_provider_job')
+        self.assertFalse(job.retryable)
+        self.assertEqual(self.calls, [])
+        generate.assert_not_called()
+
     def test_provider_failure_details_survive_worker_and_hide_credentials(self):
         from fabricapp.video.service import job_response
         job=VideoJob.objects.create(status='video_generating',polling_url=JOB,
