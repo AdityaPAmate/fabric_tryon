@@ -44,21 +44,31 @@ No additional video provider, model, billing account or configuration is needed.
 
 The supplied PixVerse clip is a style reference. The original prompt is preserved
 in docs/prompts/shirt_commercial_reference.txt. commercial.py adapts it to the
-Gimmeclip 300-character idea limit: start with a tight collar close-up, cut to
-a cuff close-up, then walk TOWARD the camera with a head-to-mid-thigh crop and
-feet excluded. The CAMERA tracks BACKWARD, then alongside at eye level. Keep the
-exact person, shirt fabric/colour/fit, background and light; arms stay relaxed,
-without back views or shirt touching. All three profiles request 8 seconds.
-The existing Inspection and Walking prompts are unchanged. Shot timing is left
-to the model rather than using compressed numeric directions in the short prompt.
+Gimmeclip 300-character idea limit: collar/button close-up with a camera slide
+(0-2s), cuff close-up (2-3s), a front three-quarter walk TOWARD the camera while
+the CAMERA tracks BACKWARD (3-6s), then alongside (6-8s). Head-to-mid-thigh
+framing, relaxed arms and the same face/shirt/fabric/colour/fit/background/light
+are requested; back views, shirt touching, wide shots and zoom-outs are excluded.
+All three profiles request 8 seconds. Timing and camera instructions are model
+guidance, not guarantees of exact shot boundaries or visual identity.
+The existing Inspection and Walking prompts are unchanged.
 
-The supplied job b926e92c-5b6b-46b8-bcbb-e74922693a38 skipped collar detail,
-showed the back and touched the shirt. A live v2 test using its same source image
-(job 303b697b-5965-4182-b9bf-756cf7b6435c) showed front walking without those
-actions, but framing stayed too wide and new architecture appeared. V3 therefore
-prioritises a tight opening, feet excluded and exact original background/light.
-These are model instructions, not guarantees. Fresh footage must establish
-whether it follows them; a completed job does not certify reference matching.
+Commercial v2 follows inspection of job b926e92c-5b6b-46b8-bcbb-e74922693a38:
+its delivered clip skipped collar detail, showed the back and touched the shirt.
+A live v2 test using the same saved image (303b697b-5965-4182-b9bf-756cf7b6435c,
+92.73s total) showed detail footage and front walking without the observed back
+view or shirt touching, but collar framing was inaccurate, walking stayed too
+wide and new architecture appeared. A second prompt trial
+(bf88def9-f426-4857-89f2-32e61d5c6ea2, 82.59s total) explicitly excluded feet
+and requested the exact background, yet omitted both close-ups and changed the
+scene/colour. That trial was reverted; v2 is retained as the closer result.
+
+These tests do NOT establish reference matching or visual consistency. The API
+accepts a single 300-character idea, not separately enforced storyboard shots.
+No model-side cause was exposed by these completed jobs. Further prompt-only
+success is unverified. No source cropping, clip replacement, frame editing,
+provider switch or automatic quality-regeneration loop was added. Existing jobs
+retain their saved prompt profile; new Commercial jobs use v2.
 
 Only this multi-shot profile marks outer-frame continuity as not_applicable,
 because camera slides, cuts and tracking intentionally change the image edges.

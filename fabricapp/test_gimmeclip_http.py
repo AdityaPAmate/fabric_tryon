@@ -140,10 +140,9 @@ class GimmeclipHTTPTests(TestCase):
         self.assertEqual(recipe['frame'], 'original')
         self.assertEqual(recipe['aiEdit'], {'idea': profile['prompt'], 'animate': True})
         self.assertLessEqual(len(profile['prompt']), 300)
-        for cue in ('tight collar close-up', 'cuff close-up', 'TOWARD camera',
-                    'Camera tracks BACKWARD', 'alongside at eye level', 'head-to-mid-thigh crop',
-                    'feet NEVER visible', 'Keep exact person', 'background and light',
-                    'No back view or shirt touching'):
+        for cue in ('collar/button close-up', 'cuff close-up', 'front 3/4', 'TOWARD camera',
+                    'camera tracks BACKWARD', 'camera tracks alongside', 'Head-to-mid-thigh',
+                    'shirt fabric/colour/fit', 'No back view, shirt touching, wide shot or zoom-out'):
             self.assertIn(cue, profile['prompt'])
 
     def test_commercial_worker_animates_saved_image_via_gimmeclip_only(self):
