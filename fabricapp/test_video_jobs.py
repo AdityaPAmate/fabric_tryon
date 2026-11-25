@@ -331,3 +331,17 @@ class VideoJobTests(TestCase):
         data['source_image']=SimpleUploadedFile('photo.png',image_bytes(),'image/png')
         data['video_motion']='unknown'
         self.assertEqual(self.client.post('/api/animate-image/',data,**self.auth).status_code,400)
+
+    def test_commercial_is_shirt_only_and_keeps_the_four_shot_profile(self):
+        response=self.create(video_motion='shirt_commercial')
+        self.assertEqual(response.status_code,202,response.content)
+        job=VideoJob.objects.get(pk=response.json()['job_id'])
+        self.assertEqual(job.motion_profile['provider'],'cloudflare_pixverse')
+        self.assertTrue(job.motion_profile['multi_shot'])
+        self.assertEqual(job.motion_profile['seconds'],8)
+        self.assertNotIn('video_motion',job.payload)
+        self.assertEqual(self.create(video_motion='shirt_commercial',garment_type='pant').status_code,400)
+        response=self.client.post('/api/animate-image/',{
+            'source_image':SimpleUploadedFile('photo.png',image_bytes(),'image/png'),
+            'garment_type':'pant','video_motion':'shirt_commercial'},**self.auth)
+        self.assertEqual(response.status_code,400)

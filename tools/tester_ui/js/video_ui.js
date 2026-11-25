@@ -10,6 +10,11 @@ function createVideoUI(h) {
   const retry = el('retry-video');
   const animate = el('animate-result');
   const motion = el('video-motion');
+  motion.addEventListener('change',()=>{
+    el('video-motion-help').textContent = motion.value === 'shirt_commercial'
+      ? 'Shirt only · 8s · 540p · collar/cuff close-ups, then tracking shots. Uses Cloudflare AI Gateway credits (about $0.28/video).'
+      : '8-second video. Uses the generated image and its fabric/background.';
+  });
   let current = null;
   let image = null;
   let stageInterval = null;
@@ -27,11 +32,11 @@ function createVideoUI(h) {
   }
 
   async function checkMotionSupport(apiUrl, signal) {
-    if (motion.value !== 'walking') return;
+    if (!['walking','shirt_commercial'].includes(motion.value)) return;
     const response = await fetch(new URL('/api/health/',apiUrl),{signal});
     const info = await response.json();
-    if (!response.ok || !info.video_motions?.includes('walking')) {
-      throw new Error('Walking needs the latest backend deployment. Deploy the update, then try again.');
+    if (!response.ok || !info.video_motions?.includes(motion.value)) {
+      throw new Error('This video style needs the latest backend deployment. Deploy the update, then try again.');
     }
   }
 

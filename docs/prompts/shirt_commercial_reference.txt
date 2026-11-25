@@ -1,0 +1,37 @@
+Original user-supplied prompt (reference video: PixVerse V6 Image Text 540P).
+The runtime adaptation is in fabricapp/video/commercial.py. The positive text
+is condensed to the API limit; the Avoid section is sent as negative_prompt.
+
+Create an 8-second ultra-realistic premium cinematic fashion commercial using the provided reference image. The shirt is the primary product being advertised, not the trousers, shoes, or the model's overall appearance.
+
+**Shot 1 (0–1.5 seconds): Collar Reveal**
+
+Start with an extreme close-up of the shirt collar, upper chest, and buttons. Use a smooth, slow horizontal camera slide to highlight the original fabric texture, weave, stitching, and premium garment quality. Use soft directional cinematic lighting.
+
+**Shot 2 (1.5–3 seconds): Sleeve Detail**
+
+Make a clean cinematic cut to a close-up of the sleeve and cuff. Show subtle natural arm movement while maintaining sharp focus on the fabric texture, stitching, and cuff details.
+
+**Shot 3 (3–6 seconds): Elegant Walking Shot**
+
+Transition to a medium tracking shot of the model walking forward naturally with a confident, sophisticated, and royal attitude. Frame the model from head to mid-thigh, keeping the entire shirt clearly visible from collar to hem.
+
+Position the camera at eye level with a slightly angled three-quarter front view. The camera smoothly tracks backward at the same speed as the walking model. The model looks slightly sideways, away from the camera, with relaxed shoulders, upright posture, and natural arm movement.
+
+Keep the shirt as the dominant visual element throughout the shot.
+
+**Shot 4 (6–8 seconds): Cinematic Shirt Hero Shot**
+
+Continue the walking sequence with a smooth, subtle change in camera perspective toward a 35–45-degree front-side angle. Use an eye-level or slightly elevated camera position with a gentle downward viewing angle.
+
+Maintain medium framing from head to mid-thigh. The camera gently tracks alongside the model, revealing the shirt's front, side profile, sleeve structure, natural drape, and fabric movement.
+
+Do not suddenly zoom out or switch to a distant full-body shot. Maintain approximately the same subject size as the previous shot. End with a sophisticated, shirt-focused cinematic composition while the model continues walking confidently.
+
+**Visual Consistency:**
+
+Maintain the exact same person, garment design, fabric color, texture, pattern scale, buttons, collar, and sleeve structure throughout the video. Use realistic garment physics, soft cinematic lighting, a premium neutral architectural background, natural walking motion, and professional luxury fashion cinematography.
+
+The shirt must remain the visual hero from beginning to end.
+
+**Avoid:** Sudden zoom-out, abrupt framing changes, low-angle shots, full-body wide shots, emphasis on trousers or shoes, direct eye contact, exaggerated walking, excessive fabric wrinkles, fabric distortion, pattern shifting, garment transformation, camera shaking, flickering, and unnatural body movements.

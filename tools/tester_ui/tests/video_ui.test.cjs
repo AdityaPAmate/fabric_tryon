@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function fixture(job, {walkingSupported=true} = {}) {
+function fixture(job, {walkingSupported=true,commercialSupported=true} = {}) {
   const elements = new Map(), messages = [], calls = [];
   function el(id) {
     if (!elements.has(id)) {
@@ -27,7 +27,8 @@ function fixture(job, {walkingSupported=true} = {}) {
     pollJobUntilFinished:async()=>({...job,status:'completed',error:null,
       video:{url:'https://cdn.example/recovered.mp4',continuity:{status:'review_required'}}})};
   const context = vm.createContext({document:{getElementById:el},VideoClient:client,FormData,URL,
-    fetch:async()=>({ok:true,json:async()=>({video_motions:walkingSupported?['mirror_check','walking']:['mirror_check']}),
+    fetch:async()=>({ok:true,json:async()=>({video_motions:['mirror_check',
+      ...(walkingSupported?['walking']:[]),...(commercialSupported?['shirt_commercial']:[])]}),
       blob:async()=>new Blob(['photo'],{type:'image/png'})}),
     localStorage:{getItem:()=>null,setItem(){}},performance,AbortController,setInterval,clearInterval});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../js/video_ui.js'),'utf8'),context);
@@ -81,6 +82,22 @@ test('walking selection also applies to an already generated image',async()=>{
 test('old backend cannot silently accept a walking request as inspection',async()=>{
   const f=fixture(completed('passed'),{walkingSupported:false});
   f.el('video-motion').value='walking';
+  await assert.rejects(()=>f.ui.generate('https://example.com/api/generate-tryon-video/',new FormData(),null,{}),/latest backend deployment/);
+  assert.equal(f.calls.length,0);
+});
+
+test('commercial is a third independent style and preserves image fields',async()=>{
+  const f=fixture(completed('passed'));
+  f.el('video-motion').value='shirt_commercial';
+  const form=new FormData();form.set('garment_type','shirt');form.set('fabric_type','cotton');
+  await f.ui.generate('https://example.com/api/generate-tryon-video/',form,null,{});
+  assert.deepEqual(f.calls,[['create','shirt_commercial']]);
+  assert.equal(form.get('fabric_type'),'cotton');
+});
+
+test('commercial cannot silently fall back to an older backend model',async()=>{
+  const f=fixture(completed('passed'),{commercialSupported:false});
+  f.el('video-motion').value='shirt_commercial';
   await assert.rejects(()=>f.ui.generate('https://example.com/api/generate-tryon-video/',new FormData(),null,{}),/latest backend deployment/);
   assert.equal(f.calls.length,0);
 });

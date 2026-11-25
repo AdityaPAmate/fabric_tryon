@@ -4,17 +4,22 @@ from pathlib import Path
 from .errors import VideoError
 from .gimmeclip import GimmeclipClient, checked_url
 from .continuity import check_continuity
+from .pixverse import PixverseClient, checked_video_url
 
 
 def validate_download_url(url):
     checked_url(url, 'video')
 
 
-def store_video(url, job_id):
-    validate_download_url(url)
+def store_video(url, job_id, *, commercial=False):
+    if commercial:
+        checked_video_url(url)
+    else:
+        validate_download_url(url)
     # Authenticate only to Gimmeclip's validated clip endpoint; redirects are disabled.
     try:
-        with GimmeclipClient().download(url) as response:
+        client = PixverseClient() if commercial else GimmeclipClient()
+        with client.download(url) as response:
             if response.status_code != 200:
                 raise VideoError('download_failed', 'Generated video could not be downloaded.', True)
             import tempfile
@@ -30,7 +35,7 @@ def store_video(url, job_id):
                 with path.open('rb') as content:
                     if b'ftyp' not in content.read(32):
                         raise VideoError('invalid_video', 'Provider output is not an MP4 video.', True)
-                continuity = check_continuity(path)
+                continuity = check_continuity(path, allow_cuts=commercial)
                 with path.open('rb') as content:
                     result = cloudinary.uploader.upload(content, resource_type='video',
                         folder='vastra-tryon/videos', public_id=str(job_id), overwrite=True)

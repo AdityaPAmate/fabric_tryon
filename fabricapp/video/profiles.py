@@ -10,10 +10,14 @@ WALKING_PROMPT = (
     'arms relaxed with small natural swings, then stand still. Keep original framing. '
     'Original background, lighting, face and fabric colour, pattern and fit stay unchanged.'
 )
-MOTION_CHOICES = (('mirror_check', 'Current inspection'), ('walking', 'Walking / catwalk'))
+MOTION_CHOICES = (('mirror_check', 'Current inspection'), ('walking', 'Walking / catwalk'),
+                  ('shirt_commercial', 'Cinematic shirt commercial'))
 
 
 def select_profile(data):
+    if data.get('video_motion') == 'shirt_commercial':
+        from .commercial import profile
+        return profile()
     if data.get('video_motion') == 'walking':
         return {'version': 'fabric-gimme-walking-v1', 'motion': 'walking',
                 'seconds': 8, 'prompt': WALKING_PROMPT}

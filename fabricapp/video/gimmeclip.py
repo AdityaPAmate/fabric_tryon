@@ -24,7 +24,7 @@ def provider_error_details(result):
         details['stage'] = stage
     message = result.get('error')
     if isinstance(message, str):
-        for secret in (settings.GIMMECLIP_API_KEY, settings.VIDEO_API_TOKEN):
+        for secret in (settings.GIMMECLIP_API_KEY, settings.VIDEO_API_TOKEN, settings.CLOUDFLARE_API_TOKEN):
             if secret:
                 message = message.replace(secret, '[redacted]')
         message = re.sub(r'gc_[A-Za-z0-9_-]+|Bearer\s+\S+|https?://\S+', '[redacted]', message, flags=re.I)

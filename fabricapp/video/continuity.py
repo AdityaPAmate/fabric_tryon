@@ -8,7 +8,7 @@ This heuristic can miss subtle changes and can flag subjects moving at edges.
 from .errors import VideoError
 
 
-def check_continuity(path):
+def check_continuity(path, *, allow_cuts=False):
     import cv2
     import numpy as np
 
@@ -70,7 +70,8 @@ def check_continuity(path):
         if decoded < count - 2 or samples < 2:
             raise invalid()
         return {'check': 'outer-frame-v2', 'samples': samples,
-                'status': 'review_required' if review_required else 'passed',
+                'status': ('not_applicable' if allow_cuts else
+                           'review_required' if review_required else 'passed'),
                 'max_rgb_change': round(max_rgb, 2),
                 'max_saturation_change': round(max_saturation, 2)}
     finally:
