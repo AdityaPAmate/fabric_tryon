@@ -47,8 +47,9 @@ in docs/prompts/shirt_commercial_reference.txt. commercial.py adapts it to the
 Gimmeclip 300-character idea limit: COLLAR, neck and top-button macro slide
 (0-2s), cuff close-up (2-3s), a front three-quarter walk TOWARD the camera while
 the CAMERA tracks BACKWARD (3-6s), then alongside (6-8s). Head-to-mid-thigh
-framing, relaxed arms and the same face/shirt/fabric/colour/fit/background/light
-are requested; back views, shirt touching, wide shots and zoom-outs are excluded.
+framing and relaxed arms are requested. Every shot must copy
+the exact source colour, print, scale, weave and fit, with no redesign/recolour;
+face, background and light stay the same.
 All three profiles request 8 seconds. Timing and camera instructions are model
 guidance, not guarantees of exact shot boundaries or visual identity.
 The existing Inspection and Walking prompts are unchanged.
@@ -61,17 +62,34 @@ view or shirt touching, but collar framing was inaccurate, walking stayed too
 wide and new architecture appeared. A second prompt trial
 (bf88def9-f426-4857-89f2-32e61d5c6ea2, 82.59s total) explicitly excluded feet
 and requested the exact background, yet omitted both close-ups and changed the
-scene/colour. That trial was reverted; v2 is retained as the closer result.
+scene/colour. That trial was reverted; the v2 shot sequence was retained as the closer result.
 
 These tests do NOT establish reference matching or visual consistency. The API
 accepts a single 300-character idea, not separately enforced storyboard shots.
 No model-side cause was exposed by these completed jobs. Further prompt-only
 success is unverified. No source cropping, clip replacement, frame editing,
 provider switch or automatic quality-regeneration loop was added. Existing jobs
-retain their saved prompt profile. V4 changes only the opening collar instruction
-to name COLLAR, neck and top buttons, prioritising the collar instead of a general
-shirt/button close-up. Cuff, walking, timing and camera instructions are unchanged.
-This targeted change needs visual confirmation in newly generated footage.
+retain their saved prompt profile. V5 keeps V4's entire shot/camera sequence
+unchanged, but prioritises exact source colour/print/scale/weave/fit in ALL shots
+and no redesign/recolour over the previous generic fabric instruction.
+
+Source/output inspection of the supplied jobs found:
+
+- 5fbf05f1-6c6f-43b9-8f79-439a2bedb4d3 (10:50 UTC): floral source;
+  collar/chest detail then front/side walking; cuff detail was not consistent.
+- 357610a8-3b09-4e72-ac34-778a0bbcae70 (10:55 UTC, latest of the two):
+  pale vertically striped source; around 1s the shirt becomes plain blue and
+  stays blue. This is a fabric substitution in the delivered video, not merely
+  a darker exposure in the saved source image.
+
+The backend uploads the saved generated image bytes to Gimmeclip unchanged and
+submits the saved profile. It requests no colour filters, look or texture effects.
+The reviewed Gimmeclip OpenAPI aiEdit schema exposes idea (max 300) and animate;
+it exposes no seed, model pin, motion-template or garment-lock control. A stable
+prompt is a request for the same style, not enforcement of identical results.
+V5 is mitigation to test, not verified fabric preservation. Do not present job
+completion or the outer-frame heuristic as a fabric-match certification.
+
 
 Only this multi-shot profile marks outer-frame continuity as not_applicable,
 because camera slides, cuts and tracking intentionally change the image edges.

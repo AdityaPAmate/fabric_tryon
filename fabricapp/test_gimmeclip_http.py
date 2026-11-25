@@ -142,7 +142,7 @@ class GimmeclipHTTPTests(TestCase):
         self.assertLessEqual(len(profile['prompt']), 300)
         for cue in ('0-2s COLLAR, neck, top buttons macro slide.', 'cuff close-up', 'front 3/4', 'TOWARD camera',
                     'camera tracks BACKWARD', 'camera tracks alongside', 'Head-to-mid-thigh',
-                    'shirt fabric/colour/fit', 'No back view, shirt touching, wide shot or zoom-out'):
+                    'EXACT source colour/print/scale/weave/fit in ALL shots', 'No redesign/recolour'):
             self.assertIn(cue, profile['prompt'])
 
     def test_commercial_worker_animates_saved_image_via_gimmeclip_only(self):
