@@ -1,12 +1,13 @@
 """Gimmeclip storyboard for the extra shirt commercial option."""
 PROMPT = (
-    'Shirt ad: 0-1.5s collar macro slide; 1.5-3s cuff closeup; '
-    '3-6s eye-level 3/4 walk, track back; 6-8s 40deg side track. '
-    'Keep head-to-mid-thigh size. Same face, shirt colour/print/texture/fit. '
-    'Soft light, neutral architecture. Shirt hero. No wide shots, shake, text or eye contact.'
+    '0-2s collar/button close-up, camera slides. Cut 2-3s cuff close-up. '
+    'Cut 3-6s front 3/4 walk TOWARD camera; camera tracks BACKWARD. '
+    '6-8s camera tracks alongside. Head-to-mid-thigh. '
+    'Same face, shirt fabric/colour/fit, background/light. Arms relaxed. '
+    'No back view, shirt touching, wide shot or zoom-out.'
 )
 
 
 def profile():
-    return {'version': 'fabric-gimme-shirt-commercial-v1', 'motion': 'shirt_commercial',
+    return {'version': 'fabric-gimme-shirt-commercial-v2', 'motion': 'shirt_commercial',
             'seconds': 8, 'prompt': PROMPT, 'multi_shot': True}
