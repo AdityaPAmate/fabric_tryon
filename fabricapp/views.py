@@ -4,6 +4,7 @@ generated image to Cloudinary, and returns its delivery URL as JSON.
 """
 
 import logging
+import os
 
 from django.http import JsonResponse
 from rest_framework import status
@@ -27,7 +28,9 @@ logger = logging.getLogger("fabricapp")
 
 def health_check(request):
     """Unauthenticated endpoint used by the Render health check."""
-    return JsonResponse({"status": "ok"})
+    from fabricapp.video.profiles import MOTION_CHOICES
+    return JsonResponse({"status": "ok", "revision": os.getenv('RENDER_GIT_COMMIT', ''),
+                         "video_motions": [value for value, _ in MOTION_CHOICES]})
 
 
 class FabricTryOnView(APIView):

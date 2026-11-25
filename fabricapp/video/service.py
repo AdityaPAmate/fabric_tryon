@@ -25,6 +25,7 @@ def save(job, **fields):
 def create_job(data):
     data = dict(data)
     profile = select_profile(data)
+    data.pop('video_motion', None)
     source_image = data.pop('source_image', None)
     uploads = {key: data.pop(key) for key in ('fabric_image', 'face_image', 'person_image', 'garment_image') if data.get(key)}
     if 'person_image' in uploads:
@@ -67,7 +68,8 @@ def process_job(job):
             raise VideoError('provider_not_configured', 'GIMMECLIP_API_KEY is not configured.', True)
         timing = dict(job.timing)
         timing.setdefault('started_at', time.time())
-        save(job, timing=timing, attempts=job.attempts + 1, error_code='', error_message='', retryable=False)
+        save(job, timing=timing, attempts=job.attempts + 1, error_code='', error_message='',
+             provider_error={}, retryable=False)
         if not job.image:
             save(job, status='image_generating')
             if not job.image_file:
@@ -110,7 +112,8 @@ def process_job(job):
         save(job, video=video, status='completed', timing={**job.timing, 'completed_at': time.time()})
         logger.info('Video job %s completed: %s', job.pk, timing_response(job))
     except VideoError as exc:
-        save(job, status='failed', error_code=exc.code, error_message=str(exc), retryable=exc.retryable)
+        save(job, status='failed', error_code=exc.code, error_message=str(exc),
+             provider_error=exc.details, retryable=exc.retryable)
     except Exception:
         # Unknown exceptions around POST must never trigger an automatic second submission.
         ambiguous = job.status == 'video_submitting' and not job.polling_url
@@ -138,7 +141,8 @@ def job_response(job):
         'garment_type': job.payload.get('garment_type', 'garment'),
         'timing': timing_response(job), 'motion': job.motion_profile.get('motion'),
         'error': ({'code': job.error_code, 'message': message,
-                   'retryable': can_retry(job)} if job.status == 'failed' else None),
+                   'retryable': can_retry(job), 'provider': job.provider_error or None}
+                  if job.status == 'failed' else None),
         'created_at': job.created_at.isoformat(), 'updated_at': job.updated_at.isoformat(),
     }
 

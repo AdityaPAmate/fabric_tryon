@@ -11,7 +11,7 @@ from django.test import TestCase, override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from fabricapp.video.gimmeclip import BASE, GimmeclipClient, checked_url
 from fabricapp.video.errors import VideoError
-from fabricapp.video.profiles import PROFILES
+from fabricapp.video.profiles import PROFILES, select_profile, WALKING_PROMPT
 from fabricapp.models import VideoJob
 from fabricapp.video.service import process_job
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
@@ -123,6 +123,34 @@ class GimmeclipHTTPTests(TestCase):
                 self.__class__.poll_reply=(200,{'state':'done','clip':{'id':value}})
                 with self.assertRaises(VideoError):
                     client.poll(JOB)
+
+    def test_walking_recipe_keeps_source_and_uses_eight_seconds(self):
+        client=GimmeclipClient()
+        self.assertEqual(client.submit(PHOTO,select_profile({'video_motion':'walking'})),JOB)
+        recipe=json.loads(self.calls[-1][3])['recipe']
+        self.assertEqual(recipe['source'],{'url':PHOTO,'start':0,'end':8})
+        self.assertEqual(recipe['aiEdit'],{'idea':WALKING_PROMPT,'animate':True})
+        self.assertLessEqual(len(WALKING_PROMPT),300)
+
+    def test_provider_failure_details_survive_worker_and_hide_credentials(self):
+        from fabricapp.video.service import job_response
+        job=VideoJob.objects.create(status='video_generating',polling_url=JOB,
+            image={'url':'https://cdn.example/photo.png'})
+        self.__class__.poll_reply=(200,{'state':'error','code':'upstream_error',
+            'failedStage':'generating',
+            'error':'Model unavailable fake-gimme-key test-token Bearer secret123 https://private.example/photo gc_privatekey'})
+        process_job(job)
+        job.refresh_from_db()
+        self.assertEqual(job.status,'failed')
+        self.assertEqual(job.provider_error['code'],'upstream_error')
+        self.assertEqual(job.provider_error['stage'],'generating')
+        data=job_response(job)
+        self.assertEqual(data['error']['provider'],job.provider_error)
+        serialized=json.dumps(data)
+        for secret in ('fake-gimme-key','test-token','secret123','private.example','gc_privatekey'):
+            self.assertNotIn(secret,serialized)
+        self.assertIn('Model unavailable',serialized)
+        self.assertFalse(data['error']['retryable'])
 
     def test_pending_errors_and_invalid_completion(self):
         client = GimmeclipClient()

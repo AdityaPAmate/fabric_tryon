@@ -54,6 +54,13 @@
             </label>
             <section id="video-settings" class="field field-wide hidden" aria-label="Video options">
               <h3>Video options</h3>
+              <label>Video motion
+                <select id="video-motion">
+                  <option value="mirror_check">Current — shirt inspection</option>
+                  <option value="walking">Walking / catwalk</option>
+                </select>
+              </label>
+              <small>8-second video. Uses the generated image and its fabric/background.</small>
               <label>Video API Token <input id="video-token" type="password" autocomplete="off" placeholder="VIDEO_API_TOKEN from your backend"></label>
               <small>The Gimmeclip key stays on the backend. All existing image settings remain available.</small>
               <label>Saved video job ID <input id="video-job-id" placeholder="Paste job UUID to inspect or resume"></label>
@@ -438,7 +445,7 @@
     <script src="js/api_options.js?v=20261102"></script>
     <script src="js/catalog_client.js?v=20261102"></script>
     <script src="js/video_client.js?v=fabric-mirror-v4"></script>
-    <script src="js/video_ui.js?v=fabric-review-v5"></script>
+    <script src="js/video_ui.js?v=fabric-walking-v6"></script>
     <script src="js/app.js?v=fabric-mirror-v4"></script>
   </body>
 </html>

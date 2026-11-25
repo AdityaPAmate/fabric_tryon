@@ -18,6 +18,7 @@ class VideoJob(models.Model):
     profile_version = models.CharField(max_length=80)
     error_code = models.CharField(max_length=80, blank=True)
     error_message = models.CharField(max_length=300, blank=True)
+    provider_error = models.JSONField(default=dict, blank=True)
     retryable = models.BooleanField(default=False)
     attempts = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

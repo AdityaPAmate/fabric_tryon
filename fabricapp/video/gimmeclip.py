@@ -13,6 +13,25 @@ from .errors import VideoError
 BASE = 'https://gimmeclip.com'
 
 
+def provider_error_details(result):
+    """Retain useful diagnostics without credentials, source URLs or raw payloads."""
+    details = {}
+    code = result.get('code')
+    if isinstance(code, str) and re.fullmatch(r'[a-z_]{1,48}', code):
+        details['code'] = code
+    stage = result.get('failedStage')
+    if stage in ('source', 'generating', 'transcribing', 'translating', 'rendering', 'saving'):
+        details['stage'] = stage
+    message = result.get('error')
+    if isinstance(message, str):
+        for secret in (settings.GIMMECLIP_API_KEY, settings.VIDEO_API_TOKEN):
+            if secret:
+                message = message.replace(secret, '[redacted]')
+        message = re.sub(r'gc_[A-Za-z0-9_-]+|Bearer\s+\S+|https?://\S+', '[redacted]', message, flags=re.I)
+        details['message'] = ' '.join(message.split())[:200]
+    return details
+
+
 def checked_url(url, kind):
     patterns = {'photo': r'/api/v0/photos/[a-f0-9]{32}',
                 'job': r'/api/v0/edits/[a-f0-9]{64}',
@@ -96,7 +115,10 @@ class GimmeclipClient:
         if state in ('source', 'generating', 'transcribing', 'translating', 'rendering', 'saving'):
             return None
         if state == 'error':
-            raise VideoError('provider_failed', 'Gimmeclip could not generate this video.')
+            details = provider_error_details(result)
+            message = details.get('message') or details.get('code') or 'Provider returned no detailed reason.'
+            stage = details.get('stage', 'video generation')
+            raise VideoError('provider_failed', f'Gimmeclip failed at {stage}: {message}'[:300], details=details)
         if state != 'done':
             raise VideoError('invalid_provider_response', 'Gimmeclip returned an unknown state.', True)
         # Match GimmeVideoLab: the completed edit is the delivered output.

@@ -305,3 +305,29 @@ class VideoJobTests(TestCase):
                 job = VideoJob.objects.get(pk=response.json()['job_id'])
                 self.assertEqual(job.motion_profile['motion'],'mirror_check')
                 self.assertNotIn('motion',job.payload)
+
+    def test_walking_motion_is_explicit_and_saved_without_changing_image_inputs(self):
+        from fabricapp.video.profiles import PROMPT, WALKING_PROMPT
+        default=self.job()
+        self.assertEqual(default.motion_profile['prompt'],PROMPT)
+        response=self.create(video_motion='walking')
+        self.assertEqual(response.status_code,202,response.content)
+        walking=VideoJob.objects.get(pk=response.json()['job_id'])
+        self.assertEqual(walking.motion_profile['motion'],'walking')
+        self.assertEqual(walking.motion_profile['prompt'],WALKING_PROMPT)
+        self.assertEqual(walking.motion_profile['seconds'],8)
+        self.assertNotIn('video_motion',walking.payload)
+        self.assertEqual(walking.payload,default.payload)
+        self.assertEqual(self.create(video_motion='unsupported').status_code,400)
+
+    def test_existing_photo_can_use_walking_and_rejects_unknown_motion(self):
+        data={'source_image':SimpleUploadedFile('photo.png',image_bytes(),'image/png'),
+              'video_motion':'walking'}
+        response=self.client.post('/api/animate-image/',data,**self.auth)
+        self.assertEqual(response.status_code,202,response.content)
+        job=VideoJob.objects.get(pk=response.json()['job_id'])
+        self.assertEqual(job.motion_profile['motion'],'walking')
+        self.assertTrue(job.image_file)
+        data['source_image']=SimpleUploadedFile('photo.png',image_bytes(),'image/png')
+        data['video_motion']='unknown'
+        self.assertEqual(self.client.post('/api/animate-image/',data,**self.auth).status_code,400)

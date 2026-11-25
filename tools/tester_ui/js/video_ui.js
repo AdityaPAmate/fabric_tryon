@@ -9,6 +9,7 @@ function createVideoUI(h) {
   const actions = el('video-actions');
   const retry = el('retry-video');
   const animate = el('animate-result');
+  const motion = el('video-motion');
   let current = null;
   let image = null;
   let stageInterval = null;
@@ -23,6 +24,15 @@ function createVideoUI(h) {
   function getToken() {
     if (!token.value.trim()) throw new Error('Enter your backend VIDEO_API_TOKEN in Video options. Do not enter the Gimmeclip key.');
     return token.value.trim();
+  }
+
+  async function checkMotionSupport(apiUrl, signal) {
+    if (motion.value !== 'walking') return;
+    const response = await fetch(new URL('/api/health/',apiUrl),{signal});
+    const info = await response.json();
+    if (!response.ok || !info.video_motions?.includes('walking')) {
+      throw new Error('Walking needs the latest backend deployment. Deploy the update, then try again.');
+    }
   }
 
   function stopClock() {
@@ -140,10 +150,12 @@ function createVideoUI(h) {
     if (!image?.url || image.view === 'catalog') return;
     const auth = getToken();
     const previous = h.getRecord() || {};
+    await checkMotionSupport(h.api.value,signal);
     const response = await fetch(image.url,{signal});
     if (!response.ok) throw new Error('Could not read the generated photo for animation.');
     const form = new FormData();
     form.append('source_image',await response.blob(),'generated.png');
+    form.set('video_motion',motion.value || 'mirror_check');
     const garment = previous.request?.garment_type;
     if (['shirt','saree','kurta','kurti_pant','pant','blazer'].includes(garment)) form.append('garment_type',garment);
     const view = previous.request?.camera_view;
@@ -167,6 +179,8 @@ function createVideoUI(h) {
     stop:stopClock,
     currentJob:()=>current,
     async generate(apiUrl,payload,signal,context) {
+      await checkMotionSupport(apiUrl,signal);
+      payload.set('video_motion',motion.value || 'mirror_check');
       const job = await VideoClient.createVideoJob(apiUrl,payload,getToken(),signal);
       return poll(job,signal,context);
     }

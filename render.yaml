@@ -2,7 +2,7 @@
 # Keep the existing service name if updating an existing Blueprint.
 services:
   - type: web
-    name: fabric-tryon-api
+    name: fabric_tryon
     runtime: docker
     plan: 0.5c-512mb
     numInstances: 1
@@ -11,7 +11,7 @@ services:
     healthCheckPath: /api/health/
     maxShutdownDelaySeconds: 60
     disk:
-      name: vastra-data
+      name: fabric-data
       mountPath: /var/data
       sizeGB: 1
     envVars:
