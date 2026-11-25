@@ -336,7 +336,7 @@ class VideoJobTests(TestCase):
         response=self.create(video_motion='shirt_commercial')
         self.assertEqual(response.status_code,202,response.content)
         job=VideoJob.objects.get(pk=response.json()['job_id'])
-        self.assertEqual(job.motion_profile['version'],'fabric-gimme-shirt-commercial-v2')
+        self.assertEqual(job.motion_profile['version'],'fabric-gimme-shirt-commercial-v4')
         self.assertNotIn('provider',job.motion_profile)
         self.assertLessEqual(len(job.motion_profile['prompt']),300)
         self.assertTrue(job.motion_profile['multi_shot'])

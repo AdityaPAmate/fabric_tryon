@@ -44,7 +44,7 @@ No additional video provider, model, billing account or configuration is needed.
 
 The supplied PixVerse clip is a style reference. The original prompt is preserved
 in docs/prompts/shirt_commercial_reference.txt. commercial.py adapts it to the
-Gimmeclip 300-character idea limit: collar/button close-up with a camera slide
+Gimmeclip 300-character idea limit: COLLAR, neck and top-button macro slide
 (0-2s), cuff close-up (2-3s), a front three-quarter walk TOWARD the camera while
 the CAMERA tracks BACKWARD (3-6s), then alongside (6-8s). Head-to-mid-thigh
 framing, relaxed arms and the same face/shirt/fabric/colour/fit/background/light
@@ -68,7 +68,10 @@ accepts a single 300-character idea, not separately enforced storyboard shots.
 No model-side cause was exposed by these completed jobs. Further prompt-only
 success is unverified. No source cropping, clip replacement, frame editing,
 provider switch or automatic quality-regeneration loop was added. Existing jobs
-retain their saved prompt profile; new Commercial jobs use v2.
+retain their saved prompt profile. V4 changes only the opening collar instruction
+to name COLLAR, neck and top buttons, prioritising the collar instead of a general
+shirt/button close-up. Cuff, walking, timing and camera instructions are unchanged.
+This targeted change needs visual confirmation in newly generated footage.
 
 Only this multi-shot profile marks outer-frame continuity as not_applicable,
 because camera slides, cuts and tracking intentionally change the image edges.
