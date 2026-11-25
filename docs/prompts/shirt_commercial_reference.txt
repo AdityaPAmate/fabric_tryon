@@ -1,6 +1,7 @@
 Original user-supplied prompt (reference video: PixVerse V6 Image Text 540P).
-The runtime adaptation is in fabricapp/video/commercial.py: a single Gimmeclip
-idea within its 300-character limit. The reference does not select a provider.
+The collar opening uses original source pixels with a rendered left-to-right pan.
+The remaining shot instructions in fabricapp/video/commercial.py use a single
+Gimmeclip idea within its 300-character limit. No provider change is implied.
 
 Create an 8-second ultra-realistic premium cinematic fashion commercial using the provided reference image. The shirt is the primary product being advertised, not the trousers, shoes, or the model's overall appearance.
 

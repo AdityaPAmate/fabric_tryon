@@ -12,6 +12,7 @@ from .gimmeclip import GimmeclipClient
 from .errors import VideoError
 from .profiles import select_profile
 from .storage import store_video
+from .collar import prepare_collar, ffmpeg_path
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,14 @@ def process_job(job):
             with default_storage.open(job.image_file, 'rb') as content:
                 image = upload_generated_image(content.read())
             save(job, image=image)
+        collar_image = None
+        if job.motion_profile.get('source_collar_opening'):
+            with default_storage.open(job.image_file, 'rb') as content:
+                collar_image = content.read()
+            # Validate the opening before paying for a new animation. Retries
+            # use the same saved source image and never a guessed fixed crop.
+            prepare_collar(collar_image)
+            ffmpeg_path()
         client = GimmeclipClient()
         if not job.polling_url and not job.provider_video_url:
             if not job.source_photo_url:
@@ -110,7 +119,9 @@ def process_job(job):
             else:
                 raise VideoError('poll_timeout', 'Video is still pending. Retry will check the same Gimmeclip job.', True)
         save(job, status='video_storing')
-        if job.motion_profile.get('multi_shot'):
+        if collar_image is not None:
+            video = store_video(job.provider_video_url, job.pk, allow_cuts=True, collar_image=collar_image)
+        elif job.motion_profile.get('multi_shot'):
             video = store_video(job.provider_video_url, job.pk, allow_cuts=True)
         else:
             video = store_video(job.provider_video_url, job.pk)

@@ -5,7 +5,7 @@ from fabricapp.video.continuity import check_continuity
 from fabricapp.video.errors import VideoError
 
 
-def animation_bytes(change=None, letterbox=True):
+def animation_bytes(change=None, letterbox=True, *, seconds=2):
     """Real MP4 fixture: central subject motion, optionally a peripheral change."""
     import cv2
     import numpy as np
@@ -15,7 +15,7 @@ def animation_bytes(change=None, letterbox=True):
         if not writer.isOpened():
             raise RuntimeError('MP4 test encoder unavailable')
         try:
-            for index in range(48):
+            for index in range(round(24 * seconds)):
                 frame = np.full((128, 96, 3), (120, 130, 145), dtype=np.uint8)
                 if index >= 24:
                     if change == 'cut':

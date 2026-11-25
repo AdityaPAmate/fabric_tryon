@@ -35,76 +35,81 @@ is selected before queuing and saved with the job, not recomputed on retry.
 `video_motion` is removed from image inputs so original image generation stays
 unchanged. Both generate-tryon-video and animate-image accept the same choices.
 
-## Cinematic shirt commercial (Gimmeclip)
+## Cinematic shirt commercial (source collar + Gimmeclip)
 
-`shirt_commercial` is an extra shirt-only option using the same Gimmeclip photo,
-edit, poll and download pipeline as Inspection and Walking. Cloudflare remains
-in the image stage only; video requests use GIMMECLIP_API_KEY and Gimmeclip quota.
-No additional video provider, model, billing account or configuration is needed.
+The extra shirt-only option uses one Gimmeclip photo-animation request with the
+FULL saved try-on image. Cloudflare remains in the existing image stage only.
+Inspection and Walking prompts and storage remain unchanged.
 
-The supplied PixVerse clip is a style reference. The original prompt is preserved
-in docs/prompts/shirt_commercial_reference.txt. commercial.py adapts it to the
-Gimmeclip 300-character idea limit: COLLAR, neck and top-button macro slide
-(0-2s), cuff close-up (2-3s), a front three-quarter walk TOWARD the camera while
-the CAMERA tracks BACKWARD (3-6s), then alongside (6-8s). Head-to-mid-thigh
-framing and relaxed arms are requested. Every shot must copy
-the exact source colour, print, scale, weave and fit, with no redesign/recolour;
-face, background and light stay the same.
-All three profiles request 8 seconds. Timing and camera instructions are model
-guidance, not guarantees of exact shot boundaries or visual identity.
-The existing Inspection and Walking prompts are unchanged.
+New Commercial jobs save profile `fabric-gimme-shirt-commercial-v6` with
+`source_collar_opening: true`. After the image stage, a bundled MIT-licensed
+YuNet face locator anchors a crop around the neck, collar and top buttons. The
+crop uses original image pixels, not a new generated garment. A single clear
+face and sufficient upper chest are required. Missing/ambiguous/off-image crops
+fail as `collar_not_found` before any Gimmeclip upload or paid submission; the
+source image is retained. There is no silent fixed-position fallback.
 
-Commercial v2 follows inspection of job b926e92c-5b6b-46b8-bcbb-e74922693a38:
-its delivered clip skipped collar detail, showed the back and touched the shirt.
-A live v2 test using the same saved image (303b697b-5965-4182-b9bf-756cf7b6435c,
-92.73s total) showed detail footage and front walking without the observed back
-view or shirt touching, but collar framing was inaccurate, walking stayed too
-wide and new architecture appeared. A second prompt trial
-(bf88def9-f426-4857-89f2-32e61d5c6ea2, 82.59s total) explicitly excluded feet
-and requested the exact background, yet omitted both close-ups and changed the
-scene/colour. That trial was reverted; the v2 shot sequence was retained as the closer result.
+FFmpeg replaces the first two seconds of the downloaded Gimmeclip clip with a
+left-to-right slide over that source collar crop. It keeps provider seconds 2-8
+at their original speed, so the finished silent H.264 video is approximately
+8 seconds at 540x960/24fps. Images are fitted with padding instead of stretching;
+no colour grade, AI sharpening, frame interpolation or freeze padding is applied.
+A small collar crop can appear soft when enlarged: cropping cannot recover
+weave detail absent from the source. The original source/provider files are not
+overwritten. Cloudinary still stores the final video under the stable job ID.
 
-These tests do NOT establish reference matching or visual consistency. The API
-accepts a single 300-character idea, not separately enforced storyboard shots.
-No model-side cause was exposed by these completed jobs. Further prompt-only
-success is unverified. No source cropping, clip replacement, frame editing,
-provider switch or automatic quality-regeneration loop was added. Existing jobs
-retain their saved prompt profile. V5 keeps V4's entire shot/camera sequence
-unchanged, but prioritises exact source colour/print/scale/weave/fit in ALL shots
-and no redesign/recolour over the previous generic fabric instruction.
+Requested final shot order:
 
-Source/output inspection of the supplied jobs found:
+| Final time | Shot |
+| --- | --- |
+| 0-2s | Original collar crop, camera left-to-right (rendered locally) |
+| 2-3.5s | Sleeve/cuff close-up, gentle arm motion (Gimmeclip) |
+| 3.5-5s | Head-to-waist shirt view (Gimmeclip) |
+| 5-8s | Slightly elevated front-side walking, camera alongside (Gimmeclip) |
 
-- 5fbf05f1-6c6f-43b9-8f79-439a2bedb4d3 (10:50 UTC): floral source;
-  collar/chest detail then front/side walking; cuff detail was not consistent.
-- 357610a8-3b09-4e72-ac34-778a0bbcae70 (10:55 UTC, latest of the two):
-  pale vertically striped source; around 1s the shirt becomes plain blue and
-  stays blue. This is a fabric substitution in the delivered video, not merely
-  a darker exposure in the saved source image.
+The Gimmeclip prompt reserves its first 3.5s for sleeves, including the retained
+2-3.5s interval. It requests the same source colour/print/scale/weave/fit in every
+shot, without recolouring/redesign. Its schema supports a single idea of at most
+300 characters, not a seed, garment lock or independently enforced storyboard.
+The real source collar is deterministic; later shots and exact fabric identity
+in the AI motion STILL require visual review. Job completion is not fabric
+certification. The user's long reference prompt remains in
+`docs/prompts/shirt_commercial_reference.txt`.
 
-The backend uploads the saved generated image bytes to Gimmeclip unchanged and
-submits the saved profile. It requests no colour filters, look or texture effects.
-The reviewed Gimmeclip OpenAPI aiEdit schema exposes idea (max 300) and animate;
-it exposes no seed, model pin, motion-template or garment-lock control. A stable
-prompt is a request for the same style, not enforcement of identical results.
-V5 is mitigation to test, not verified fabric preservation. Do not present job
-completion or the outer-frame heuristic as a fabric-match certification.
+The runtime Dockerfile installs FFmpeg. No new API key, env variable, paid plan
+or video-generation provider is needed. The local face model and MIT license
+are bundled in `fabricapp/video/assets`; it makes no external inference calls.
+The renderer uses one thread and a 120-second timeout. `video.composition`
+records the opening version, source crop box/size and provider trim point.
+`video_generation_seconds` remains provider time; total job time includes render
+and storage. Decode/duration/dimension checks run on input and composed output.
+The static-camera edge heuristic is not applicable to this moving-camera mode.
 
+A failed render/storage retry reuses the saved image and provider URL, without a
+new generation. Older jobs keep their saved profile: v5 and earlier clips are
+not retroactively cropped or re-encoded. Ambiguous provider submissions are
+never automatically repeated.
 
-Only this multi-shot profile marks outer-frame continuity as not_applicable,
-because camera slides, cuts and tracking intentionally change the image edges.
-Decode/duration/dimension checks remain active. Footage still needs visual review.
-Ambiguous submissions are never automatically repeated; storage retries reuse the
-saved Gimmeclip result. Saved jobs from the removed commercial provider are not
-silently resubmitted to Gimmeclip; their image and references remain available.
-The UI checks backend motion support before submitting to avoid silent fallback.
+Validation: real FFmpeg tests check original crop pixels, left-to-right motion,
+8s duration, ordering, unchanged raw clip, short-clip rejection and retryable
+encoder failures. HTTP worker tests check complete composition, original photo
+upload, preflight failure before billing, and older commercial jobs remaining
+unmodified. Two supplied source images (striped and floral) were also located
+and rendered locally using their previously saved clips; this checks the real
+collar opening, not adherence of a fresh Gimmeclip generation to the new prompt.
+
+Earlier source/output inspection found job
+357610a8-3b09-4e72-ac34-778a0bbcae70 turning a pale vertically striped shirt plain
+blue, while 5fbf05f1-6c6f-43b9-8f79-439a2bedb4d3 used a floral shirt. Subsequent
+v5 samples kept coarse source colours/pattern categories but varied framing;
+these observations do not prove exact motif/weave preservation on new inputs.
 
 The v8 profile adds only `Sharp focus at start.` to the v7 motion prompt. Job
 172cd901-293b-4ad9-a649-2eebf21a5397 has stable outer-frame colours but visible
 blur/coloured double edges around 0.8-1.3 seconds in its downloaded MP4. The
 generation-versus-rendering origin has not been isolated. This prompt instruction
-is not a verified repair. No frames are trimmed, interpolated, sharpened or
-stabilised, and the existing clip is not replaced. The continuity heuristic does
+is not a verified repair. For Inspection/Walking, no frames are trimmed, interpolated, sharpened or
+stabilised, and existing clips are not replaced. The continuity heuristic does
 not detect this brief blur; fresh v8 footage still needs visual review.
 
 Each submitted recipe uses source, frame=original and aiEdit with idea/animate.

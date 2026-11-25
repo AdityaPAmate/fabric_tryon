@@ -4,13 +4,14 @@ from pathlib import Path
 from .errors import VideoError
 from .gimmeclip import GimmeclipClient, checked_url
 from .continuity import check_continuity
+from .collar import render_commercial
 
 
 def validate_download_url(url):
     checked_url(url, 'video')
 
 
-def store_video(url, job_id, *, allow_cuts=False):
+def store_video(url, job_id, *, allow_cuts=False, collar_image=None):
     validate_download_url(url)
     # Authenticate only to Gimmeclip's validated clip endpoint; redirects are disabled.
     try:
@@ -32,6 +33,10 @@ def store_video(url, job_id, *, allow_cuts=False):
                     if b'ftyp' not in content.read(32):
                         raise VideoError('invalid_video', 'Provider output is not an MP4 video.', True)
                 continuity = check_continuity(path, allow_cuts=allow_cuts)
+                composition = None
+                if collar_image is not None:
+                    path, composition = render_commercial(path, collar_image, directory)
+                    continuity = check_continuity(path, allow_cuts=True)
                 with path.open('rb') as content:
                     result = cloudinary.uploader.upload(content, resource_type='video',
                         folder='vastra-tryon/videos', public_id=str(job_id), overwrite=True)
@@ -41,6 +46,9 @@ def store_video(url, job_id, *, allow_cuts=False):
         raise VideoError('video_storage_failed', 'Generated video could not be stored. Retry will reuse the existing result.', True)
     if not isinstance(result, dict) or not result.get('secure_url'):
         raise VideoError('video_storage_failed', 'Video storage returned no delivery URL.', True)
-    return {'url': result['secure_url'], 'public_id': result.get('public_id'),
+    video = {'url': result['secure_url'], 'public_id': result.get('public_id'),
             'duration': result.get('duration'), 'format': result.get('format', 'mp4'),
             'continuity': continuity}
+    if composition is not None:
+        video['composition'] = composition
+    return video
