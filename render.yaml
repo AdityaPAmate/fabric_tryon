@@ -1,19 +1,16 @@
-# One paid Docker web service. Web + worker share SQLite and uploaded files.
+# One Free Docker web service, as requested. SQLite/uploads are ephemeral.
+# A paid service + /var/data disk is required for persistence across restarts.
 # Keep the existing service name if updating an existing Blueprint.
 services:
   - type: web
     name: fabric_tryon
     runtime: docker
-    plan: 0.5c-512mb
+    plan: free
     numInstances: 1
     dockerfilePath: ./Dockerfile
     dockerCommand: bash deploy/render-start.sh
     healthCheckPath: /api/health/
     maxShutdownDelaySeconds: 60
-    disk:
-      name: fabric-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: SECRET_KEY
         generateValue: true

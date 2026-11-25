@@ -133,12 +133,12 @@ the live revision after deployment instead of treating a Git push as deployment.
 The last inspected live build was d4a1a89, despite newer commits on the branch.
 
 The existing service is fabric_tryon, srv-db337krbc2fs73cfdt1g, My Workspace,
-Oregon. render.yaml now uses that exact service name and prepares a single
-0.5c-512mb service plus a 1 GB fabric-data disk mounted at /var/data. SQLite and
-uploads already use that directory through deploy/render-start.sh. This file
-does not silently upgrade the existing manually-created Free service: attaching
-the paid disk/plan requires an explicit infrastructure change. Expected base
-cost is $7/month service plus $0.25/month for 1 GB, excluding usage/taxes, per
+Oregon. render.yaml uses that exact service name and the Free plan, with no paid
+disk, following the user's explicit decision on 2026-11-25. SQLite and uploads
+use /var/data through deploy/render-start.sh, but that directory is ephemeral
+without a disk. A future persistence upgrade would require explicit approval for
+a 0.5c-512mb service and a 1 GB disk mounted there; expected base cost is $7/month
+service plus $0.25/month for 1 GB, excluding usage/taxes, per
 https://render.com/pricing.md (checked 2026-11-25). Free mode cannot guarantee job
 or upload persistence across restarts. Previously lost records cannot be restored
 by attaching a disk; Cloudinary media remains independent of the local database.
