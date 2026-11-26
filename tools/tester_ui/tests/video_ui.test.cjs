@@ -67,6 +67,31 @@ test('normal completed video has no review warning',async()=>{
   assert.deepEqual(f.calls,[['create','mirror_check']]);
 });
 
+test('zoom video without an applicable check stays playable and visibly unverified',async()=>{
+  const job={...completed('not_applicable'),quality_status:'not_verified'};
+  const f=fixture(job);
+  await f.ui.generate('',new FormData(),null,{});
+  assert.equal(f.el('result-video').src,job.video.url);
+  assert.equal(f.el('result-video').classList.contains('hidden'),false);
+  assert.equal(f.el('video-actions').classList.contains('hidden'),false);
+  assert.match(f.helpers.status.textContent,/visual consistency not verified/);
+  assert.match(f.el('video-progress').textContent,/fabric, background, lighting and accessories/);
+  assert.equal(f.messages.length,0); // No claim that an undetected change was found.
+});
+
+test('passing edge check does not override backend unverified quality',async()=>{
+  const f=fixture({...completed('passed'),quality_status:'not_verified'});
+  await f.ui.generate('',new FormData(),null,{});
+  assert.match(f.helpers.status.textContent,/visual consistency not verified/);
+});
+
+test('backend review flag takes precedence over unverified fallback',async()=>{
+  const f=fixture({...completed('not_applicable'),quality_status:'needs_review'});
+  await f.ui.generate('',new FormData(),null,{});
+  assert.match(f.helpers.status.textContent,/visual review needed/);
+  assert.match(f.messages.join(' '),/possible background or lighting change/);
+});
+
 test('walking selection is sent with the same image request fields',async()=>{
   const f=fixture(completed('passed'));
   f.el('video-motion').value='walking';
