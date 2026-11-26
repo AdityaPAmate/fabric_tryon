@@ -3,7 +3,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
 from fabricapp.models import VideoJob
-from fabricapp.video.service import process_job
+from fabricapp.video.service import process_job, fail_stale_preparing
 from fabricapp.video.worker_lock import exclusive_worker
 
 
@@ -21,6 +21,7 @@ class Command(BaseCommand):
             try:
                 while True:
                     close_old_connections()
+                    fail_stale_preparing()
                     # Recover interrupted stages before new requests. A submission whose
                     # response was lost is marked for manual reconciliation, never resubmitted.
                     job = VideoJob.objects.exclude(status__in=['completed', 'failed', 'preparing']).first()

@@ -10,10 +10,14 @@ function createVideoUI(h) {
   const retry = el('retry-video');
   const animate = el('animate-result');
   const motion = el('video-motion');
+  const garmentChoice = el('video-garment-type');
+  const garmentField = el('video-garment-field');
+  let options = null;
+  let optionsKey = '';
+  let loadingKey = '';
+  let optionsSequence = 0;
   motion.addEventListener('change',()=>{
-    el('video-motion-help').textContent = motion.value === 'shirt_commercial'
-      ? 'Shirt only · 8s · original-image collar slide (2s), then Gimmeclip sleeve, waist-up and front-walking shots from a slightly elevated camera.'
-      : '8-second video. Uses the generated image and its fabric/background.';
+    showMotionHelp();
   });
   let current = null;
   let image = null;
@@ -31,14 +35,86 @@ function createVideoUI(h) {
     return token.value.trim();
   }
 
-  async function checkMotionSupport(apiUrl, signal) {
-    if (!['walking','shirt_commercial'].includes(motion.value)) return;
-    const response = await fetch(new URL('/api/health/',apiUrl),{signal});
-    const info = await response.json();
-    if (!response.ok || !info.video_motions?.includes(motion.value)) {
-      throw new Error('This video style needs the latest backend deployment. Deploy the update, then try again.');
-    }
+  function savedGarment() {
+    const type = h.getRecord()?.request?.garment_type;
+    return ['garment_image','garment','ready_made'].includes(type) ? null : type;
   }
+
+  function selectedGarment() {
+    // A saved image uses its own context, never a subsequently changed form value.
+    if (image && h.mode.value !== 'video') return savedGarment() || garmentChoice.value;
+    return el('garment-source').value === 'fabric' ? el('garment-type').value : garmentChoice.value;
+  }
+
+  function showMotionHelp() {
+    const style = options?.styles.find(s=>s.id === motion.value);
+    el('video-motion-help').textContent = style
+      ? `${style.help} ${options.source_hint}` : 'Choose the garment to see its video styles.';
+  }
+
+  async function getOptions(apiUrl, garment, signal) {
+    if (!garment) throw new Error('Choose the garment shown in the image in Video options.');
+    const url = new URL('/api/video-options/',apiUrl || h.api.value);
+    url.searchParams.set('garment_type',garment);
+    const response = await fetch(url,{signal});
+    if (response.status === 404) throw new Error('Video options need the latest backend deployment. Deploy the update, then try again.');
+    const data = await response.json();
+    if (!response.ok || data.garment_type !== garment || !Array.isArray(data.styles) || !data.styles.length) {
+      throw new Error(data.garment_type || 'Could not load video styles for this garment.');
+    }
+    return data;
+  }
+
+  function displayOptions(data) {
+    const previous = motion.value;
+    options = data;
+    motion.replaceChildren(...data.styles.map(style=>{
+      const option = document.createElement('option');
+      option.value = style.id; option.textContent = style.label;
+      return option;
+    }));
+    motion.value = data.styles.some(s=>s.id === previous) ? previous : data.default_style;
+    showMotionHelp();
+  }
+
+  async function refreshOptions() {
+    const garment = selectedGarment();
+    garmentField.classList.toggle('hidden', Boolean(
+      image && h.mode.value !== 'video' ? savedGarment() : el('garment-source').value === 'fabric'));
+    if (!garment) {
+      ++optionsSequence;
+      options = null; optionsKey = ''; loadingKey = '';
+      motion.replaceChildren(); showMotionHelp(); return;
+    }
+    const key = `${h.api.value}|${garment}`;
+    if ((options && optionsKey === key) || loadingKey === key) return;
+    const sequence = ++optionsSequence;
+    loadingKey = key;
+    try {
+      const data = await getOptions(h.api.value,garment);
+      if (sequence === optionsSequence) { optionsKey = key; displayOptions(data); }
+    } catch (error) {
+      if (sequence === optionsSequence) {
+        options = null;
+        el('video-motion-help').textContent = error.message;
+      }
+    } finally { if (sequence === optionsSequence && loadingKey === key) loadingKey = ''; }
+  }
+
+  async function checkMotionSupport(apiUrl, garment, signal) {
+    // Revalidate on submission, even when the UI previously loaded options.
+    const requested = motion.value;
+    const data = await getOptions(apiUrl,garment,signal);
+    const choice = requested || data.default_style;
+    if (!data.styles.some(s=>s.id === choice)) {
+      throw new Error('This video style is unavailable for this garment or needs the latest backend deployment. Select one of its current options.');
+    }
+    return choice;
+  }
+  garmentChoice.addEventListener('change',refreshOptions);
+  el('garment-type').addEventListener('change',()=>{if(h.mode.value === 'video') refreshOptions();});
+  el('garment-source').addEventListener('change',()=>{if(h.mode.value === 'video') refreshOptions();});
+  h.api.addEventListener('change',()=>{if(h.mode.value === 'video' || image) refreshOptions();});
 
   function stopClock() {
     if (stageInterval !== null) clearInterval(stageInterval);
@@ -69,6 +145,12 @@ function createVideoUI(h) {
         stageTime.textContent = `Video generation ${running ? 'elapsed' : 'time'}: ${elapsed.toFixed(1)} s`;
       };
       render();
+      if (!running && job.status === 'completed') {
+        const parts = [['download_seconds','Download'],['render_seconds','Render'],['final_upload_seconds','Upload']]
+          .filter(([key])=>job.timing?.[key] != null)
+          .map(([key,label])=>`${label}: ${job.timing[key].toFixed(1)} s`);
+        if (parts.length) stageTime.textContent += ` | ${parts.join(' | ')}`;
+      }
       if (running) stageInterval = setInterval(render, 100);
     }
     if (job.status === 'failed') h.showError(job.error?.message || 'Video generation failed. The generated image is retained.');
@@ -155,21 +237,22 @@ function createVideoUI(h) {
     if (!image?.url || image.view === 'catalog') return;
     const auth = getToken();
     const previous = h.getRecord() || {};
-    await checkMotionSupport(h.api.value,signal);
+    const garment = savedGarment() || garmentChoice.value;
+    const selectedMotion = await checkMotionSupport(h.api.value,garment,signal);
     const response = await fetch(image.url,{signal});
     if (!response.ok) throw new Error('Could not read the generated photo for animation.');
     const form = new FormData();
     form.append('source_image',await response.blob(),'generated.png');
-    form.set('video_motion',motion.value || 'mirror_check');
-    const garment = previous.request?.garment_type;
-    if (['shirt','saree','kurta','kurti_pant','pant','blazer'].includes(garment)) form.append('garment_type',garment);
+    form.set('video_motion',selectedMotion);
+    form.append('garment_type',garment);
     const view = previous.request?.camera_view;
     if (['front','side','close_up'].includes(view)) form.append('camera_view',view);
     else if (image.view && !['front','side','back','default'].includes(image.view)) form.append('camera_view','close_up');
     if (previous.request?.pose) form.append('pose',previous.request.pose);
     const endpoint = new URL('/api/animate-image/',h.api.value).href;
     const job = await VideoClient.createVideoJob(endpoint,form,auth,signal);
-    await poll(job,signal,{...previous,request:{...previous.request,generation_mode:'video_from_image'}});
+    await poll(job,signal,{...previous,request:{...previous.request,garment_type:garment,
+      video_motion:selectedMotion,generation_mode:'video_from_image'}});
   });
 
   return {
@@ -177,17 +260,21 @@ function createVideoUI(h) {
       el('video-settings').classList.toggle('hidden',!(video || image));
       animate.classList.toggle('hidden',!image || image.view === 'catalog' || video);
       if (!video && !current) { player.classList.add('hidden'); actions.classList.add('hidden'); }
+      if (video || (image && image.view !== 'catalog')) refreshOptions();
     },
     onImage(output) { image=output; this.setMode(h.mode.value === 'video'); },
-    reset() { stopClock(); current=null; image=null; player.removeAttribute('src'); player.classList.add('hidden');
+    reset() { stopClock(); ++optionsSequence; options=null; optionsKey=''; loadingKey='';
+      current=null; image=null; player.removeAttribute('src'); player.classList.add('hidden');
       actions.classList.add('hidden'); retry.classList.add('hidden'); progress.classList.add('hidden'); stageTime.classList.add('hidden'); animate.classList.add('hidden'); },
     stop:stopClock,
     currentJob:()=>current,
     async generate(apiUrl,payload,signal,context) {
-      await checkMotionSupport(apiUrl,signal);
-      payload.set('video_motion',motion.value || 'mirror_check');
+      const garment = payload.get('garment_type') || garmentChoice.value;
+      const selectedMotion = await checkMotionSupport(apiUrl,garment,signal);
+      payload.set('garment_type',garment);
+      payload.set('video_motion',selectedMotion);
       const job = await VideoClient.createVideoJob(apiUrl,payload,getToken(),signal);
-      return poll(job,signal,context);
+      return poll(job,signal,{...context,request:{...context?.request,garment_type:garment,video_motion:selectedMotion}});
     }
   };
 }

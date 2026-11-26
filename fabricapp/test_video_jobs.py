@@ -81,6 +81,7 @@ class VideoJobTests(TestCase):
         response = self.client.post('/api/generate-tryon-video/', {
             'person_image': SimpleUploadedFile('person.png', image_bytes(), 'image/png'),
             'garment_image': SimpleUploadedFile('outfit.png', image_bytes(), 'image/png'),
+            'garment_type': 'shirt',
         }, **self.auth)
         self.assertEqual(response.status_code, 202, response.content)
         job = VideoJob.objects.get(pk=response.json()['job_id'])
@@ -96,6 +97,8 @@ class VideoJobTests(TestCase):
         self.assertEqual(response.status_code, 202, response.content)
         job = VideoJob.objects.get(pk=response.json()['job_id'])
         self.assertTrue(job.image_file)
+        import hashlib
+        self.assertEqual(job.payload['_video_source']['sha256'], hashlib.sha256(image_bytes()).hexdigest())
         self.assertEqual(job.motion_profile['motion'], 'mirror_check')
         with patch('fabricapp.video.service.generate_image') as generate, \
              patch('fabricapp.video.service.upload_generated_image', return_value={'url': 'https://cdn.example/photo.png'}), \
@@ -107,6 +110,21 @@ class VideoJobTests(TestCase):
             process_job(job)
         generate.assert_not_called()
         self.assertEqual(job.status, 'completed')
+
+    def test_ready_garment_type_is_video_context_only_for_the_image_adapter(self):
+        response = self.client.post('/api/generate-tryon-video/', {
+            'person_image': SimpleUploadedFile('person.png', image_bytes(), 'image/png'),
+            'garment_image': SimpleUploadedFile('outfit.png', image_bytes(), 'image/png'),
+            'garment_type': 'pant',
+        }, **self.auth)
+        self.assertEqual(response.status_code, 202, response.content)
+        job = VideoJob.objects.get(pk=response.json()['job_id'])
+        with patch('fabricapp.video.service.generate_image', return_value=GenerationResult(image_bytes(), 7)) as generate, \
+             patch('fabricapp.video.service.upload_generated_image', side_effect=RuntimeError('stop after generation')):
+            process_job(job)
+        self.assertNotIn('garment_type', generate.call_args.args[0])
+        self.assertEqual(job.payload['garment_type'], 'pant')
+        self.assertEqual(job.motion_profile['garment_type'], 'pant')
 
     def test_success_stores_both_urls_and_hides_internal_provider_details(self):
         job = self.job()
@@ -307,7 +325,7 @@ class VideoJobTests(TestCase):
                 self.assertNotIn('motion',job.payload)
 
     def test_walking_motion_is_explicit_and_saved_without_changing_image_inputs(self):
-        from fabricapp.video.profiles import PROMPT, WALKING_PROMPT
+        from fabricapp.video.garments.shirt_prompts import PROMPT, WALKING_PROMPT
         default=self.job()
         self.assertEqual(default.motion_profile['prompt'],PROMPT)
         response=self.create(video_motion='walking')
@@ -322,7 +340,7 @@ class VideoJobTests(TestCase):
 
     def test_existing_photo_can_use_walking_and_rejects_unknown_motion(self):
         data={'source_image':SimpleUploadedFile('photo.png',image_bytes(),'image/png'),
-              'video_motion':'walking'}
+              'video_motion':'walking','garment_type':'shirt'}
         response=self.client.post('/api/animate-image/',data,**self.auth)
         self.assertEqual(response.status_code,202,response.content)
         job=VideoJob.objects.get(pk=response.json()['job_id'])

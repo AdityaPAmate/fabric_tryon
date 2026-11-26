@@ -13,7 +13,8 @@ from django.test import TestCase, override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from fabricapp.video.gimmeclip import BASE, GimmeclipClient, checked_url
 from fabricapp.video.errors import VideoError
-from fabricapp.video.profiles import PROFILES, select_profile, WALKING_PROMPT
+from fabricapp.video.profiles import PROFILES, select_profile
+from fabricapp.video.garments.shirt_prompts import WALKING_PROMPT
 from fabricapp.models import VideoJob
 from fabricapp.video.service import process_job
 from fabricapp.ai.providers.cloudflare_engine import GenerationResult
@@ -128,14 +129,14 @@ class GimmeclipHTTPTests(TestCase):
 
     def test_walking_recipe_keeps_source_and_uses_eight_seconds(self):
         client=GimmeclipClient()
-        self.assertEqual(client.submit(PHOTO,select_profile({'video_motion':'walking'})),JOB)
+        self.assertEqual(client.submit(PHOTO,select_profile({'garment_type':'shirt','video_motion':'walking'})),JOB)
         recipe=json.loads(self.calls[-1][3])['recipe']
         self.assertEqual(recipe['source'],{'url':PHOTO,'start':0,'end':8})
         self.assertEqual(recipe['aiEdit'],{'idea':WALKING_PROMPT,'animate':True})
         self.assertLessEqual(len(WALKING_PROMPT),300)
 
     def test_commercial_recipe_uses_gimmeclip_with_four_shot_prompt(self):
-        profile = select_profile({'video_motion': 'shirt_commercial'})
+        profile = select_profile({'garment_type':'shirt','video_motion': 'shirt_commercial'})
         self.assertEqual(GimmeclipClient().submit(PHOTO, profile), JOB)
         recipe = json.loads(self.calls[-1][3])['recipe']
         self.assertEqual(recipe['source'], {'url': PHOTO, 'start': 0, 'end': 8})
@@ -214,7 +215,7 @@ class GimmeclipHTTPTests(TestCase):
         job = VideoJob.objects.create(status='video_storing', profile_version='fabric-gimme-shirt-commercial-v5',
             motion_profile={'motion': 'shirt_commercial', 'multi_shot': True},
             provider_video_url=EDITED_VIDEO, image={'url': 'https://cdn.example/photo.png'})
-        with patch('fabricapp.video.storage.render_commercial') as render, \
+        with patch('fabricapp.video.collar.render_commercial') as render, \
              patch('fabricapp.video.storage.cloudinary.uploader.upload', return_value={'secure_url': 'https://cdn.example/old.mp4'}):
             process_job(job)
         self.assertEqual(job.status, 'completed', job.error_message)

@@ -1,10 +1,12 @@
 """Persist stage boundaries so retries reuse successful image/provider work."""
 import logging
 import time
+from datetime import timedelta
 from contextlib import ExitStack
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.utils import timezone
 from fabricapp.models import VideoJob
 from fabricapp.services.tryon_service import generate_image
 from fabricapp.services.cloudinary_service import upload_generated_image
@@ -12,7 +14,9 @@ from .gimmeclip import GimmeclipClient
 from .errors import VideoError
 from .profiles import select_profile
 from .storage import store_video
-from .collar import prepare_collar, ffmpeg_path
+from .rendering import preflight, renderer_name
+from .timing import measure
+from .source import metadata as source_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +51,9 @@ def create_job(data):
             source_image.seek(0)
             image_file = default_storage.save(f'video_jobs/{job.pk}/generated_image', source_image)
             stored.append(image_file)
-        save(job, image_file=image_file, inputs=paths, status='queued')
+            with default_storage.open(image_file, 'rb') as content:
+                data['_video_source'] = source_metadata(content.read())
+        save(job, payload=data, image_file=image_file, inputs=paths, status='queued')
     except Exception:
         for path in stored:
             default_storage.delete(path)
@@ -80,27 +86,35 @@ def process_job(job):
                     data = dict(job.payload)
                     for key, path in job.inputs.items():
                         data[key] = stack.enter_context(default_storage.open(path, 'rb'))
+                    if data.get('garment_image'):
+                        # garment_type is video context; keep the ready-image
+                        # adapter's original inputs and validation semantics.
+                        data.pop('garment_type', None)
                     generation = generate_image(data)
                 path = default_storage.save(f'video_jobs/{job.pk}/generated_image', ContentFile(generation.image_bytes))
                 timing = {**job.timing, 'image_ready_at': time.time()}
-                save(job, timing=timing, image_file=path, payload={**job.payload, '_image_seed': generation.effective_seed})
+                save(job, timing=timing, image_file=path, payload={**job.payload,
+                     '_image_seed': generation.effective_seed, '_video_source': source_metadata(generation.image_bytes)})
             with default_storage.open(job.image_file, 'rb') as content:
-                image = upload_generated_image(content.read())
+                with measure(timing, 'image_upload'):
+                    image = upload_generated_image(content.read())
+            save(job, timing=timing)
             save(job, image=image)
-        collar_image = None
-        if job.motion_profile.get('source_collar_opening'):
+        source_bytes = None
+        if renderer_name(job.motion_profile) != 'passthrough':
             with default_storage.open(job.image_file, 'rb') as content:
-                collar_image = content.read()
+                source_bytes = content.read()
             # Validate the opening before paying for a new animation. Retries
             # use the same saved source image and never a guessed fixed crop.
-            prepare_collar(collar_image)
-            ffmpeg_path()
+            preflight(job.motion_profile, source_bytes)
         client = GimmeclipClient()
         if not job.polling_url and not job.provider_video_url:
             if not job.source_photo_url:
                 with default_storage.open(job.image_file, 'rb') as content:
-                    photo_url = client.upload_photo(content.read())
-                save(job, source_photo_url=photo_url)
+                    timing = dict(job.timing)
+                    with measure(timing, 'provider_photo_upload'):
+                        photo_url = client.upload_photo(content.read())
+                save(job, source_photo_url=photo_url, timing=timing)
             save(job, status='video_submitting', timing={**job.timing, 'video_submitted_at': time.time()})
             profile = job.motion_profile
             polling_url = client.submit(job.source_photo_url, profile)
@@ -119,13 +133,11 @@ def process_job(job):
             else:
                 raise VideoError('poll_timeout', 'Video is still pending. Retry will check the same Gimmeclip job.', True)
         save(job, status='video_storing')
-        if collar_image is not None:
-            video = store_video(job.provider_video_url, job.pk, allow_cuts=True, collar_image=collar_image)
-        elif job.motion_profile.get('multi_shot'):
-            video = store_video(job.provider_video_url, job.pk, allow_cuts=True)
-        else:
-            video = store_video(job.provider_video_url, job.pk)
-        save(job, video=video, status='completed', timing={**job.timing, 'completed_at': time.time()})
+        video = store_video(job.provider_video_url, job.pk, profile=job.motion_profile,
+                            source_bytes=source_bytes)
+        # Storage timings are part of the saved final result as well as job timing.
+        timing = {**job.timing, **video.get('timing', {})}
+        save(job, video=video, status='completed', timing={**timing, 'completed_at': time.time()})
         logger.info('Video job %s completed: %s', job.pk, timing_response(job))
     except VideoError as exc:
         save(job, status='failed', error_code=exc.code, error_message=str(exc),
@@ -146,6 +158,18 @@ def can_retry(job):
         job.error_code == 'video_continuity_failed' and bool(job.provider_video_url)))
 
 
+def fail_stale_preparing():
+    """A hard crash while saving inputs must not leave an invisible job forever.
+
+    Do not guess which files were complete or pay for generation. Keep any files
+    for inspection and explicitly fail this incomplete request after one hour.
+    """
+    return VideoJob.objects.filter(status='preparing', updated_at__lt=timezone.now() - timedelta(hours=1)).update(
+        status='failed', error_code='inputs_incomplete',
+        error_message='Input saving was interrupted. Create a new video request with the source image.',
+        retryable=False, updated_at=timezone.now())
+
+
 def job_response(job):
     message = job.error_message
     if job.error_code == 'video_continuity_failed' and can_retry(job):
@@ -156,6 +180,9 @@ def job_response(job):
         'image': job.image or None, 'video': job.video or None,
         'garment_type': job.payload.get('garment_type', 'garment'),
         'timing': timing_response(job), 'motion': job.motion_profile.get('motion'),
+        'profile_version': job.profile_version,
+        'quality_status': ('needs_review' if job.video.get('continuity', {}).get('status') == 'review_required'
+                           else 'not_verified'),
         'error': ({'code': job.error_code, 'message': message,
                    'retryable': can_retry(job), 'provider': job.provider_error or None}
                   if job.status == 'failed' else None),
@@ -176,4 +203,11 @@ def timing_response(job):
         'elapsed_seconds': duration('started_at', 'completed_at'),
         'image_generation_seconds': duration('started_at', 'image_ready_at') if 'image_ready_at' in timing else None,
         'video_generation_seconds': duration('video_submitted_at', 'video_ready_at'),
+        'queue_wait_seconds': round(max(0, timing['started_at'] - job.created_at.timestamp()), 2)
+                              if 'started_at' in timing else None,
+        'request_to_ready_seconds': round(max(0, timing['completed_at'] - job.created_at.timestamp()), 2)
+                                    if job.status == 'completed' and 'completed_at' in timing else None,
+        'post_generation_seconds': duration('video_ready_at', 'completed_at'),
+        **{key: timing.get(key) for key in ('image_upload_seconds', 'provider_photo_upload_seconds',
+            'download_seconds', 'validation_seconds', 'render_seconds', 'final_upload_seconds')},
     }

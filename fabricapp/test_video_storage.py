@@ -31,6 +31,8 @@ class VideoStorageTests(SimpleTestCase):
         self.assertEqual(upload.call_args.kwargs['public_id'], 'test-job')
         client.return_value.download.assert_called_once_with(VIDEO)
         self.assertEqual(result['continuity']['check'], 'outer-frame-v2')
+        for stage in ('download_seconds', 'validation_seconds', 'render_seconds', 'final_upload_seconds'):
+            self.assertGreaterEqual(result['timing'][stage], 0)
 
     def test_scene_drift_is_available_for_review_without_altering_the_clip(self):
         payload = animation_bytes('saturation')

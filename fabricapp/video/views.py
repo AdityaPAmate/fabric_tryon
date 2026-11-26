@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from fabricapp.models import VideoJob
 from .serializers import VideoRequestSerializer, AnimateImageSerializer
 from .service import create_job, job_response, can_retry
+from .registry import get_definition, DefinitionUnavailable
 
 
 class VideoNotConfigured(APIException):
@@ -35,6 +36,21 @@ class VideoAuthentication(BaseAuthentication):
 class VideoView(APIView):
     authentication_classes = [VideoAuthentication]
     permission_classes = [AllowAny]
+
+
+class VideoOptionsView(APIView):
+    """Public metadata only: no generation, provider calls or API key needed."""
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            definition = get_definition(request.query_params.get('garment_type'))
+        except DefinitionUnavailable as exc:
+            return Response({'detail': str(exc)}, status=503)
+        except ValueError as exc:
+            return Response({'garment_type': str(exc)}, status=400)
+        return Response(definition.options())
 
 
 class GenerateTryOnVideoView(VideoView):

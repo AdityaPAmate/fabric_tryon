@@ -9,7 +9,8 @@ function fixture(job, {walkingSupported=true,commercialSupported=true} = {}) {
   function el(id) {
     if (!elements.has(id)) {
       const classes = new Set(['hidden']);
-      elements.set(id, {value:'',textContent:'',addEventListener(){},removeAttribute(){},
+      elements.set(id, {value:'',textContent:'',children:[],events:{},addEventListener(name,fn){this.events[name]=fn;},removeAttribute(){},
+        replaceChildren(...nodes){this.children=nodes;this.value=nodes[0]?.value || '';},
         classList:{add:x=>classes.add(x),remove:x=>classes.delete(x),contains:x=>classes.has(x),
           toggle(x,on){if(on) classes.add(x);else classes.delete(x);}}});
     }
@@ -26,13 +27,17 @@ function fixture(job, {walkingSupported=true,commercialSupported=true} = {}) {
     retryVideoJob:async()=>{calls.push('retry');return {job_id:job.job_id,status:'queued'};},
     pollJobUntilFinished:async()=>({...job,status:'completed',error:null,
       video:{url:'https://cdn.example/recovered.mp4',continuity:{status:'review_required'}}})};
-  const context = vm.createContext({document:{getElementById:el},VideoClient:client,FormData,URL,
-    fetch:async()=>({ok:true,json:async()=>({video_motions:['mirror_check',
-      ...(walkingSupported?['walking']:[]),...(commercialSupported?['shirt_commercial']:[])]}),
-      blob:async()=>new Blob(['photo'],{type:'image/png'})}),
+  const context = vm.createContext({document:{getElementById:el,createElement:()=>({})},VideoClient:client,FormData,URL,
+    fetch:async url=>({ok:true,json:async()=>({garment_type:new URL(url).searchParams.get('garment_type'),
+      default_style:'mirror_check',source_hint:'Source framing',
+      styles:['mirror_check',...(walkingSupported?['walking']:[]),...(commercialSupported&&new URL(url).searchParams.get('garment_type')==='shirt'?['shirt_commercial']:[])]
+        .map(id=>({id,label:id,help:id}))}),blob:async()=>new Blob(['photo'],{type:'image/png'})}),
     localStorage:{getItem:()=>null,setItem(){}},performance,AbortController,setInterval,clearInterval});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../js/video_ui.js'),'utf8'),context);
   const ui=context.createVideoUI(helpers);
+  el('video-garment-type').value='shirt';
+  el('garment-source').value='fabric';
+  el('garment-type').value='shirt';
   el('video-token').value='test-token';
   el('video-job-id').value=job.job_id;
   return {ui,el,messages,calls,helpers};
@@ -110,4 +115,47 @@ test('legacy blocked job uses retry instead of creating a new generation',async(
   assert.deepEqual(f.calls,['retry']);
   assert.equal(f.el('result-video').src,'https://cdn.example/recovered.mp4');
   assert.match(f.messages.join(' '),/Review needed/);
+});
+
+test('video styles load from backend for the selected garment',async()=>{
+  const f=fixture(completed('passed'));
+  f.el('garment-type').value='saree';
+  f.ui.setMode(true);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(Array.from(f.el('video-motion').children,o=>o.value),['mirror_check','walking']);
+  assert.match(f.el('video-motion-help').textContent,/Source framing/);
+});
+
+test('saved image uses its original garment even if the form has changed',async()=>{
+  const f=fixture(completed('passed'));
+  f.helpers.mode.value='single';
+  f.helpers.getRecord=()=>({request:{garment_type:'saree'}});
+  f.el('garment-type').value='shirt';
+  f.ui.onImage({url:'https://cdn.example/saree.png'});
+  await new Promise(resolve=>setImmediate(resolve));
+  f.el('video-motion').value='shirt_commercial';
+  await f.el('animate-result').onclick();
+  assert.equal(f.calls.length,0);
+  assert.match(f.messages.join(' '),/unavailable for this garment/);
+});
+
+test('unknown ready-made garment needs explicit video context',async()=>{
+  const f=fixture(completed('passed'));
+  f.el('garment-source').value='garment';
+  f.el('video-garment-type').value='';
+  await assert.rejects(()=>f.ui.generate(f.helpers.api.value,new FormData(),null,{}),/Choose the garment/);
+  assert.equal(f.calls.length,0);
+});
+
+test('generic saved ready-made image allows an explicit video garment choice',async()=>{
+  const f=fixture(completed('passed'));
+  f.helpers.mode.value='single';
+  f.helpers.getRecord=()=>({request:{garment_type:'garment_image'}});
+  f.el('video-garment-type').value='pant';
+  f.ui.onImage({url:'https://cdn.example/ready.png'});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.el('video-garment-field').classList.contains('hidden'),false);
+  assert.deepEqual(Array.from(f.el('video-motion').children,o=>o.value),['mirror_check','walking']);
+  await f.el('animate-result').onclick();
+  assert.deepEqual(f.calls,[['create','mirror_check']]);
 });

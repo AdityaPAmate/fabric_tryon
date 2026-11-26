@@ -54,11 +54,21 @@
             </label>
             <section id="video-settings" class="field field-wide hidden" aria-label="Video options">
               <h3>Video options</h3>
+              <label id="video-garment-field" class="hidden">Garment shown in this image
+                <select id="video-garment-type">
+                  <option value="">Choose the garment for video</option>
+                  <option value="shirt">Shirt</option>
+                  <option value="saree">Saree</option>
+                  <option value="kurta">Kurta</option>
+                  <option value="kurti_pant">Kurti + Pant</option>
+                  <option value="pant">Pant</option>
+                  <option value="blazer">Blazer</option>
+                </select>
+                <small>Only needed when a ready-made image has no garment type. This does not change image generation.</small>
+              </label>
               <label>Video motion
                 <select id="video-motion">
-                  <option value="mirror_check">Current — shirt inspection</option>
-                  <option value="walking">Walking / catwalk</option>
-                  <option value="shirt_commercial">Cinematic shirt commercial</option>
+                  <option value="">Select a garment to load video styles</option>
                 </select>
               </label>
               <small id="video-motion-help">8-second video. Uses the generated image and its fabric/background.</small>
@@ -446,7 +456,7 @@
     <script src="js/api_options.js?v=20261102"></script>
     <script src="js/catalog_client.js?v=20261102"></script>
     <script src="js/video_client.js?v=fabric-mirror-v4"></script>
-    <script src="js/video_ui.js?v=fabric-commercial-front-v10"></script>
+    <script src="js/video_ui.js?v=fabric-video-registry-v1"></script>
     <script src="js/app.js?v=fabric-mirror-v4"></script>
   </body>
 </html>
