@@ -138,7 +138,7 @@ class GimmeclipHTTPTests(TestCase):
     def test_saree_catwalk_uses_the_complete_photo_and_a_single_eight_second_animation(self):
         profile = select_profile({'garment_type': 'saree'})
         self.assertEqual(profile['motion'], 'walking')
-        self.assertEqual(profile['version'], 'fabric-gimme-saree-catwalk-v4')
+        self.assertEqual(profile['version'], 'fabric-gimme-saree-catwalk-v5')
         self.assertEqual(profile['camera_motion'], 'zoom_out')
         self.assertNotIn('multi_shot', profile)
         self.assertEqual(GimmeclipClient().submit(PHOTO, profile), JOB)
@@ -148,8 +148,9 @@ class GimmeclipHTTPTests(TestCase):
         self.assertEqual(recipe['aiEdit'], {'idea': profile['prompt'], 'animate': True})
         idea = recipe['aiEdit']['idea']
         self.assertIn('TWO slow short steps', idea)
-        self.assertLess(idea.index('turn RIGHT to show FULL BACK'), idea.index('turn LEFT back to front'))
-        self.assertIn('Natural footwork; no full spin/pulling', idea)
+        self.assertLess(idea.index('turn RIGHT to full BACK'), idea.index('turn LEFT to front'))
+        self.assertIn('No spin/dance/anklets/bells/new jewellery/pulling', idea)
+        self.assertIn('hem/drape, scene/light and footwear', idea)
         self.assertNotIn('feet planted', idea)
         self.assertNotIn('15 degrees', idea)
         self.assertEqual(set(recipe), {'v', 'source', 'frame', 'aiEdit'})

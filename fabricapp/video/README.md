@@ -45,11 +45,15 @@ prompt, version, duration and source-collar composition are unchanged. All three
 remain visible. This exception cannot be used for another garment or a new style.
 
 Each of saree, kurta, kurti+pant, pant and blazer has its own presentation and
-walking definition. Saree defaults to `walking` (catwalk v4): a closer saree view
+walking definition. Saree defaults to `walking` (catwalk v5): a closer saree view
 and zoom-out with two short slow steps over seconds 0–3. Turn right to show the
 full back over seconds 3–5, hold over 5–6, then turn left back to front at the
 same spot over 6–8. Natural foot movement is allowed. There is no small-angle or
-feet-planted constraint, no full spin and no garment pulling.
+feet-planted constraint, no full spin and no garment pulling. The video prompt
+explicitly excludes dance, anklets, bells and new jewellery, while preserving
+source footwear and saree hem/drape. This matters when a turn reveals ankles
+that were hidden by the source saree; unseen details must not become invented
+ankle ornaments. This prompt restriction still needs output visual verification.
 Its other option remains the existing front presentation. The whole source image
 is sent unchanged, with no added scene, colour effect, crop or extra generation.
 These are video prompts requiring visual evaluation,
