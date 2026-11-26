@@ -44,8 +44,12 @@ small compatibility tuple until they choose which shirt styles to keep. Its
 prompt, version, duration and source-collar composition are unchanged. All three
 remain visible. This exception cannot be used for another garment or a new style.
 
-Each of saree, kurta, kurti+pant, pant and blazer has its own front-presentation
-and walking definition. These are new video prompts requiring visual evaluation,
+Each of saree, kurta, kurti+pant, pant and blazer has its own presentation and
+walking definition. Saree defaults to `walking` (catwalk v2): closer saree view,
+smooth zoom-out while walking forward, stop, a 30-degree turn, then face front.
+Its other option remains the existing front presentation. The whole source image
+is sent unchanged, with no added scene, colour effect, crop or extra generation.
+These are video prompts requiring visual evaluation,
 not a claim that all garment outputs have been visually certified. The source
 hints are input requirements for the user; they are not automatic segmentation.
 Pants do not require a face or the shirt collar detector.
@@ -76,6 +80,11 @@ recorded in private job payload metadata; the source is not transformed.
 `needs_review` reflects an advisory outer-frame drift flag. Neither MP4 decoding
 nor that heuristic verifies exact fabric identity; multi-shot commercial checks
 are not a fabric-certification mechanism.
+The saree catwalk's expected zoom-out is marked `camera_motion=zoom_out` in the
+saved plan. The locked-edge visual heuristic is `not_applicable` with a reason,
+while decode/length checks still run. This is not an approval of fabric/background
+consistency; visual verification remains necessary. Existing saved locked-camera
+plans retain their original checks and prompts.
 
 ## Reliability boundaries
 

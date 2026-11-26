@@ -135,6 +135,19 @@ class GimmeclipHTTPTests(TestCase):
         self.assertEqual(recipe['aiEdit'],{'idea':WALKING_PROMPT,'animate':True})
         self.assertLessEqual(len(WALKING_PROMPT),300)
 
+    def test_saree_catwalk_uses_the_complete_photo_and_a_single_eight_second_animation(self):
+        profile = select_profile({'garment_type': 'saree'})
+        self.assertEqual(profile['motion'], 'walking')
+        self.assertEqual(profile['version'], 'fabric-gimme-saree-catwalk-v2')
+        self.assertEqual(profile['camera_motion'], 'zoom_out')
+        self.assertNotIn('multi_shot', profile)
+        self.assertEqual(GimmeclipClient().submit(PHOTO, profile), JOB)
+        recipe = json.loads(self.calls[-1][3])['recipe']
+        self.assertEqual(recipe['source'], {'url': PHOTO, 'start': 0, 'end': 8})
+        self.assertEqual(recipe['frame'], 'original')
+        self.assertEqual(recipe['aiEdit'], {'idea': profile['prompt'], 'animate': True})
+        self.assertEqual(set(recipe), {'v', 'source', 'frame', 'aiEdit'})
+
     def test_commercial_recipe_uses_gimmeclip_with_four_shot_prompt(self):
         profile = select_profile({'garment_type':'shirt','video_motion': 'shirt_commercial'})
         self.assertEqual(GimmeclipClient().submit(PHOTO, profile), JOB)

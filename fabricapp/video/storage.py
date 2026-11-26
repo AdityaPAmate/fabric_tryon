@@ -39,7 +39,8 @@ def store_video(url, job_id, *, profile=None, source_bytes=None, allow_cuts=Fals
                     if b'ftyp' not in content.read(32):
                         raise VideoError('invalid_video', 'Provider output is not an MP4 video.', True)
                 with measure(timing, 'validation'):
-                    continuity = check_continuity(path, allow_cuts=allow_cuts)
+                    continuity = check_continuity(path, allow_cuts=allow_cuts,
+                                                  camera_motion=profile.get('camera_motion', 'locked'))
                 with measure(timing, 'render'):
                     path, composition = render(profile, path, source_bytes, directory)
                 if composition is not None:

@@ -99,7 +99,7 @@ class VideoJobTests(TestCase):
         self.assertTrue(job.image_file)
         import hashlib
         self.assertEqual(job.payload['_video_source']['sha256'], hashlib.sha256(image_bytes()).hexdigest())
-        self.assertEqual(job.motion_profile['motion'], 'mirror_check')
+        self.assertEqual(job.motion_profile['motion'], 'walking')
         with patch('fabricapp.video.service.generate_image') as generate, \
              patch('fabricapp.video.service.upload_generated_image', return_value={'url': 'https://cdn.example/photo.png'}), \
              patch('fabricapp.video.service.GimmeclipClient') as provider, \

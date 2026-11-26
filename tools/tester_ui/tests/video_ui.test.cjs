@@ -29,7 +29,7 @@ function fixture(job, {walkingSupported=true,commercialSupported=true} = {}) {
       video:{url:'https://cdn.example/recovered.mp4',continuity:{status:'review_required'}}})};
   const context = vm.createContext({document:{getElementById:el,createElement:()=>({})},VideoClient:client,FormData,URL,
     fetch:async url=>({ok:true,json:async()=>({garment_type:new URL(url).searchParams.get('garment_type'),
-      default_style:'mirror_check',source_hint:'Source framing',
+      default_style:new URL(url).searchParams.get('garment_type')==='saree'&&walkingSupported?'walking':'mirror_check',source_hint:'Source framing',
       styles:['mirror_check',...(walkingSupported?['walking']:[]),...(commercialSupported&&new URL(url).searchParams.get('garment_type')==='shirt'?['shirt_commercial']:[])]
         .map(id=>({id,label:id,help:id}))}),blob:async()=>new Blob(['photo'],{type:'image/png'})}),
     localStorage:{getItem:()=>null,setItem(){}},performance,AbortController,setInterval,clearInterval});
@@ -123,7 +123,19 @@ test('video styles load from backend for the selected garment',async()=>{
   f.ui.setMode(true);
   await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(Array.from(f.el('video-motion').children,o=>o.value),['mirror_check','walking']);
+  assert.equal(f.el('video-motion').value,'walking');
   assert.match(f.el('video-motion-help').textContent,/Source framing/);
+});
+
+test('switching garments selects the new garment default instead of carrying shirt inspection over',async()=>{
+  const f=fixture(completed('passed'));
+  f.ui.setMode(true);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.el('video-motion').value,'mirror_check');
+  f.el('garment-type').value='saree';
+  f.el('garment-type').events.change();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.el('video-motion').value,'walking');
 });
 
 test('saved image uses its original garment even if the form has changed',async()=>{

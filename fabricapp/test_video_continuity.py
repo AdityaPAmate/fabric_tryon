@@ -66,3 +66,17 @@ class VideoContinuityTests(SimpleTestCase):
         with self.assertRaises(VideoError) as error:
             self.check(b'\x00\x00\x00\x18ftypisom' + b'\0' * 32)
         self.assertEqual(error.exception.code, 'invalid_video')
+
+    def test_expected_zoom_out_is_not_certified_by_a_locked_edge_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sample.mp4'
+            path.write_bytes(animation_bytes('cut'))
+            self.assertEqual(check_continuity(path)['status'], 'review_required')
+            result = check_continuity(path, camera_motion='zoom_out')
+            self.assertEqual(result['status'], 'not_applicable')
+            self.assertEqual(result['reason'], 'camera_motion')
+            self.assertEqual(result['camera_motion'], 'zoom_out')
+            # A camera-motion declaration must not bypass decode validation.
+            path.write_bytes(b'\x00\x00\x00\x18ftypisom' + b'\0' * 32)
+            with self.assertRaises(VideoError):
+                check_continuity(path, camera_motion='zoom_out')

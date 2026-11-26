@@ -49,6 +49,21 @@ class VideoStorageTests(SimpleTestCase):
         self.assertEqual(result['url'], 'https://cdn.example/review.mp4')
         self.assertEqual(seen, [payload])
 
+    def test_zoom_out_plan_preserves_clip_bytes_and_reports_check_as_not_applicable(self):
+        payload = animation_bytes('saturation')
+        seen = []
+        with patch('fabricapp.video.storage.GimmeclipClient') as client, \
+             patch('fabricapp.video.storage.cloudinary.uploader.upload') as upload:
+            client.return_value.download.return_value = self.response(payload)
+            def store(content, **kwargs):
+                seen.append(content.read())
+                return {'secure_url': 'https://cdn.example/catwalk.mp4'}
+            upload.side_effect = store
+            result = store_video(VIDEO, 'catwalk-job', profile={'camera_motion': 'zoom_out'})
+        self.assertEqual(result['continuity']['status'], 'not_applicable')
+        self.assertEqual(result['continuity']['reason'], 'camera_motion')
+        self.assertEqual(seen, [payload])
+
     def test_html_output_is_not_uploaded(self):
         with patch('fabricapp.video.storage.GimmeclipClient') as client, \
              patch('fabricapp.video.storage.cloudinary.uploader.upload') as upload:

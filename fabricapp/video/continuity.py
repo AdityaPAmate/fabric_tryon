@@ -4,11 +4,13 @@ For a locked camera, the image edges should stay still while the central person
 turns. Sample at 4 Hz, ignore letterboxing and compare blurred edge colours with
 the first frame. Flag sustained large changes; small motion/compression passes.
 This heuristic can miss subtle changes and can flag subjects moving at edges.
+It is not applicable to profiles with deliberate camera movement, even when
+they have no cuts; decoding and duration validation still apply.
 """
 from .errors import VideoError
 
 
-def check_continuity(path, *, allow_cuts=False):
+def check_continuity(path, *, allow_cuts=False, camera_motion='locked'):
     import cv2
     import numpy as np
 
@@ -69,10 +71,17 @@ def check_continuity(path, *, allow_cuts=False):
                 review_required = True
         if decoded < count - 2 or samples < 2:
             raise invalid()
-        return {'check': 'outer-frame-v2', 'samples': samples,
-                'status': ('not_applicable' if allow_cuts else
+        result = {'check': 'outer-frame-v2', 'samples': samples,
+                'status': ('not_applicable' if allow_cuts or camera_motion != 'locked' else
                            'review_required' if review_required else 'passed'),
                 'max_rgb_change': round(max_rgb, 2),
                 'max_saturation_change': round(max_saturation, 2)}
+        if camera_motion != 'locked':
+            # Zoom changes which background pixels touch the frame edges. This
+            # locked-camera heuristic cannot certify continuity for that shot.
+            # Decoding/length checks above still run; do not label it "passed".
+            result['reason'] = 'camera_motion'
+            result['camera_motion'] = camera_motion
+        return result
     finally:
         cap.release()

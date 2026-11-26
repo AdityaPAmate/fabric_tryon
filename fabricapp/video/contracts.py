@@ -12,6 +12,7 @@ class VideoStyle:
     seconds: int = 8
     renderer: str = 'passthrough'
     allow_cuts: bool = False
+    camera_motion: str = 'locked'
 
     def __post_init__(self):
         if not self.id or not self.version or not 3 <= len(self.prompt) <= 300:
@@ -22,6 +23,8 @@ class VideoStyle:
             raise ValueError('Unknown video renderer.')
         if self.renderer == 'shirt_collar' and (self.seconds != 8 or not self.allow_cuts):
             raise ValueError('The existing shirt collar composition needs eight seconds and cuts.')
+        if self.camera_motion not in ('locked', 'zoom_out'):
+            raise ValueError('Unknown camera motion.')
 
     def profile(self, garment_type):
         # JSON snapshot: workers/retries never resolve a newer definition.
@@ -32,6 +35,8 @@ class VideoStyle:
             result['multi_shot'] = True
         if self.renderer == 'shirt_collar':
             result['source_collar_opening'] = True  # saved-job compatibility
+        if self.camera_motion != 'locked':
+            result['camera_motion'] = self.camera_motion
         return result
 
 
@@ -73,5 +78,6 @@ class GarmentVideoDefinition:
                 'default_style': self.default_style, 'source_hint': self.source_hint,
                 'styles': [{'id': s.id, 'label': s.label, 'seconds': s.seconds,
                             'help': s.help, 'version': s.version,
+                            'camera_motion': s.camera_motion,
                             'compatibility': s in self.compatibility_styles}
                            for s in self.all_styles]}

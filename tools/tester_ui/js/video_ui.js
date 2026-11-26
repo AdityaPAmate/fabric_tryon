@@ -66,7 +66,7 @@ function createVideoUI(h) {
   }
 
   function displayOptions(data) {
-    const previous = motion.value;
+    const previous = options?.garment_type === data.garment_type ? motion.value : null;
     options = data;
     motion.replaceChildren(...data.styles.map(style=>{
       const option = document.createElement('option');
