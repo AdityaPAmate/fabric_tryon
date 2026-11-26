@@ -144,7 +144,7 @@ class GimmeclipHTTPTests(TestCase):
         self.assertLessEqual(len(profile['prompt']), 300)
         self.assertTrue(profile['source_collar_opening'])
         for cue in ('0-3.5s sleeve/cuff close-up', 'arm moves gently', 'head-to-waist',
-                    'slightly elevated front-side waist-up walking', 'Keep subject in frame',
+                    'front waist-up walk TOWARD camera', 'Slightly elevated camera tracks BACKWARD only', 'No side view',
                     'EXACT source colour/print/scale/weave/fit in ALL shots', 'No redesign/recolour'):
             self.assertIn(cue, profile['prompt'])
 

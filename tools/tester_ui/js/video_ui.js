@@ -12,7 +12,7 @@ function createVideoUI(h) {
   const motion = el('video-motion');
   motion.addEventListener('change',()=>{
     el('video-motion-help').textContent = motion.value === 'shirt_commercial'
-      ? 'Shirt only · 8s · original-image collar slide (2s), then Gimmeclip sleeve, waist-up and side-walking shots.'
+      ? 'Shirt only · 8s · original-image collar slide (2s), then Gimmeclip sleeve, waist-up and front-walking shots from a slightly elevated camera.'
       : '8-second video. Uses the generated image and its fabric/background.';
   });
   let current = null;

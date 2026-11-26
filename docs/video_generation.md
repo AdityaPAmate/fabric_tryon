@@ -41,7 +41,7 @@ The extra shirt-only option uses one Gimmeclip photo-animation request with the
 FULL saved try-on image. Cloudflare remains in the existing image stage only.
 Inspection and Walking prompts and storage remain unchanged.
 
-New Commercial jobs save profile `fabric-gimme-shirt-commercial-v6` with
+New Commercial jobs save profile `fabric-gimme-shirt-commercial-v7` with
 `source_collar_opening: true`. After the image stage, a bundled MIT-licensed
 YuNet face locator anchors a crop around the neck, collar and top buttons. The
 crop uses original image pixels, not a new generated garment. A single clear
@@ -65,7 +65,7 @@ Requested final shot order:
 | 0-2s | Original collar crop, camera left-to-right (rendered locally) |
 | 2-3.5s | Sleeve/cuff close-up, gentle arm motion (Gimmeclip) |
 | 3.5-5s | Head-to-waist shirt view (Gimmeclip) |
-| 5-8s | Slightly elevated front-side walking, camera alongside (Gimmeclip) |
+| 5-8s | Front waist-up walking toward camera; camera slightly elevated, tracking backward only; no side view (Gimmeclip) |
 
 The Gimmeclip prompt reserves its first 3.5s for sleeves, including the retained
 2-3.5s interval. It requests the same source colour/print/scale/weave/fit in every
