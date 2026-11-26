@@ -138,7 +138,7 @@ class GimmeclipHTTPTests(TestCase):
     def test_saree_catwalk_uses_the_complete_photo_and_a_single_eight_second_animation(self):
         profile = select_profile({'garment_type': 'saree'})
         self.assertEqual(profile['motion'], 'walking')
-        self.assertEqual(profile['version'], 'fabric-gimme-saree-catwalk-v5')
+        self.assertEqual(profile['version'], 'fabric-gimme-saree-fitting-v7')
         self.assertEqual(profile['camera_motion'], 'zoom_out')
         self.assertNotIn('multi_shot', profile)
         self.assertEqual(GimmeclipClient().submit(PHOTO, profile), JOB)
@@ -147,10 +147,14 @@ class GimmeclipHTTPTests(TestCase):
         self.assertEqual(recipe['frame'], 'original')
         self.assertEqual(recipe['aiEdit'], {'idea': profile['prompt'], 'animate': True})
         idea = recipe['aiEdit']['idea']
-        self.assertIn('TWO slow short steps', idea)
-        self.assertLess(idea.index('turn RIGHT to full BACK'), idea.index('turn LEFT to front'))
-        self.assertIn('No spin/dance/anklets/bells/new jewellery/pulling', idea)
-        self.assertIn('hem/drape, scene/light and footwear', idea)
+        self.assertIn('TWO slow steps', idea)
+        self.assertLess(idea.index('turn RIGHT to show full BACK'), idea.index('reverse LEFT to front'))
+        self.assertIn('Arms hang at sides, fingers loose', idea)
+        self.assertIn('Keep source hem length and ankle coverage throughout', idea)
+        self.assertIn('Keep original feet/accessories', idea)
+        self.assertIn('colour/print/border/drape', idea)
+        for unwanted_concept in ('dance', 'anklets', 'bells'):
+            self.assertNotIn(unwanted_concept, idea)
         self.assertNotIn('feet planted', idea)
         self.assertNotIn('15 degrees', idea)
         self.assertEqual(set(recipe), {'v', 'source', 'frame', 'aiEdit'})

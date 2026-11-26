@@ -45,15 +45,22 @@ prompt, version, duration and source-collar composition are unchanged. All three
 remain visible. This exception cannot be used for another garment or a new style.
 
 Each of saree, kurta, kurti+pant, pant and blazer has its own presentation and
-walking definition. Saree defaults to `walking` (catwalk v5): a closer saree view
-and zoom-out with two short slow steps over seconds 0–3. Turn right to show the
-full back over seconds 3–5, hold over 5–6, then turn left back to front at the
-same spot over 6–8. Natural foot movement is allowed. There is no small-angle or
-feet-planted constraint, no full spin and no garment pulling. The video prompt
-explicitly excludes dance, anklets, bells and new jewellery, while preserving
-source footwear and saree hem/drape. This matters when a turn reveals ankles
-that were hidden by the source saree; unseen details must not become invented
-ankle ornaments. This prompt restriction still needs output visual verification.
+walking definition. Saree defaults to `walking` (fitting v7): one ordinary fitting
+demonstration with two slow steps and zoom-out, a slow right half-turn to show
+the full back, a pause, then a left reversal to front. Arms rest at the sides
+with relaxed fingers; source hem length and ankle coverage are retained, and
+accessories/footwear remain source-only. This does not extend a shorter source
+garment or force originally visible ankles under a longer hem. Natural foot
+movement is allowed, without a small-angle or
+feet-planted restriction. Earlier negative lists did not prevent unwanted ankle
+ornaments in observed outputs. V7 instead describes the wanted motion and limb
+positions positively, without those unwanted concepts in the provider prompt.
+Output visual verification is still required; passing API tests is not proof
+that a generative model followed these appearance constraints. A controlled V6
+visual test improved hand positioning but still showed ankle adornment; the next
+controlled test encountered provider HTTP 429 before producing an output. V7
+therefore remains visually unverified; do not describe this issue as solved
+solely because request/contract tests pass.
 Its other option remains the existing front presentation. The whole source image
 is sent unchanged, with no added scene, colour effect, crop or extra generation.
 These are video prompts requiring visual evaluation,
