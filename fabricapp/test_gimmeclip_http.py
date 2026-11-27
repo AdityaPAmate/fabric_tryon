@@ -261,7 +261,7 @@ class GimmeclipHTTPTests(TestCase):
         self.assertEqual(job.provider_error['code'],'upstream_error')
         self.assertEqual(job.provider_error['stage'],'generating')
         data=job_response(job)
-        self.assertEqual(data['error']['provider'],job.provider_error)
+        self.assertNotIn('provider',data['error'])
         serialized=json.dumps(data)
         for secret in ('fake-gimme-key','test-token','secret123','private.example','gc_privatekey'):
             self.assertNotIn(secret,serialized)

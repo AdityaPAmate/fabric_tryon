@@ -1,9 +1,7 @@
-import hmac
 from django.conf import settings
 from django.http import Http404
 from rest_framework import status
-from rest_framework.authentication import BaseAuthentication
-from rest_framework.exceptions import AuthenticationFailed, APIException
+from rest_framework.exceptions import APIException
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -16,25 +14,11 @@ from .registry import get_definition, DefinitionUnavailable
 
 class VideoNotConfigured(APIException):
     status_code = 503
-    default_detail = 'Video API is not configured. Set VIDEO_API_TOKEN and GIMMECLIP_API_KEY.'
-
-
-class VideoAuthentication(BaseAuthentication):
-    def authenticate_header(self, request):
-        return 'Bearer'
-
-    def authenticate(self, request):
-        token = settings.VIDEO_API_TOKEN
-        if not token or not settings.GIMMECLIP_API_KEY:
-            raise VideoNotConfigured()
-        supplied = request.headers.get('Authorization', '')
-        if not hmac.compare_digest(supplied.encode(), ('Bearer ' + token).encode()):
-            raise AuthenticationFailed('A valid video API bearer token is required.')
-        return None
+    default_detail = 'Video API is not configured. Set GIMMECLIP_API_KEY on the backend.'
 
 
 class VideoView(APIView):
-    authentication_classes = [VideoAuthentication]
+    authentication_classes = []
     permission_classes = [AllowAny]
 
 
@@ -58,6 +42,8 @@ class GenerateTryOnVideoView(VideoView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
+        if not settings.GIMMECLIP_API_KEY:
+            raise VideoNotConfigured()
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         job = create_job(serializer.validated_data)

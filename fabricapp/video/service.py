@@ -171,22 +171,23 @@ def fail_stale_preparing():
 
 
 def job_response(job):
+    # Keep operational diagnostics in the saved job, not the public API response.
     message = job.error_message
     if job.error_code == 'video_continuity_failed' and can_retry(job):
         message = 'Saved video was blocked by an earlier visual check. Retry recovers the same clip for review; no new generation.'
+    timing = timing_response(job)
+    def media(value, fields):
+        return {key: value[key] for key in fields if value.get(key) is not None} if value.get('url') else None
     return {
         'job_id': str(job.pk), 'status': job.status,
-        'status_url': f'/api/video-jobs/{job.pk}/',
-        'image': job.image or None, 'video': job.video or None,
-        'garment_type': job.payload.get('garment_type', 'garment'),
-        'timing': timing_response(job), 'motion': job.motion_profile.get('motion'),
-        'profile_version': job.profile_version,
+        'image': media(job.image, ('url', 'format')),
+        'video': media(job.video, ('url', 'format', 'duration')),
+        'timing': {key: timing[key] for key in ('elapsed_seconds', 'total_seconds', 'video_generation_seconds')},
         'quality_status': ('needs_review' if job.video.get('continuity', {}).get('status') == 'review_required'
                            else 'not_verified'),
         'error': ({'code': job.error_code, 'message': message,
-                   'retryable': can_retry(job), 'provider': job.provider_error or None}
+                   'retryable': can_retry(job)}
                   if job.status == 'failed' else None),
-        'created_at': job.created_at.isoformat(), 'updated_at': job.updated_at.isoformat(),
     }
 
 

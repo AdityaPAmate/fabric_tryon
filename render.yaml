@@ -14,8 +14,6 @@ services:
     envVars:
       - key: SECRET_KEY
         generateValue: true
-      - key: VIDEO_API_TOKEN
-        generateValue: true
       - key: GIMMECLIP_API_KEY
         sync: false
       - key: DEBUG

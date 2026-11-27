@@ -24,15 +24,10 @@
     return url.href;
   }
 
-  async function createVideoJob(endpointUrl, formData, bearerToken, signal) {
-    const headers = {};
-    if (bearerToken) {
-      headers['Authorization'] = bearerToken.startsWith('Bearer ') ? bearerToken : `Bearer ${bearerToken}`;
-    }
+  async function createVideoJob(endpointUrl, formData, signal) {
 
     const response = await fetch(endpointUrl, {
       method: 'POST',
-      headers,
       body: formData,
       signal
     });
@@ -42,36 +37,25 @@
       return data;
     }
 
-    if (response.status === 401) {
-      throw new Error('Video Bearer Token required or invalid (HTTP 401). Check the Video API Token setting.');
-    }
     if (response.status === 503) {
-      throw new Error('Video API is not configured on the backend (HTTP 503). Ensure VIDEO_API_TOKEN and GIMMECLIP_API_KEY are configured.');
+      throw new Error('Video API is not configured on the backend (HTTP 503). Ensure GIMMECLIP_API_KEY is configured.');
     }
 
     const errorMsg = data.error || (data.detail) || (typeof data === 'object' ? JSON.stringify(data) : `HTTP ${response.status}`);
     throw new Error(`Video submission failed: ${errorMsg}`);
   }
 
-  async function getVideoJob(baseUrl, jobId, bearerToken, signal) {
+  async function getVideoJob(baseUrl, jobId, signal) {
     const origin = resolveBaseUrl(baseUrl);
     const statusUrl = `${origin}/api/video-jobs/${jobId}/`;
-    const headers = {};
-    if (bearerToken) {
-      headers['Authorization'] = bearerToken.startsWith('Bearer ') ? bearerToken : `Bearer ${bearerToken}`;
-    }
 
     const response = await fetch(statusUrl, {
       method: 'GET',
-      headers,
       signal
     });
 
     if (response.status === 404) {
       throw new Error(`Video job ${jobId} not found (HTTP 404).`);
-    }
-    if (response.status === 401) {
-      throw new Error('Video Bearer Token required or invalid (HTTP 401).');
     }
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -81,17 +65,12 @@
     return await response.json();
   }
 
-  async function retryVideoJob(baseUrl, jobId, bearerToken, signal) {
+  async function retryVideoJob(baseUrl, jobId, signal) {
     const origin = resolveBaseUrl(baseUrl);
     const retryUrl = `${origin}/api/video-jobs/${jobId}/retry/`;
-    const headers = {};
-    if (bearerToken) {
-      headers['Authorization'] = bearerToken.startsWith('Bearer ') ? bearerToken : `Bearer ${bearerToken}`;
-    }
 
     const response = await fetch(retryUrl, {
       method: 'POST',
-      headers,
       signal
     });
 
@@ -105,7 +84,7 @@
     throw new Error(data.detail || data.error || `Retry failed with HTTP ${response.status}`);
   }
 
-  async function pollJobUntilFinished(baseUrl, jobId, bearerToken, {
+  async function pollJobUntilFinished(baseUrl, jobId, {
     onUpdate,
     signal,
     intervalMs = 3000,
@@ -124,7 +103,7 @@
       }
 
       pollCount++;
-      const job = await getVideoJob(baseUrl, jobId, bearerToken, signal);
+      const job = await getVideoJob(baseUrl, jobId, signal);
       if (onUpdate) {
         onUpdate(job, pollCount);
       }

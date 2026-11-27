@@ -216,52 +216,78 @@ by attaching a disk; Cloudinary media remains independent of the local database.
 
 ## API
 
-Video endpoints require `Authorization: Bearer <VIDEO_API_TOKEN>`.
-`GIMMECLIP_API_KEY` remains on the server. Without video configuration the existing
-image/catalog endpoints still start and work; video endpoints return 503.
+Video endpoints currently require **no Authorization header**, as requested for this
+prototype. `GIMMECLIP_API_KEY` remains on the server and is still required to start
+new video jobs. The public service can be used by anyone who knows its URL; it has
+no customer accounts or per-customer job access control. Existing jobs can still
+be read when the provider key is missing. Image/catalog contracts are unchanged.
 
-- POST `/api/generate-tryon-video/`: original image multipart fields. Returns 202 with job_id/status_url; queues only.
-- POST `/api/animate-image/`: multipart `source_image` (PNG/JPEG/WebP), optional
-  garment_type, camera_view and pose. Reuses those photo bytes, skipping
-  image generation. The UI's "Make video from this image" uploads its selected
-  generated single image/catalog shot, not the collage or an arbitrary server URL.
-- GET `/api/video-jobs/<uuid>/`: status, image/video, garment_type, fixed motion,
-  timing, and error.retryable. Internal paths, provider URLs and keys stay private.
-- POST `/api/video-jobs/<uuid>/retry/`: only failed retryable jobs; resumes the same
-  image, uploaded Gimmeclip photo, accepted provider edit, or finished MP4 as available.
+- POST `/api/generate-tryon-video/`: existing image multipart fields, explicit
+  `garment_type`, optional `video_motion`. Returns 202; queues only.
+- POST `/api/animate-image/`: multipart `source_image` (PNG/JPEG/WebP), required
+  `garment_type`, optional `video_motion`, `camera_view` and `pose`. Reuses the photo.
+- GET `/api/video-options/?garment_type=saree`: current style IDs, labels, help and
+  durations. No prompts, profile versions or internal rendering controls.
+- GET `/api/video-jobs/<uuid>/`: progress and output using the same response below.
+- POST `/api/video-jobs/<uuid>/retry/`: only failed retryable jobs; reuses saved work.
+
+The job response has seven top-level fields:
+
+```json
+{
+  "job_id": "9e522019-0162-4770-9658-95dd791ded29",
+  "status": "queued",
+  "image": null,
+  "video": null,
+  "timing": {
+    "elapsed_seconds": null,
+    "total_seconds": null,
+    "video_generation_seconds": null
+  },
+  "quality_status": "not_verified",
+  "error": null
+}
+```
+
+When available, `image` contains `url` and optional `format`; `video` contains `url`
+and optional `format`/`duration`. `quality_status` is `needs_review` when the
+advisory visual check flags a change, otherwise `not_verified`: generation success
+never means fabric, background and accessories were fully verified.
+On failure, `error` contains only `code`, `message`, `retryable`.
+Validation errors remain field-specific; configuration and retry conflicts return
+a short `detail`. Unknown jobs return 404. Raw provider diagnostics, IDs, stage
+timings, timestamps, profile versions and composition data remain on the server.
 
 States: queued -> image_generating -> video_submitting -> video_generating ->
-video_storing -> completed (or failed). The short preparing state only persists inputs.
-Ambiguous edit submissions cannot be retried blindly. Inspect provider history if
-a worker stops after submission but before saving the returned edit ID. Never
-repeat a create POST automatically after an unknown response.
+video_storing -> completed (or failed). The short preparing state only saves inputs.
+Do not repeat a create POST automatically after an unknown submission response.
+Use the saved job ID; retry is available only when `error.retryable` is true.
 
-`timing` contains elapsed_seconds, total_seconds, image_generation_seconds and
-video_generation_seconds. Values are seconds or null. Provider generation time is
-submission to observed completion, including queue/poll intervals and worker
-pauses; it is not GPU-only time. Existing-photo jobs have no image generation time.
-
-The prototype has a shared operator token, not individual customer accounts.
+Timing values are seconds or null. `elapsed_seconds` is time since worker start,
+`total_seconds` is worker start to completion (excluding queue wait), and
+`video_generation_seconds` is provider submission to observed completion, including
+provider queue/poll intervals and worker pauses, not GPU-only time. Detailed queue,
+image, download/render/upload and post-generation timings remain saved internally.
 
 ## Tester UI
 
 The repository copy is tools/tester_ui; the Desktop copy is fabric_tryon_tester_ui.
 Choose Single image, Catalog, or Generate video. Image controls remain available.
-For video, enter the backend VIDEO_API_TOKEN. Mirror-check motion is fixed.
+For video, select the garment and one of its current styles. No token field is needed.
 The result area shows a live total timer and a separate live video timer, progress,
 source image, MP4 player, downloads, and saved job UUID. Inspect/resume can recover
 polling after refresh; retry appears only when the backend permits it.
 
 Stop waiting cancels browser polling, not the remote generation. Resume the saved
 UUID against the same API host. The API URL and last job ID are remembered; the
-bearer token is not embedded in HTML or persisted by this UI. On resume, the total
+provider key is never supplied to the browser. On resume, the total
 timer starts from the backend's elapsed time. Existing image/catalog reports remain
 available and video reports add MP4, job status, and timing.
 
 ## Local configuration
 
 Use .env.example for required names; keep actual values in ignored .env only.
-Set GIMMECLIP_API_KEY and a separate VIDEO_API_TOKEN. Run:
+Set GIMMECLIP_API_KEY on the backend. Run:
 
     python manage.py migrate
     python manage.py runserver
@@ -274,13 +300,14 @@ media/video_jobs for retries; final videos are stored in Cloudinary.
 ## Render
 
 render.yaml and Dockerfile start web and worker together through
-`bash deploy/render-start.sh`. One paid 0.5c-512mb service with a 1 GB /var/data disk
-is defined. Keep a single instance. SQLite and retry files need this shared disk;
-a separate worker service cannot access that disk. Startup applies migrations at
-runtime. Missing optional video keys disables only the worker, keeping image APIs up.
+`bash deploy/render-start.sh`. The current Blueprint uses one Free service with
+ephemeral SQLite/uploads. Keep a single instance; a separate worker service cannot
+share these local files. Startup applies migrations at runtime. Missing
+GIMMECLIP_API_KEY disables only the worker, keeping image APIs up.
 
 Before deployment push this branch, connect the Blueprint, set Cloudflare,
-Cloudinary and Gimmeclip keys, and obtain VIDEO_API_TOKEN from Render Environment.
+Cloudinary and Gimmeclip keys. A leftover VIDEO_API_TOKEN environment variable is
+ignored by request authorization and is not needed for worker startup.
 Use the actual Render service URL in the tester. CORS defaults to localhost:5500
 and 127.0.0.1:5500; add the exact tester origin if it uses another port or host.
 No Render deploy or paid generation is performed by the code checks.

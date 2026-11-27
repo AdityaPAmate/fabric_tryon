@@ -29,7 +29,7 @@ class VideoJobTests(TestCase):
         self.config = override_settings(MEDIA_ROOT=Path(self.temp.name))
         self.config.enable()
         self.addCleanup(self.config.disable)
-        self.auth = {'HTTP_AUTHORIZATION': 'Bearer test-token'}
+        self.auth = {}
 
     def create(self, **changes):
         data = {'fabric_image': SimpleUploadedFile('swatch.png', image_bytes(), 'image/png'),
@@ -50,11 +50,45 @@ class VideoJobTests(TestCase):
         self.assertTrue((Path(self.temp.name) / job.inputs['fabric_image']).exists())
         self.assertEqual(job.payload['camera_view'], 'front')
 
-    def test_authentication_and_missing_configuration(self):
-        self.assertEqual(self.client.get('/api/video-jobs/00000000-0000-0000-0000-000000000000/').status_code, 401)
+    def test_no_token_needed_but_provider_configuration_is_still_required(self):
         with override_settings(VIDEO_API_TOKEN=''):
+            response = self.create()
+        self.assertEqual(response.status_code, 202)
+        job_id = response.json()['job_id']
+        self.assertEqual(self.client.get(f'/api/video-jobs/{job_id}/').status_code, 200)
+        self.assertEqual(self.client.get('/api/video-jobs/00000000-0000-0000-0000-000000000000/').status_code, 404)
+        with override_settings(GIMMECLIP_API_KEY=''):
             self.assertEqual(self.create().status_code, 503)
-        self.assertEqual(VideoJob.objects.count(), 0)
+            # Existing results remain readable even if provider config is missing.
+            self.assertEqual(self.client.get(f'/api/video-jobs/{job_id}/').status_code, 200)
+        self.assertEqual(VideoJob.objects.count(), 1)
+
+    def test_queued_response_has_only_the_public_contract(self):
+        data = self.create().json()
+        self.assertEqual(set(data), {'job_id', 'status', 'image', 'video', 'timing', 'quality_status', 'error'})
+        self.assertEqual(data['timing'], {'elapsed_seconds': None, 'total_seconds': None, 'video_generation_seconds': None})
+        self.assertIsNone(data['image'])
+        self.assertIsNone(data['video'])
+
+    def test_compact_result_hides_diagnostics_and_preserves_review_and_retry(self):
+        from fabricapp.video.service import job_response
+        job = self.job()
+        job.status = 'completed'
+        job.image = {'url': 'photo', 'format': 'png', 'public_id': 'private-photo-id', 'width': 100}
+        job.video = {'url': 'clip', 'format': 'mp4', 'duration': 8, 'public_id': 'private-video-id',
+                     'timing': {'download_seconds': 5}, 'continuity': {'status': 'review_required', 'samples': [1, 2]}}
+        data = job_response(job)
+        self.assertEqual(data['image'], {'url': 'photo', 'format': 'png'})
+        self.assertEqual(data['video'], {'url': 'clip', 'format': 'mp4', 'duration': 8})
+        self.assertEqual(data['quality_status'], 'needs_review')
+        self.assertIn('samples', job.video['continuity'])
+        job.status = 'failed'
+        job.retryable = True
+        job.error_code = 'provider_unavailable'
+        job.error_message = 'Temporarily unavailable'
+        job.provider_error = {'stage': 'generating', 'code': 'upstream_error'}
+        self.assertEqual(job_response(job)['error'], {'code': 'provider_unavailable',
+                         'message': 'Temporarily unavailable', 'retryable': True})
 
     def test_quality_failure_without_saved_provider_clip_cannot_resubmit(self):
         job=self.job()

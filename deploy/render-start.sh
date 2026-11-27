@@ -22,11 +22,11 @@ trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 
-if [[ -n "${GIMMECLIP_API_KEY:-}" && -n "${VIDEO_API_TOKEN:-}" ]]; then
+if [[ -n "${GIMMECLIP_API_KEY:-}" ]]; then
   python -u manage.py run_video_worker &
   worker_pid=$!
 else
-  echo "Video worker disabled: configure GIMMECLIP_API_KEY and VIDEO_API_TOKEN to enable it."
+  echo "Video worker disabled: configure GIMMECLIP_API_KEY to enable it."
 fi
 gunicorn tryon.wsgi:application --bind "0.0.0.0:${PORT:-10000}" \
   --workers 1 --threads 2 --timeout 240 --graceful-timeout 30 \

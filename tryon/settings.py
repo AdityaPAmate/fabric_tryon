@@ -67,7 +67,6 @@ MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(DATA_DIR / "media")))
 
 # Optional video credentials do not prevent the existing image API from starting.
 GIMMECLIP_API_KEY = os.getenv('GIMMECLIP_API_KEY', '')
-VIDEO_API_TOKEN = os.getenv('VIDEO_API_TOKEN', '')
 VIDEO_POLL_INTERVAL = max(1, float(os.getenv('VIDEO_POLL_INTERVAL', '5')))
 VIDEO_POLL_TIMEOUT = max(1, float(os.getenv('VIDEO_POLL_TIMEOUT', '1200')))
 

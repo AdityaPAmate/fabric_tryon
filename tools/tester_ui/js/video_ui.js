@@ -1,7 +1,6 @@
 /* Optional video stage; the existing image/catalog form keeps all its controls. */
 function createVideoUI(h) {
   const el = id => document.getElementById(id);
-  const token = el('video-token');
   const lookup = el('video-job-id');
   const progress = el('video-progress');
   const stageTime = el('video-generation-time');
@@ -29,11 +28,6 @@ function createVideoUI(h) {
   try { const savedApi = localStorage.getItem('fabric-api-url'); if (savedApi) h.api.value=savedApi; } catch {}
   h.api.addEventListener('change',()=>localStorage.setItem('fabric-api-url',h.api.value.trim()));
   try { lookup.value = JSON.parse(localStorage.getItem('fabric-video-job') || 'null')?.id || ''; } catch {}
-
-  function getToken() {
-    if (!token.value.trim()) throw new Error('Enter your backend VIDEO_API_TOKEN in Video options. Do not enter the Gimmeclip key.');
-    return token.value.trim();
-  }
 
   function savedGarment() {
     const type = h.getRecord()?.request?.garment_type;
@@ -145,12 +139,6 @@ function createVideoUI(h) {
         stageTime.textContent = `Video generation ${running ? 'elapsed' : 'time'}: ${elapsed.toFixed(1)} s`;
       };
       render();
-      if (!running && job.status === 'completed') {
-        const parts = [['download_seconds','Download'],['render_seconds','Render'],['final_upload_seconds','Upload']]
-          .filter(([key])=>job.timing?.[key] != null)
-          .map(([key,label])=>`${label}: ${job.timing[key].toFixed(1)} s`);
-        if (parts.length) stageTime.textContent += ` | ${parts.join(' | ')}`;
-      }
       if (running) stageInterval = setInterval(render, 100);
     }
     if (job.status === 'failed') h.showError(job.error?.message || 'Video generation failed. The generated image is retained.');
@@ -194,7 +182,7 @@ function createVideoUI(h) {
     if (resume && job.timing?.elapsed_seconds != null) h.timer.start(job.timing.elapsed_seconds * 1000);
     update(job);
     if (!['completed','failed'].includes(job.status)) {
-      job = await VideoClient.pollJobUntilFinished(h.api.value, job.job_id, getToken(), {signal,onUpdate:update});
+      job = await VideoClient.pollJobUntilFinished(h.api.value, job.job_id, {signal,onUpdate:update});
     }
     return finish(job, context);
   }
@@ -228,17 +216,16 @@ function createVideoUI(h) {
   el('lookup-video').onclick = () => busy(async signal => {
     const id = lookup.value.trim();
     if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id)) throw new Error('Enter a valid saved job UUID.');
-    const job = await VideoClient.getVideoJob(h.api.value,id,getToken(),signal);
+    const job = await VideoClient.getVideoJob(h.api.value,id,signal);
     await poll(job,signal,undefined,true);
   });
   retry.onclick = () => busy(async signal => {
     if (!current?.error?.retryable) return;
-    const job = await VideoClient.retryVideoJob(h.api.value,current.job_id,getToken(),signal);
+    const job = await VideoClient.retryVideoJob(h.api.value,current.job_id,signal);
     await poll(job,signal,h.getRecord() || {},true);
   });
   animate.onclick = () => busy(async signal => {
     if (!image?.url || image.view === 'catalog') return;
-    const auth = getToken();
     const previous = h.getRecord() || {};
     const garment = savedGarment() || garmentChoice.value;
     const selectedMotion = await checkMotionSupport(h.api.value,garment,signal);
@@ -253,7 +240,7 @@ function createVideoUI(h) {
     else if (image.view && !['front','side','back','default'].includes(image.view)) form.append('camera_view','close_up');
     if (previous.request?.pose) form.append('pose',previous.request.pose);
     const endpoint = new URL('/api/animate-image/',h.api.value).href;
-    const job = await VideoClient.createVideoJob(endpoint,form,auth,signal);
+    const job = await VideoClient.createVideoJob(endpoint,form,signal);
     await poll(job,signal,{...previous,request:{...previous.request,garment_type:garment,
       video_motion:selectedMotion,generation_mode:'video_from_image'}});
   });
@@ -276,7 +263,7 @@ function createVideoUI(h) {
       const selectedMotion = await checkMotionSupport(apiUrl,garment,signal);
       payload.set('garment_type',garment);
       payload.set('video_motion',selectedMotion);
-      const job = await VideoClient.createVideoJob(apiUrl,payload,getToken(),signal);
+      const job = await VideoClient.createVideoJob(apiUrl,payload,signal);
       return poll(job,signal,{...context,request:{...context?.request,garment_type:garment,video_motion:selectedMotion}});
     }
   };

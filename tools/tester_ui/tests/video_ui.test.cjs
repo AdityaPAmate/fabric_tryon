@@ -38,7 +38,6 @@ function fixture(job, {walkingSupported=true,commercialSupported=true} = {}) {
   el('video-garment-type').value='shirt';
   el('garment-source').value='fabric';
   el('garment-type').value='shirt';
-  el('video-token').value='test-token';
   el('video-job-id').value=job.job_id;
   return {ui,el,messages,calls,helpers};
 }

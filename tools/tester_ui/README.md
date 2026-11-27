@@ -2,7 +2,7 @@
 
 The new Generate video mode uses the same image options, then animates the generated
 photo with Gimmeclip. All original garment/person/face/pose/camera controls remain.
-Enter your backend API URL and VIDEO_API_TOKEN; do not enter the provider key.
+Enter your backend API URL; no video token is needed. The Gimmeclip key stays on the backend.
 Live total and video timers appear above the result. Use Inspect/resume for a saved
 job; Stop waiting only stops browser polling. "Make video from this image" skips
 image generation for a selected single image/catalog shot. Reports include video.

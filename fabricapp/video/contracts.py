@@ -77,7 +77,5 @@ class GarmentVideoDefinition:
         return {'garment_type': self.garment_type, 'label': self.label,
                 'default_style': self.default_style, 'source_hint': self.source_hint,
                 'styles': [{'id': s.id, 'label': s.label, 'seconds': s.seconds,
-                            'help': s.help, 'version': s.version,
-                            'camera_motion': s.camera_motion,
-                            'compatibility': s in self.compatibility_styles}
+                            'help': s.help}
                            for s in self.all_styles]}
