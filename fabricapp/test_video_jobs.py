@@ -389,7 +389,7 @@ class VideoJobTests(TestCase):
         self.assertEqual(response.status_code,202,response.content)
         job = VideoJob.objects.get(pk=response.json()['job_id'])
         profile = dict(job.motion_profile)
-        self.assertEqual(profile['motion'],'mirror_check')
+        self.assertEqual(profile['motion'],'kurta_commercial')
         with patch('fabricapp.video.service.generate_image', return_value=GenerationResult(image_bytes(),19)) as generate, \
              patch('fabricapp.video.service.upload_generated_image', return_value={'url':'https://cdn.example/photo.png'}), \
              patch('fabricapp.video.service.select_profile', side_effect=AssertionError('Do not change saved motion')), \

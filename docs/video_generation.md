@@ -368,17 +368,28 @@ catalog endpoints/server configuration are unchanged. Render documents up to
 https://render.com/articles/why-does-my-render-app-time-out-after-30-seconds
 https://docs.djangoproject.com/en/4.2/ref/request-response/
 
-## Kurta video style
+## Kurta cinematic video style
 
-All kurta image styles (`plain`, `sherwani`, `pathani`, `jodhpuri`) now use one
-8-second `mirror_check` video style, labelled Kurta inspection. Its initial prompt
-is exactly the current shirt default inspection prompt: light fabric touch, slow
-turn to show the back and reverse to front, locked camera, original scene/fabric.
-It is a local snapshot so future shirt prompt changes do not silently affect kurta.
-The kurta source photo goes to the same Gimmeclip photo-animation route; no shirt
-collar crop or commercial renderer is applied. New kurta walking requests are
-rejected; already saved jobs continue using their frozen profiles. Image garment
-styles, generation logic and shirt/saree video definitions are unchanged.
-The tester reads styles from video-options and shows only this one kurta option
-after deploying the backend and refreshing the tester. No new paid visual test
-was performed; matching the prompt does not guarantee identical generated motion.
+All kurta image styles (`plain`, `sherwani`, `pathani`, `jodhpuri`) use one
+8-second `kurta_commercial` style, labelled Kurta cinematic commercial. It is an
+independent prompt with the same detail-to-walking concept as the shirt commercial,
+framed to include the entire kurta hem. Four shots: neckline/buttons slide (0-2s),
+sleeve detail (2-3.5s), neck-to-hem garment view (3.5-5s), slow front walk with a
+slightly elevated backward-tracking camera (5-8s). The original person, fabric,
+embroidery, fit, background and lighting are to be preserved.
+
+The complete prompt sent to Gimmeclip (298 characters):
+
+```text
+0-2s neckline/buttons, slow slide left-right. 2-3.5s sleeve, gentle arm motion. 3.5-5s kurta neck-to-hem. 5-8s slow front walk; slightly elevated camera tracks backward, hem in frame. Arms relaxed. Exact source person/fabric/colour/print/weave/embroidery/buttons/fit/background/light. No side view.
+```
+
+The Gimmeclip route accepts at most 300 prompt characters. The complete kurta
+source photo is sent unchanged; no shirt-specific collar crop is used. Cuts are
+allowed for the four-shot sequence, and the locked-frame continuity heuristic is
+not treated as verification. Quality remains unverified unless explicitly flagged
+for review. This prompt is independent of all shirt/saree definitions. New kurta
+requests use `video_motion=kurta_commercial` or omit video_motion for that default;
+old saved jobs still use their frozen profiles. Image/catalog generation remains
+unchanged. The tester loads the sole option from video-options after deployment
+and refresh. No new paid AI output has been visually validated for this prompt.

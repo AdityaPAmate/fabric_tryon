@@ -1,17 +1,17 @@
 from ..contracts import GarmentVideoDefinition, VideoStyle
 
-# Exact snapshot of the current shirt inspection prompt (sharp-start-v8).
-# Keep this local so later shirt edits do not silently change kurta videos.
+# Kurta-specific commercial: full hem framing, independent of shirt prompts/crops.
 PROMPT = (
-    'Locked camera, continuous shot. Sharp focus at start. Right fingertips lightly touch fabric once, then rest at the side; '
-    'left arm stays down. Slowly turn in place to show the back, then reverse to face front. '
-    'Original background, lighting, face and fabric colour/pattern remain identical throughout.'
+    '0-2s neckline/buttons, slow slide left-right. 2-3.5s sleeve, gentle arm motion. '
+    '3.5-5s kurta neck-to-hem. 5-8s slow front walk; slightly elevated camera tracks backward, hem in frame. '
+    'Arms relaxed. Exact source person/fabric/colour/print/weave/embroidery/buttons/fit/background/light. No side view.'
 )
 
 DEFINITION = GarmentVideoDefinition(
-    'kurta', 'Kurta', 'mirror_check',
+    'kurta', 'Kurta', 'kurta_commercial',
     (
-        VideoStyle('mirror_check', 'Kurta inspection', 'fabric-gimme-kurta-shirt-inspection-v2', PROMPT,
-                   '8s shirt-style inspection: light fabric touch, slow back turn and return to front. Same style for every kurta type.'),
+        VideoStyle('kurta_commercial', 'Kurta cinematic commercial', 'fabric-gimme-kurta-commercial-v1', PROMPT,
+                   '8s: neckline slide, sleeve detail, neck-to-hem view, then slow front walk with a slightly elevated camera. One style for every kurta type.',
+                   allow_cuts=True),
     ), 'Use an image showing the kurta neckline, sleeves and full hem.',
 )

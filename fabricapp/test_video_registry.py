@@ -30,20 +30,26 @@ class VideoRegistryTests(SimpleTestCase):
                         self.assertEqual(profile['renderer'], 'passthrough')
                         self.assertNotIn('source_collar_opening', profile)
                 profiles.append(definition.resolve().prompt)
-        self.assertEqual(len(set(profiles)), 5)  # Kurta deliberately reuses the shirt inspection wording.
+        self.assertEqual(len(set(profiles)), 6)
         self.assertEqual([s.id for s in get_definition('shirt').all_styles],
                          ['mirror_check', 'walking', 'shirt_commercial'])
 
-    def test_kurta_has_one_style_with_the_exact_current_shirt_inspection_prompt(self):
+    def test_kurta_has_one_independent_cinematic_style_with_full_hem_framing(self):
         kurta = get_definition('kurta')
         shirt = get_definition('shirt')
-        self.assertEqual([s.id for s in kurta.all_styles], ['mirror_check'])
-        self.assertEqual(kurta.resolve().prompt, shirt.resolve('mirror_check').prompt)
+        self.assertEqual([s.id for s in kurta.all_styles], ['kurta_commercial'])
+        self.assertNotEqual(kurta.resolve().prompt, shirt.resolve('mirror_check').prompt)
+        self.assertNotEqual(kurta.resolve().prompt, shirt.resolve('shirt_commercial').prompt)
+        for phrase in ('0-2s neckline/buttons', '2-3.5s sleeve', '3.5-5s kurta neck-to-hem',
+                       '5-8s slow front walk', 'slightly elevated camera tracks backward', 'hem in frame'):
+            self.assertIn(phrase, kurta.resolve().prompt)
         self.assertEqual(kurta.resolve().seconds, 8)
         with self.assertRaises(ValueError):
             kurta.resolve('walking')
-        # Definitions remain independent after adopting the same initial wording.
         saved = select_profile({'garment_type': 'kurta'})
+        self.assertTrue(saved['multi_shot'])
+        self.assertEqual(saved['renderer'], 'passthrough')
+        self.assertNotIn('source_collar_opening', saved)
         changed = replace(shirt, styles=(replace(shirt.styles[0], prompt='A different shirt action'), shirt.styles[1]))
         with patch('fabricapp.video.garments.shirt.DEFINITION', changed):
             self.assertEqual(select_profile({'garment_type': 'kurta'}), saved)
