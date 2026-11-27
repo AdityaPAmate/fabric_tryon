@@ -370,59 +370,61 @@ https://docs.djangoproject.com/en/4.2/ref/request-response/
 
 ## Kurta cinematic video style
 
-All kurta image styles (`plain`, `sherwani`, `pathani`, `jodhpuri`) use the single
-8-second `kurta_commercial` style. Current version: `fabric-gimme-kurta-commercial-v3`.
+All kurta image styles (`plain`, `sherwani`, `pathani`, `jodhpuri`) use one
+8-second `kurta_commercial` style. Current version: `fabric-gimme-kurta-commercial-v4`.
 
-The previous multi-cut candidate was replaced after a user-reported unexpected
-back view. The new candidate follows the supplied fabric-reveal / slight-turn /
-walk / hero-pose storyboard as one continuous take, reducing scene switches:
+The previous v3 request for a limited 30-degree turn was removed after unwanted
+back views persisted. The requested sequence is now strictly frontal:
 
 - 0-2s: chest fabric close-up.
-- 2-4s: pull back and a limited 30-degree turn while the front remains visible.
-- 4-6s: two slow forward steps; camera tracks backward with the subject.
-- 6-8s: steady front-facing pose. No final push-in is added.
-- After the reveal, show the full kurta and hem; keep arms relaxed and original
-  fabric colour, print scale, texture, garment details, person, background/light.
+- 2-4s: widen to show the complete kurta and bottom hem.
+- 4-6s: two slow steps **toward the lens**; camera stays in front and tracks away.
+- 6-8s: stop facing the lens. Chest and shoulders face the lens throughout.
 
-The complete provider prompt (298 characters):
+The complete provider prompt (299 characters):
 
 ```text
-Single take. 0-2s chest fabric close-up; 2-4s pull back, turn only 30deg, front visible; 4-6s two slow forward steps, camera backs in sync; 6-8s hold front pose. Full kurta/hem after reveal. Arms relaxed. Exact source fabric/colour/print scale/texture/details/person/background/light. No back view.
+One frontal take. 0-2s chest fabric close-up; 2-4s widen to full kurta/hem. 4-6s TWO slow steps TOWARD LENS; 6-8s stop facing lens. Camera stays IN FRONT, tracking away. Chest/shoulders face lens always; arms relaxed. Exact source fabric colour/print scale/texture/details, person, background/light.
 ```
 
-`allow_cuts` is false and `camera_motion=zoom_out`; the renderer remains passthrough.
-The moving-camera edge heuristic is not treated as proof of visual consistency.
-No new model, extra generation, automatic retry, source crop or local renderer is
-added. Same one 8s Gimmeclip animation call; shorter wording/one take is not proven
-to reduce provider latency. Source image generation, shirt/saree profiles, image
-and catalog APIs remain unchanged. Saved jobs retain their frozen older profiles.
+All references to a subject turn, angles, reverse walking or back views have been
+removed from the model prompt. Directions specify the subject and camera
+separately. Fabric colour, print scale, texture and details are anchored to the
+source. These instructions reduce ambiguity; they do not enforce pixel identity
+or guarantee the model obeys the direction. The first generated frame may still
+match the full source image instead of immediately showing a fabric close-up.
 
-### Inspected user job
+`allow_cuts` remains false, `camera_motion=zoom_out`, renderer=passthrough. Existing
+moving-camera QA remains advisory/unverified, not an accessory, orientation or
+fabric-identity detector. No extra provider call, retry, model switch, crop or
+local rendering is introduced. One 8s animation remains; latency reduction has
+not been demonstrated. Image/catalog generation and other garment prompts are
+unchanged. Saved jobs retain their original profiles; this affects new requests.
 
-`f1106634-c139-4a29-b011-ec0a2f7bc160` is completed and byte-matches local
-`video_0039.mp4`. It is 8s, 24fps and shows a complete back view around 6s, despite
-the expected frontal sequence. Its saved timing response reports 75.19s video
-generation and 93.49s worker-start-to-completion. The public compact response does
-not expose the saved prompt version; live deployment alone does not prove which
-profile a saved job used. The first reported fabric-changing job was not supplied,
-so its precise fabric change/cause has not been established. No new paid generation
-or visual certification of the v3 candidate was performed.
+### Existing output inspection
 
-### Provider and prompt limitations
+- `f1106634-c139-4a29-b011-ec0a2f7bc160` matched local video_0039.mp4 and showed
+  a back view around 6s. Previously measured generation: 75.19s; processing: 93.49s.
+- `607e6438-c880-4ed9-8367-89bd42528c47` returned 200/completed and byte-matched
+  video_0041.mp4. The source is frontal green kurta; output shows the back around
+  3-4s and returns to the front near 6s. Generation: 80.36s; processing: 97.01s.
+- `256f1a8b-8bc5-4b17-b944-f96d12bf876d` returned HTTP 404 during inspection.
+  Its precise saved profile/media could not be recovered from that endpoint.
+- Local video_0040.mp4 visibly changes from the green source to navy fabric at
+  about 1s and also shows a back view. It was not matched to the unavailable ID.
+- The compact public response does not identify the saved prompt version, so the
+  currently live commit alone is not proof of which profile created a saved job.
+- These are inspections of existing media, not proof of v4 output quality. No new
+  paid AI generation or visual certification of this candidate was performed.
 
-Our current API is POST `/api/v0/edits`, `recipe.aiEdit.idea` (3-300 characters),
-`animate=true`, 4/6/8 seconds. Generation-from-idea and model-comparison endpoints
-are different contracts; no selected underlying model can be inferred for this
-photo-animation call. Google motion-prompting guidance is general supporting
-advice, not evidence that Gimmeclip executes a particular Google model.
+### Provider limitations
 
-A full-body source image may still appear as the first frame; prompting alone does
-not guarantee an immediate fabric close-up. Motion, fabric identity and background
-must be visually reviewed. One take may reduce scene-change risk but does not
-eliminate generative variation or guarantee identical styles across new videos.
-The supplied long and short alternatives exceed the 300-character animation limit
-and were not pasted or silently truncated into production.
+POST `/api/v0/edits` uses `recipe.aiEdit.idea` (3-300 chars), `animate=true`,
+4/6/8 seconds. The generation-from-idea and comparison endpoints are separate;
+we cannot infer the underlying model for this photo-animation request. The 300
+character constraint is enforced rather than truncating a longer prompt. Four
+phases in eight seconds and unseen garment reconstruction remain model demands,
+not guaranteed instructions. Inspect future output against its own source image.
 
-Primary references checked:
 https://gimmeclip.com/openapi.json
 https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/video/best-practice
