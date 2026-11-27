@@ -1,13 +1,17 @@
 from ..contracts import GarmentVideoDefinition, VideoStyle
 
+# Exact snapshot of the current shirt inspection prompt (sharp-start-v8).
+# Keep this local so later shirt edits do not silently change kurta videos.
+PROMPT = (
+    'Locked camera, continuous shot. Sharp focus at start. Right fingertips lightly touch fabric once, then rest at the side; '
+    'left arm stays down. Slowly turn in place to show the back, then reverse to face front. '
+    'Original background, lighting, face and fabric colour/pattern remain identical throughout.'
+)
+
 DEFINITION = GarmentVideoDefinition(
     'kurta', 'Kurta', 'mirror_check',
     (
-        VideoStyle('mirror_check', 'Kurta presentation', 'fabric-gimme-kurta-presentation-v1',
-                   'One continuous front shot, locked camera, sharp start. Stand naturally with a gentle weight shift and relaxed arms. Keep the kurta visible from neck to hem. No turn or pulling. Preserve exact source fabric colour, print, embroidery, buttons, fit, person, background and light. No cuts or zoom.',
-                   '8s front presentation; keep the entire kurta visible.'),
-        VideoStyle('walking', 'Kurta walking', 'fabric-gimme-kurta-walking-v1',
-                   'One continuous front shot, locked camera, sharp start. Take two slow small steps forward with relaxed arms. Keep the entire kurta from neck to hem in frame. No turn or pulling. Preserve exact source fabric colour, print, embroidery, buttons, fit, person, background and light. No cuts or zoom.',
-                   '8s slow forward walk with the neckline, sleeves and hem visible.'),
+        VideoStyle('mirror_check', 'Kurta inspection', 'fabric-gimme-kurta-shirt-inspection-v2', PROMPT,
+                   '8s shirt-style inspection: light fabric touch, slow back turn and return to front. Same style for every kurta type.'),
     ), 'Use an image showing the kurta neckline, sleeves and full hem.',
 )

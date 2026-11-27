@@ -30,9 +30,23 @@ class VideoRegistryTests(SimpleTestCase):
                         self.assertEqual(profile['renderer'], 'passthrough')
                         self.assertNotIn('source_collar_opening', profile)
                 profiles.append(definition.resolve().prompt)
-        self.assertEqual(len(set(profiles)), 6)
+        self.assertEqual(len(set(profiles)), 5)  # Kurta deliberately reuses the shirt inspection wording.
         self.assertEqual([s.id for s in get_definition('shirt').all_styles],
                          ['mirror_check', 'walking', 'shirt_commercial'])
+
+    def test_kurta_has_one_style_with_the_exact_current_shirt_inspection_prompt(self):
+        kurta = get_definition('kurta')
+        shirt = get_definition('shirt')
+        self.assertEqual([s.id for s in kurta.all_styles], ['mirror_check'])
+        self.assertEqual(kurta.resolve().prompt, shirt.resolve('mirror_check').prompt)
+        self.assertEqual(kurta.resolve().seconds, 8)
+        with self.assertRaises(ValueError):
+            kurta.resolve('walking')
+        # Definitions remain independent after adopting the same initial wording.
+        saved = select_profile({'garment_type': 'kurta'})
+        changed = replace(shirt, styles=(replace(shirt.styles[0], prompt='A different shirt action'), shirt.styles[1]))
+        with patch('fabricapp.video.garments.shirt.DEFINITION', changed):
+            self.assertEqual(select_profile({'garment_type': 'kurta'}), saved)
 
     def test_limits_and_cross_garment_styles_fail_without_fallback(self):
         shirt = get_definition('shirt')
@@ -94,6 +108,21 @@ class VideoRegistryTests(SimpleTestCase):
 
 @override_settings(GIMMECLIP_API_KEY='test-key', VIDEO_API_TOKEN='test-token')
 class VideoArchitectureTests(TestCase):
+    def test_all_kurta_image_styles_use_the_same_video_plan(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        plans = []
+        with TemporaryDirectory(dir=Path.cwd()) as directory, override_settings(MEDIA_ROOT=Path(directory)):
+            for style in ('plain', 'sherwani', 'pathani', 'jodhpuri'):
+                response = self.client.post('/api/generate-tryon-video/', {
+                    'fabric_image': SimpleUploadedFile('fabric.png', image_bytes(), 'image/png'),
+                    'garment_type': 'kurta', 'garment_style': style, 'gender': 'men', 'wait': False})
+                self.assertEqual(response.status_code, 202, response.content)
+                job = VideoJob.objects.get(pk=response.json()['job_id'])
+                self.assertEqual(job.payload['garment_style'], style)
+                plans.append(job.motion_profile)
+        self.assertTrue(all(plan == plans[0] for plan in plans))
+
     def test_missing_type_is_rejected_before_any_image_or_provider_work(self):
         with patch('fabricapp.video.service.generate_image') as generate, \
              patch('fabricapp.video.service.GimmeclipClient') as provider:

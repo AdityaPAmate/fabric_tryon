@@ -367,3 +367,18 @@ catalog endpoints/server configuration are unchanged. Render documents up to
 100-minute HTTP responses, but intermediary/client limits may be shorter:
 https://render.com/articles/why-does-my-render-app-time-out-after-30-seconds
 https://docs.djangoproject.com/en/4.2/ref/request-response/
+
+## Kurta video style
+
+All kurta image styles (`plain`, `sherwani`, `pathani`, `jodhpuri`) now use one
+8-second `mirror_check` video style, labelled Kurta inspection. Its initial prompt
+is exactly the current shirt default inspection prompt: light fabric touch, slow
+turn to show the back and reverse to front, locked camera, original scene/fabric.
+It is a local snapshot so future shirt prompt changes do not silently affect kurta.
+The kurta source photo goes to the same Gimmeclip photo-animation route; no shirt
+collar crop or commercial renderer is applied. New kurta walking requests are
+rejected; already saved jobs continue using their frozen profiles. Image garment
+styles, generation logic and shirt/saree video definitions are unchanged.
+The tester reads styles from video-options and shows only this one kurta option
+after deploying the backend and refreshing the tester. No new paid visual test
+was performed; matching the prompt does not guarantee identical generated motion.
