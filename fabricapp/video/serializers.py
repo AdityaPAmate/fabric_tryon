@@ -12,6 +12,7 @@ class VideoDefinitionUnavailable(APIException):
 class VideoRequestSerializer(FabricTryOnRequestSerializer):
     """Preserve image validation; choose only the requested video motion."""
     video_motion = serializers.CharField(required=False, max_length=64)
+    wait = serializers.BooleanField(required=False, default=True)
 
     def validate(self, attrs):
         # Ready-made image validation historically has no garment_type. Retain
@@ -30,6 +31,7 @@ class AnimateImageSerializer(serializers.Serializer):
     pose = serializers.CharField(required=False, allow_blank=True, max_length=100)
     camera_view = serializers.ChoiceField(choices=('front', 'side', 'close_up'), required=False)
     video_motion = serializers.CharField(required=False, max_length=64)
+    wait = serializers.BooleanField(required=False, default=True)
 
     def validate(self, attrs):
         return validate_video_selection(attrs)

@@ -6,6 +6,7 @@ const vm = require('node:vm');
 
 function fixture(job, {walkingSupported=true,commercialSupported=true} = {}) {
   const elements = new Map(), messages = [], calls = [];
+  let polls = 0;
   function el(id) {
     if (!elements.has(id)) {
       const classes = new Set(['hidden']);
@@ -25,8 +26,8 @@ function fixture(job, {walkingSupported=true,commercialSupported=true} = {}) {
     createVideoJob:async(endpoint,payload)=>{calls.push(['create',payload.get('video_motion')]);return job;},
     getVideoJob:async()=>job,
     retryVideoJob:async()=>{calls.push('retry');return {job_id:job.job_id,status:'queued'};},
-    pollJobUntilFinished:async()=>({...job,status:'completed',error:null,
-      video:{url:'https://cdn.example/recovered.mp4',continuity:{status:'review_required'}}})};
+    pollJobUntilFinished:async()=>{polls++;return {...job,status:'completed',error:null,
+      video:{url:'https://cdn.example/recovered.mp4',continuity:{status:'review_required'}}};}};
   const context = vm.createContext({document:{getElementById:el,createElement:()=>({})},VideoClient:client,FormData,URL,
     fetch:async url=>({ok:true,json:async()=>({garment_type:new URL(url).searchParams.get('garment_type'),
       default_style:new URL(url).searchParams.get('garment_type')==='saree'&&walkingSupported?'walking':'mirror_check',source_hint:'Source framing',
@@ -39,7 +40,7 @@ function fixture(job, {walkingSupported=true,commercialSupported=true} = {}) {
   el('garment-source').value='fabric';
   el('garment-type').value='shirt';
   el('video-job-id').value=job.job_id;
-  return {ui,el,messages,calls,helpers};
+  return {ui,el,messages,calls,helpers,pollCount:()=>polls};
 }
 
 const id='11111111-1111-4111-8111-111111111111';
@@ -64,6 +65,7 @@ test('normal completed video has no review warning',async()=>{
   assert.equal(f.messages.length,0);
   assert.equal(f.helpers.status.textContent,'Video ready');
   assert.deepEqual(f.calls,[['create','mirror_check']]);
+  assert.equal(f.pollCount(),0); // Final POST response needs no follow-up status requests.
 });
 
 test('zoom video without an applicable check stays playable and visibly unverified',async()=>{

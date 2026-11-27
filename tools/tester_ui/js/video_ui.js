@@ -201,7 +201,7 @@ function createVideoUI(h) {
     try { await action(controller.signal); }
     catch (error) {
       h.status.textContent = error.name === 'AbortError' ? 'Stopped waiting; the server job continues.' : 'Video request failed.';
-      h.showError(error.name === 'AbortError' ? 'Inspect the saved job ID to resume checking it.' : error.message);
+      h.showError(error.name === 'AbortError' ? (current?.job_id ? 'Inspect the saved job ID to resume checking it.' : 'Generation may continue on the server. Do not resend automatically after stopping the request.') : error.message);
     } finally {
       stopClock();
       h.timer.stop();

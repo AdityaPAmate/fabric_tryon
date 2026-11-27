@@ -1,6 +1,7 @@
+import time
 from django.conf import settings
 from django.http import Http404
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny
@@ -10,6 +11,22 @@ from fabricapp.models import VideoJob
 from .serializers import VideoRequestSerializer, AnimateImageSerializer
 from .service import create_job, job_response, can_retry
 from .registry import get_definition, DefinitionUnavailable
+
+
+MAX_WAIT_SECONDS = 1800
+
+
+def video_response(job, wait):
+    """Wait only for the existing worker; never generate or submit a second job."""
+    if wait:
+        deadline = time.monotonic() + MAX_WAIT_SECONDS
+        while job.status not in ('completed', 'failed'):
+            job.refresh_from_db()
+            if job.status in ('completed', 'failed') or time.monotonic() >= deadline:
+                break
+            time.sleep(1)
+    code = status.HTTP_200_OK if job.status in ('completed', 'failed') else status.HTTP_202_ACCEPTED
+    return Response(job_response(job), status=code)
 
 
 class VideoNotConfigured(APIException):
@@ -46,8 +63,9 @@ class GenerateTryOnVideoView(VideoView):
             raise VideoNotConfigured()
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
+        wait = serializer.validated_data.pop('wait')
         job = create_job(serializer.validated_data)
-        return Response(job_response(job), status=status.HTTP_202_ACCEPTED)
+        return video_response(job, wait)
 
 
 class AnimateImageView(GenerateTryOnVideoView):
@@ -67,6 +85,7 @@ class VideoJobView(VideoView):
 
 class RetryVideoJobView(VideoJobView):
     def post(self, request, job_id):
+        wait = serializers.BooleanField().run_validation(request.data.get('wait', True))
         job = self.get_job(job_id)
         if not can_retry(job):
             return Response({'detail': 'Only retryable failed jobs can be queued again.'}, status=409)
@@ -78,4 +97,4 @@ class RetryVideoJobView(VideoJobView):
         if not updated:
             return Response({'detail': 'Only retryable failed jobs can be queued again.'}, status=409)
         job.refresh_from_db()
-        return Response(job_response(job), status=202)
+        return video_response(job, wait)

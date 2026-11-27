@@ -223,26 +223,42 @@ no customer accounts or per-customer job access control. Existing jobs can still
 be read when the provider key is missing. Image/catalog contracts are unchanged.
 
 - POST `/api/generate-tryon-video/`: existing image multipart fields, explicit
-  `garment_type`, optional `video_motion`. Returns 202; queues only.
+  `garment_type`, optional `video_motion`. By default waits for the worker and returns
+  final image/video URLs in one HTTP 200 JSON response.
 - POST `/api/animate-image/`: multipart `source_image` (PNG/JPEG/WebP), required
-  `garment_type`, optional `video_motion`, `camera_view` and `pose`. Reuses the photo.
+  `garment_type`, optional `video_motion`, `camera_view` and `pose`. Reuses the photo
+  and returns the final result on the same POST.
 - GET `/api/video-options/?garment_type=saree`: current style IDs, labels, help and
   durations. No prompts, profile versions or internal rendering controls.
 - GET `/api/video-jobs/<uuid>/`: progress and output using the same response below.
-- POST `/api/video-jobs/<uuid>/retry/`: only failed retryable jobs; reuses saved work.
+- POST `/api/video-jobs/<uuid>/retry/`: only failed retryable jobs; reuses saved work
+  and by default waits for the result on the same POST.
 
-The job response has seven top-level fields:
+No extra parameter is needed for the one-request flow. The backend waits for its
+existing background worker instead of asking the caller to poll. It does not move
+image/provider processing into the HTTP request. Set optional multipart `wait=false`
+(or JSON false for retry) only when immediate 202 queued behavior is desired.
+
+The wait is bounded to 30 minutes. If still pending, the response is 202 with the
+same job ID and any available image; generation continues. A browser/client/proxy
+can disconnect earlier. Do not automatically repeat a create POST after a lost
+response: the original job may still be running. If the connection breaks before
+the final response, the caller may not have its job ID; server-side investigation
+is then needed. Keep Postman's request timeout disabled (0) or sufficiently long.
+
+The job response has seven top-level fields (completed example; URLs/times below
+are illustrative):
 
 ```json
 {
   "job_id": "9e522019-0162-4770-9658-95dd791ded29",
-  "status": "queued",
-  "image": null,
-  "video": null,
+  "status": "completed",
+  "image": {"url": "https://cdn.example/photo.png", "format": "png"},
+  "video": {"url": "https://cdn.example/video.mp4", "format": "mp4", "duration": 8},
   "timing": {
-    "elapsed_seconds": null,
-    "total_seconds": null,
-    "video_generation_seconds": null
+    "elapsed_seconds": 150,
+    "total_seconds": 150,
+    "video_generation_seconds": 100
   },
   "quality_status": "not_verified",
   "error": null
@@ -274,11 +290,13 @@ image, download/render/upload and post-generation timings remain saved internall
 The repository copy is tools/tester_ui; the Desktop copy is fabric_tryon_tester_ui.
 Choose Single image, Catalog, or Generate video. Image controls remain available.
 For video, select the garment and one of its current styles. No token field is needed.
-The result area shows a live total timer and a separate live video timer, progress,
-source image, MP4 player, downloads, and saved job UUID. Inspect/resume can recover
+The normal flow uses one POST and a live local request timer while waiting; final
+image/video URLs and measured video duration arrive together. It does not show live
+backend stage changes during this wait. The result includes the MP4 player,
+downloads and saved job UUID. Inspect/resume can recover
 polling after refresh; retry appears only when the backend permits it.
 
-Stop waiting cancels browser polling, not the remote generation. Resume the saved
+Stop waiting aborts the browser request/polling, not the remote generation. Resume the saved
 UUID against the same API host. The API URL and last job ID are remembered; the
 provider key is never supplied to the browser. On resume, the total
 timer starts from the backend's elapsed time. Existing image/catalog reports remain
@@ -338,3 +356,14 @@ The full original baseline suite has existing catalog reference/identity failure
 sensitive to concurrent call order. Catalog generation source is unchanged by this
 branch; these unrelated failures are not claimed fixed. Docker/Render deployment
 and live generation still need their own verification.
+
+## One-request hosting limit
+
+Waiting HTTP responses consume a WSGI request thread until they finish. The current
+Free prototype has two request threads and one serial video worker, so this is a
+convenience for low-volume integration, not a scaling solution. Keep the existing
+`wait=false` job API for high concurrency or clients with short timeouts. Image and
+catalog endpoints/server configuration are unchanged. Render documents up to
+100-minute HTTP responses, but intermediary/client limits may be shorter:
+https://render.com/articles/why-does-my-render-app-time-out-after-30-seconds
+https://docs.djangoproject.com/en/4.2/ref/request-response/

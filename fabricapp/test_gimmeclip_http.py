@@ -179,7 +179,7 @@ class GimmeclipHTTPTests(TestCase):
         from pathlib import Path
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory, override_settings(
                 MEDIA_ROOT=directory, CLOUDFLARE_ACCOUNT_ID='', CLOUDFLARE_API_TOKEN=''):
-            response = self.client.post('/api/animate-image/', {
+            response = self.client.post('/api/animate-image/', {'wait': False,
                 'source_image': SimpleUploadedFile('result.png', photo_bytes(), 'image/png'),
                 'garment_type': 'shirt', 'video_motion': 'shirt_commercial'},
                 HTTP_AUTHORIZATION='Bearer test-token')
@@ -221,7 +221,7 @@ class GimmeclipHTTPTests(TestCase):
         import tempfile
         from pathlib import Path
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory, override_settings(MEDIA_ROOT=directory):
-            response = self.client.post('/api/animate-image/', {
+            response = self.client.post('/api/animate-image/', {'wait': False,
                 'source_image': SimpleUploadedFile('result.png', photo_bytes(), 'image/png'),
                 'garment_type': 'shirt', 'video_motion': 'shirt_commercial'},
                 HTTP_AUTHORIZATION='Bearer test-token')
@@ -319,7 +319,7 @@ class GimmeclipHTTPTests(TestCase):
             # Different bytes distinguish the input swatch from the generated photo.
             swatch = io.BytesIO()
             Image.new('RGB', (32, 32), '#ffcc00').save(swatch, 'PNG')
-            response = self.client.post('/api/generate-tryon-video/', {
+            response = self.client.post('/api/generate-tryon-video/', {'wait': False,
                 'fabric_image': SimpleUploadedFile('fabric.png', swatch.getvalue(), 'image/png'),
                 'garment_type': 'shirt', 'gender': 'men'}, HTTP_AUTHORIZATION='Bearer test-token')
             self.assertEqual(response.status_code, 202)
@@ -340,7 +340,7 @@ class GimmeclipHTTPTests(TestCase):
         import tempfile
         from pathlib import Path
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory, override_settings(MEDIA_ROOT=directory):
-            response=self.client.post('/api/animate-image/', {
+            response=self.client.post('/api/animate-image/', {'wait': False,
                 'source_image':SimpleUploadedFile('result.png',photo_bytes(),'image/png'),
                 'garment_type':'shirt'}, HTTP_AUTHORIZATION='Bearer test-token')
             self.assertEqual(response.status_code,202)
@@ -356,7 +356,7 @@ class GimmeclipHTTPTests(TestCase):
                 self.assertEqual(job.polling_url,JOB)
                 self.assertFalse(job.provider_video_url)
                 store.assert_not_called()
-                retry=self.client.post(f'/api/video-jobs/{job.pk}/retry/', HTTP_AUTHORIZATION='Bearer test-token')
+                retry=self.client.post(f'/api/video-jobs/{job.pk}/retry/', {'wait': False}, HTTP_AUTHORIZATION='Bearer test-token')
                 self.assertEqual(retry.status_code,202)
                 job.refresh_from_db()
                 self.__class__.poll_reply=(200,{'state':'done','clip':{'id':'c'*64},'aiClip':'d'*64})
@@ -374,7 +374,7 @@ class GimmeclipHTTPTests(TestCase):
         import tempfile
         from pathlib import Path
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory, override_settings(MEDIA_ROOT=directory):
-            response=self.client.post('/api/animate-image/', {
+            response=self.client.post('/api/animate-image/', {'wait': False,
                 'source_image':SimpleUploadedFile('result.png',photo_bytes(),'image/png'),
                 'garment_type':'shirt'}, HTTP_AUTHORIZATION='Bearer test-token')
             self.assertEqual(response.status_code,202)
@@ -387,7 +387,7 @@ class GimmeclipHTTPTests(TestCase):
             self.assertEqual(job.image['url'],'https://cdn.example/photo.png')
             self.assertEqual(job.video['continuity']['status'],'review_required')
             upload.assert_called_once()
-            retry=self.client.post(f'/api/video-jobs/{job.pk}/retry/', HTTP_AUTHORIZATION='Bearer test-token')
+            retry=self.client.post(f'/api/video-jobs/{job.pk}/retry/', {'wait': False}, HTTP_AUTHORIZATION='Bearer test-token')
             self.assertEqual(retry.status_code,409)
             self.assertEqual(sum(method=='POST' and path=='/api/v0/edits' for method,path,_,_ in self.calls),1)
 
@@ -398,9 +398,9 @@ class GimmeclipHTTPTests(TestCase):
         auth={'HTTP_AUTHORIZATION':'Bearer test-token'}
         response=self.client.get(f'/api/video-jobs/{job.pk}/',**auth)
         self.assertTrue(response.json()['error']['retryable'])
-        retry=self.client.post(f'/api/video-jobs/{job.pk}/retry/',**auth)
+        retry=self.client.post(f'/api/video-jobs/{job.pk}/retry/', {'wait': False},**auth)
         self.assertEqual(retry.status_code,202)
-        self.assertEqual(self.client.post(f'/api/video-jobs/{job.pk}/retry/',**auth).status_code,409)
+        self.assertEqual(self.client.post(f'/api/video-jobs/{job.pk}/retry/', {'wait': False},**auth).status_code,409)
         job.refresh_from_db()
         self.__class__.video_payload=animation_bytes('saturation')
         with patch('fabricapp.video.service.generate_image') as generate, \

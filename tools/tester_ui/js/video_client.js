@@ -33,7 +33,7 @@
     });
 
     const data = await response.json().catch(() => ({}));
-    if (response.status === 202) {
+    if (response.status === 200 || response.status === 202) {
       return data;
     }
 
@@ -75,7 +75,7 @@
     });
 
     const data = await response.json().catch(() => ({}));
-    if (response.status === 202) {
+    if (response.status === 200 || response.status === 202) {
       return data;
     }
     if (response.status === 409) {

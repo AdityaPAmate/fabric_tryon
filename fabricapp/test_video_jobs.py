@@ -33,7 +33,7 @@ class VideoJobTests(TestCase):
 
     def create(self, **changes):
         data = {'fabric_image': SimpleUploadedFile('swatch.png', image_bytes(), 'image/png'),
-                'garment_type': 'shirt', 'gender': 'men', 'camera_view': 'front'}
+                'garment_type': 'shirt', 'gender': 'men', 'camera_view': 'front', 'wait': False}
         data.update(changes)
         return self.client.post('/api/generate-tryon-video/', data, **self.auth)
 
@@ -49,6 +49,64 @@ class VideoJobTests(TestCase):
         self.assertEqual(job.status, 'queued')
         self.assertTrue((Path(self.temp.name) / job.inputs['fabric_image']).exists())
         self.assertEqual(job.payload['camera_view'], 'front')
+
+    def test_default_post_waits_and_returns_both_urls_from_one_job(self):
+        def complete(_seconds):
+            job = VideoJob.objects.get()
+            self.assertNotIn('wait', job.payload)
+            VideoJob.objects.filter(pk=job.pk).update(status='completed',
+                image={'url': 'https://cdn.example/photo.png'},
+                video={'url': 'https://cdn.example/video.mp4', 'duration': 8})
+        with patch('fabricapp.video.views.time.sleep', side_effect=complete), \
+             patch('fabricapp.video.service.generate_image') as image_generator:
+            data = {'fabric_image': SimpleUploadedFile('fabric.png', image_bytes(), 'image/png'),
+                    'garment_type': 'saree', 'gender': 'women'}
+            response = self.client.post('/api/generate-tryon-video/', data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'completed')
+        self.assertTrue(response.json()['image']['url'])
+        self.assertTrue(response.json()['video']['url'])
+        self.assertEqual(VideoJob.objects.count(), 1)
+        image_generator.assert_not_called()  # Generation remains in the worker.
+
+    def test_wait_returns_failure_and_saved_image_without_resubmission(self):
+        def fail(_seconds):
+            VideoJob.objects.all().update(status='failed', image={'url': 'saved-photo'},
+                error_code='provider_failed', error_message='Video unavailable')
+        with patch('fabricapp.video.views.time.sleep', side_effect=fail):
+            response = self.client.post('/api/animate-image/', {
+                'source_image': SimpleUploadedFile('photo.png', image_bytes(), 'image/png'),
+                'garment_type': 'saree'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'failed')
+        self.assertEqual(response.json()['image']['url'], 'saved-photo')
+        self.assertEqual(VideoJob.objects.count(), 1)
+
+    def test_wait_deadline_returns_same_pending_job_without_cancelling(self):
+        with patch('fabricapp.video.views.MAX_WAIT_SECONDS', 0):
+            response = self.create(wait=True)
+        self.assertEqual(response.status_code, 202)
+        job = VideoJob.objects.get(pk=response.json()['job_id'])
+        self.assertEqual(job.status, 'queued')
+        self.assertNotIn('wait', job.payload)
+
+    def test_invalid_wait_is_rejected_before_creating_a_job(self):
+        self.assertEqual(self.create(wait='unknown').status_code, 400)
+        self.assertEqual(VideoJob.objects.count(), 0)
+
+    def test_retry_can_return_the_final_result_on_the_same_post(self):
+        job = self.job()
+        job.status = 'failed'
+        job.retryable = True
+        job.save()
+        def complete(_seconds):
+            VideoJob.objects.filter(pk=job.pk).update(status='completed', video={'url': 'saved-clip'})
+        with patch('fabricapp.video.views.time.sleep', side_effect=complete):
+            response = self.client.post(f'/api/video-jobs/{job.pk}/retry/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['job_id'], str(job.pk))
+        self.assertEqual(response.json()['video']['url'], 'saved-clip')
+        self.assertEqual(VideoJob.objects.count(), 1)
 
     def test_no_token_needed_but_provider_configuration_is_still_required(self):
         with override_settings(VIDEO_API_TOKEN=''):
@@ -98,7 +156,7 @@ class VideoJobTests(TestCase):
         job.save()
         response=self.client.get(f'/api/video-jobs/{job.pk}/',**self.auth)
         self.assertFalse(response.json()['error']['retryable'])
-        self.assertEqual(self.client.post(f'/api/video-jobs/{job.pk}/retry/',**self.auth).status_code,409)
+        self.assertEqual(self.client.post(f'/api/video-jobs/{job.pk}/retry/', {'wait': False},**self.auth).status_code,409)
 
     def test_video_keeps_all_valid_image_choices(self):
         for changes in ({'garment_type': 'saree'}, {'gender': 'boy'},
@@ -112,7 +170,7 @@ class VideoJobTests(TestCase):
                 self.assertEqual(response.status_code, 202, response.content)
 
     def test_person_and_ready_garment_uploads_are_persisted(self):
-        response = self.client.post('/api/generate-tryon-video/', {
+        response = self.client.post('/api/generate-tryon-video/', {'wait': False,
             'person_image': SimpleUploadedFile('person.png', image_bytes(), 'image/png'),
             'garment_image': SimpleUploadedFile('outfit.png', image_bytes(), 'image/png'),
             'garment_type': 'shirt',
@@ -124,7 +182,7 @@ class VideoJobTests(TestCase):
         self.assertNotIn('person_image', job.payload)
 
     def test_existing_generated_photo_skips_image_generation(self):
-        response = self.client.post('/api/animate-image/', {
+        response = self.client.post('/api/animate-image/', {'wait': False,
             'source_image': SimpleUploadedFile('generated.png', image_bytes(), 'image/png'),
             'garment_type': 'saree', 'camera_view': 'close_up',
         }, **self.auth)
@@ -146,7 +204,7 @@ class VideoJobTests(TestCase):
         self.assertEqual(job.status, 'completed')
 
     def test_ready_garment_type_is_video_context_only_for_the_image_adapter(self):
-        response = self.client.post('/api/generate-tryon-video/', {
+        response = self.client.post('/api/generate-tryon-video/', {'wait': False,
             'person_image': SimpleUploadedFile('person.png', image_bytes(), 'image/png'),
             'garment_image': SimpleUploadedFile('outfit.png', image_bytes(), 'image/png'),
             'garment_type': 'pant',
@@ -193,9 +251,9 @@ class VideoJobTests(TestCase):
         job.status = 'failed'
         job.retryable = True
         job.save()
-        response = self.client.post(f'/api/video-jobs/{job.pk}/retry/', **self.auth)
+        response = self.client.post(f'/api/video-jobs/{job.pk}/retry/', {'wait': False}, **self.auth)
         self.assertEqual(response.status_code, 202)
-        self.assertEqual(self.client.post(f'/api/video-jobs/{job.pk}/retry/', **self.auth).status_code, 409)
+        self.assertEqual(self.client.post(f'/api/video-jobs/{job.pk}/retry/', {'wait': False}, **self.auth).status_code, 409)
         job.refresh_from_db()
         with patch('fabricapp.video.service.generate_image') as generate, \
              patch('fabricapp.video.service.GimmeclipClient') as provider, \
@@ -215,7 +273,7 @@ class VideoJobTests(TestCase):
         provider.assert_not_called()
         self.assertEqual(job.error_code, 'submission_unknown')
         self.assertFalse(job.retryable)
-        self.assertEqual(self.client.post(f'/api/video-jobs/{job.pk}/retry/', **self.auth).status_code, 409)
+        self.assertEqual(self.client.post(f'/api/video-jobs/{job.pk}/retry/', {'wait': False}, **self.auth).status_code, 409)
 
     def test_storage_retry_reuses_completed_provider_output(self):
         job = self.job()
@@ -312,7 +370,7 @@ class VideoJobTests(TestCase):
             process_job(job)
             self.assertTrue(job.retryable)
             self.assertTrue(job.source_photo_url)
-            response = self.client.post(f'/api/video-jobs/{job.pk}/retry/', **self.auth)
+            response = self.client.post(f'/api/video-jobs/{job.pk}/retry/', {'wait': False}, **self.auth)
             self.assertEqual(response.status_code, 202)
             job.refresh_from_db()
             provider.return_value.submit.side_effect = None
@@ -373,7 +431,7 @@ class VideoJobTests(TestCase):
         self.assertEqual(self.create(video_motion='unsupported').status_code,400)
 
     def test_existing_photo_can_use_walking_and_rejects_unknown_motion(self):
-        data={'source_image':SimpleUploadedFile('photo.png',image_bytes(),'image/png'),
+        data={'wait':False, 'source_image':SimpleUploadedFile('photo.png',image_bytes(),'image/png'),
               'video_motion':'walking','garment_type':'shirt'}
         response=self.client.post('/api/animate-image/',data,**self.auth)
         self.assertEqual(response.status_code,202,response.content)
@@ -397,6 +455,6 @@ class VideoJobTests(TestCase):
         self.assertNotIn('video_motion',job.payload)
         self.assertEqual(self.create(video_motion='shirt_commercial',garment_type='pant').status_code,400)
         response=self.client.post('/api/animate-image/',{
-            'source_image':SimpleUploadedFile('photo.png',image_bytes(),'image/png'),
+            'wait':False, 'source_image':SimpleUploadedFile('photo.png',image_bytes(),'image/png'),
             'garment_type':'pant','video_motion':'shirt_commercial'},**self.auth)
         self.assertEqual(response.status_code,400)
