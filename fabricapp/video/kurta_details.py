@@ -5,7 +5,7 @@ import subprocess
 
 from PIL import Image, ImageOps
 
-from .collar import find_face, ffmpeg_path, WIDTH, FPS
+from .collar import find_face, ffmpeg_path, FPS
 from .errors import VideoError
 
 
@@ -26,11 +26,11 @@ def detail_boxes(image):
 
     centre = x + width / 2
     aspect = image.width / image.height
-    sleeve_h = height * 4.2
+    sleeve_h = height * 4.6
     sleeve_w = sleeve_h * aspect
     sleeve = box(centre - width * .9 - sleeve_w / 2,
                  y + height * 1.9, sleeve_w, sleeve_h)
-    neck_w = width * 2.2
+    neck_w = width * 2.6
     neckline = box(centre - neck_w / 2, y + height * .85,
                    neck_w, neck_w / aspect)
     return sleeve, neckline
@@ -84,16 +84,18 @@ def render(provider_path, image_bytes, directory):
         x, y, w, h = bounds
         return f'crop={w}:{h}:{x}:{y}'
 
-    output_height = max(2, round(WIDTH * ah / aw / 2) * 2)
-    fit = (f'scale={WIDTH}:{output_height}:force_original_aspect_ratio=decrease:force_divisible_by=2,'
-           f'pad={WIDTH}:{output_height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={FPS},format=yuv420p')
+    # Keep the provider's active picture size; enlarging to a fixed HD size
+    # would not recover detail. H.264 requires even output dimensions.
+    output_width, output_height = max(2, aw // 2 * 2), max(2, ah // 2 * 2)
+    fit = (f'scale={output_width}:{output_height}:flags=lanczos,setsar=1,'
+           f'fps={FPS},format=yuv420p')
     filters = (
         f'[0:v]{crop(active)},split=3[a][b][c];'
         f'[a]trim=start=0:end=2,setpts=PTS-STARTPTS,{crop(sleeve)},{fit}[sleeve];'
         f'[b]trim=start=2:end=3.5,setpts=PTS-STARTPTS,{crop(neckline)},{fit}[neck];'
-        f'[c]trim=start=3.5:end=8,setpts=PTS-STARTPTS,{fit},'
+        f'[c]trim=start=3.5:end=8,setpts=PTS-STARTPTS,'
         f"zoompan=z='max(1,1.5-0.5*on/71)':x='iw/2-iw/zoom/2':y=0:"
-        f'd=1:s={WIDTH}x{output_height}:fps={FPS}[walk];'
+        f'd=1:s={output_width}x{output_height}:fps={FPS},setsar=1,format=yuv420p[walk];'
         '[sleeve][neck][walk]concat=n=3:v=1:a=0[out]'
     )
     output = Path(directory) / 'kurta-commercial.mp4'
@@ -107,6 +109,6 @@ def render(provider_path, image_bytes, directory):
     except (subprocess.SubprocessError, OSError) as exc:
         raise VideoError('video_composition_failed',
                          'Kurta detail views could not be assembled. Retry reuses the saved clip.', True) from exc
-    return output, {'version': 'kurta-details-v1', 'sleeve_seconds': 2, 'neckline_seconds': 1.5,
+    return output, {'version': 'kurta-details-v2', 'sleeve_seconds': 2, 'neckline_seconds': 1.5,
                     'walk_start_seconds': 3.5, 'sleeve_box': list(sleeve),
                     'neckline_box': list(neckline), 'content_box': list(active)}

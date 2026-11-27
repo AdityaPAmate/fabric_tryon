@@ -49,11 +49,18 @@ class KurtaDetailsTests(SimpleTestCase):
         self.assertEqual(kurta_details.content_box(frame, (300, 400)), (0, 0, 360, 640))
 
     def test_render_has_sleeve_then_neckline_and_eight_seconds_of_motion(self):
+        for width in (240, 720):
+            with self.subTest(provider_width=width):
+                self.check_render(width)
+
+    def check_render(self, width):
         import cv2
         import numpy as np
+        height = width * 4 // 3
+        ratio = width / 240
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
             path = Path(directory) / 'provider.mp4'
-            writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*'mp4v'), 24, (240, 320))
+            writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*'mp4v'), 24, (width, height))
             self.assertTrue(writer.isOpened())
             try:
                 for index in range(192):
@@ -61,24 +68,25 @@ class KurtaDetailsTests(SimpleTestCase):
                     frame[150:280, 20:95] = (20, 20, 230)  # red sleeve region
                     frame[90:155, 95:170] = (230, 20, 20)  # blue neckline region
                     frame[290:305, 100+index%10:110+index%10] = 230
-                    writer.write(frame)
+                    writer.write(cv2.resize(frame, (width, height)))
             finally:
                 writer.release()
-            with patch('fabricapp.video.kurta_details.find_face', return_value=(100, 40, 40, 50)):
+            with patch('fabricapp.video.kurta_details.find_face',
+                       return_value=tuple(int(value * ratio) for value in (100, 40, 40, 50))):
                 output, meta = kurta_details.render(path, self.photo(), directory)
             self.assertEqual(meta['walk_start_seconds'], 3.5)
             capture = cv2.VideoCapture(str(output))
             try:
                 self.assertEqual(capture.get(cv2.CAP_PROP_FRAME_COUNT), 192)
                 self.assertEqual(capture.get(cv2.CAP_PROP_FPS), 24)
-                self.assertEqual(capture.get(cv2.CAP_PROP_FRAME_WIDTH), 540)
-                self.assertEqual(capture.get(cv2.CAP_PROP_FRAME_HEIGHT), 720)
+                self.assertEqual(capture.get(cv2.CAP_PROP_FRAME_WIDTH), width)
+                self.assertEqual(capture.get(cv2.CAP_PROP_FRAME_HEIGHT), height)
                 samples = []
                 for second in (.5, 2.5, 7.5):
                     capture.set(cv2.CAP_PROP_POS_MSEC, second * 1000)
                     ok, frame = capture.read()
                     self.assertTrue(ok)
-                    samples.append(frame[360, 270].astype(int))
+                    samples.append(frame[height // 2, width // 2].astype(int))
                 self.assertGreater(samples[0][2], samples[0][0] + 100)
                 self.assertGreater(samples[1][0], samples[1][2] + 100)
                 self.assertGreater(samples[2][1], samples[2][0] + 80)
