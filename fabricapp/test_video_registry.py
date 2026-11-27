@@ -40,8 +40,9 @@ class VideoRegistryTests(SimpleTestCase):
         self.assertEqual([s.id for s in kurta.all_styles], ['kurta_commercial'])
         self.assertNotEqual(kurta.resolve().prompt, shirt.resolve('mirror_check').prompt)
         self.assertNotEqual(kurta.resolve().prompt, shirt.resolve('shirt_commercial').prompt)
-        for phrase in ('0-2s neckline/buttons', '2-3.5s sleeve', '3.5-5s kurta neck-to-hem',
-                       '5-8s slow front walk', 'slightly elevated camera tracks backward', 'hem in frame'):
+        for phrase in ('Clean cuts.', '0-2s neckline close-up', '2-3.5s sleeve', '3.5-5s full kurta neck-to-hem',
+                       '5-8s slow front walk', 'camera above chest tracks back in sync', 'hem visible',
+                       'Front-facing', 'print scale/placement'):
             self.assertIn(phrase, kurta.resolve().prompt)
         self.assertEqual(kurta.resolve().seconds, 8)
         with self.assertRaises(ValueError):
