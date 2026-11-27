@@ -1,17 +1,17 @@
 from ..contracts import GarmentVideoDefinition, VideoStyle
 
-# Kurta-specific commercial: full hem framing, independent of shirt prompts/crops.
+# One continuous kurta showcase, independent of shirt prompts and local crops.
 PROMPT = (
-    'Clean cuts. 0-2s neckline close-up, slide L-R. 2-3.5s sleeve, minimal arm motion. '
-    '3.5-5s full kurta neck-to-hem. 5-8s slow front walk; camera above chest tracks back in sync, hem visible. '
-    'Front-facing, arms relaxed. Same person/garment/colour/print scale/placement/texture/details/background/light.'
+    'Single take. 0-2s chest fabric close-up; 2-4s pull back, turn only 30deg, front visible; '
+    '4-6s two slow forward steps, camera backs in sync; 6-8s hold front pose. Full kurta/hem after reveal. '
+    'Arms relaxed. Exact source fabric/colour/print scale/texture/details/person/background/light. No back view.'
 )
 
 DEFINITION = GarmentVideoDefinition(
     'kurta', 'Kurta', 'kurta_commercial',
     (
-        VideoStyle('kurta_commercial', 'Kurta cinematic commercial', 'fabric-gimme-kurta-commercial-v2', PROMPT,
-                   '8s: neckline close-up, sleeve detail, full neck-to-hem view, then front-facing slow walk; camera tracks back at walking speed.',
-                   allow_cuts=True),
+        VideoStyle('kurta_commercial', 'Kurta cinematic commercial', 'fabric-gimme-kurta-commercial-v3', PROMPT,
+                   '8s continuous take: chest fabric detail, slight 30-degree turn with front visible, two slow steps, then a steady front pose. Full kurta and hem after reveal.',
+                   camera_motion='zoom_out'),
     ), 'Use a sharp, front-facing image showing the complete kurta neckline, sleeves and hem.',
 )

@@ -40,15 +40,16 @@ class VideoRegistryTests(SimpleTestCase):
         self.assertEqual([s.id for s in kurta.all_styles], ['kurta_commercial'])
         self.assertNotEqual(kurta.resolve().prompt, shirt.resolve('mirror_check').prompt)
         self.assertNotEqual(kurta.resolve().prompt, shirt.resolve('shirt_commercial').prompt)
-        for phrase in ('Clean cuts.', '0-2s neckline close-up', '2-3.5s sleeve', '3.5-5s full kurta neck-to-hem',
-                       '5-8s slow front walk', 'camera above chest tracks back in sync', 'hem visible',
-                       'Front-facing', 'print scale/placement'):
+        for phrase in ('Single take.', '0-2s chest fabric close-up', '2-4s pull back', 'turn only 30deg, front visible',
+                       '4-6s two slow forward steps', 'camera backs in sync', '6-8s hold front pose',
+                       'Full kurta/hem after reveal', 'print scale', 'No back view'):
             self.assertIn(phrase, kurta.resolve().prompt)
         self.assertEqual(kurta.resolve().seconds, 8)
         with self.assertRaises(ValueError):
             kurta.resolve('walking')
         saved = select_profile({'garment_type': 'kurta'})
-        self.assertTrue(saved['multi_shot'])
+        self.assertNotIn('multi_shot', saved)
+        self.assertEqual(saved['camera_motion'], 'zoom_out')
         self.assertEqual(saved['renderer'], 'passthrough')
         self.assertNotIn('source_collar_opening', saved)
         changed = replace(shirt, styles=(replace(shirt.styles[0], prompt='A different shirt action'), shirt.styles[1]))

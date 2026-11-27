@@ -370,51 +370,59 @@ https://docs.djangoproject.com/en/4.2/ref/request-response/
 
 ## Kurta cinematic video style
 
-All kurta image styles (`plain`, `sherwani`, `pathani`, `jodhpuri`) use one
-8-second `kurta_commercial` style, labelled Kurta cinematic commercial. The current
-profile version is `fabric-gimme-kurta-commercial-v2`. It is independent of the
-shirt/saree prompts. Four shots: neckline close-up (0-2s), sleeve detail (2-3.5s),
-full neck-to-hem view in one frame (3.5-5s), slow front walk with a camera above
-chest level tracking backward at walking speed (5-8s). The third shot deliberately
-keeps the full garment together rather than adding a downward tilt.
+All kurta image styles (`plain`, `sherwani`, `pathani`, `jodhpuri`) use the single
+8-second `kurta_commercial` style. Current version: `fabric-gimme-kurta-commercial-v3`.
 
-The complete prompt sent to Gimmeclip (298 characters):
+The previous multi-cut candidate was replaced after a user-reported unexpected
+back view. The new candidate follows the supplied fabric-reveal / slight-turn /
+walk / hero-pose storyboard as one continuous take, reducing scene switches:
+
+- 0-2s: chest fabric close-up.
+- 2-4s: pull back and a limited 30-degree turn while the front remains visible.
+- 4-6s: two slow forward steps; camera tracks backward with the subject.
+- 6-8s: steady front-facing pose. No final push-in is added.
+- After the reveal, show the full kurta and hem; keep arms relaxed and original
+  fabric colour, print scale, texture, garment details, person, background/light.
+
+The complete provider prompt (298 characters):
 
 ```text
-Clean cuts. 0-2s neckline close-up, slide L-R. 2-3.5s sleeve, minimal arm motion. 3.5-5s full kurta neck-to-hem. 5-8s slow front walk; camera above chest tracks back in sync, hem visible. Front-facing, arms relaxed. Same person/garment/colour/print scale/placement/texture/details/background/light.
+Single take. 0-2s chest fabric close-up; 2-4s pull back, turn only 30deg, front visible; 4-6s two slow forward steps, camera backs in sync; 6-8s hold front pose. Full kurta/hem after reveal. Arms relaxed. Exact source fabric/colour/print scale/texture/details/person/background/light. No back view.
 ```
 
-The original person, garment details, fabric colour/texture, print scale/placement,
-background and light are to be preserved. Cuts are explicit; the subject stays
-front-facing with minimal arm motion. These are generation instructions, not
-pixel-level consistency guarantees. The input should be sharp, front-facing and
-show the neckline, sleeves and full hem. A full source photo does not guarantee
-that the first generated frame will be a neckline close-up. No source crop or
-shirt-specific local renderer has been added. Four shots in eight seconds remain
-an ambitious request and must be visually tested.
+`allow_cuts` is false and `camera_motion=zoom_out`; the renderer remains passthrough.
+The moving-camera edge heuristic is not treated as proof of visual consistency.
+No new model, extra generation, automatic retry, source crop or local renderer is
+added. Same one 8s Gimmeclip animation call; shorter wording/one take is not proven
+to reduce provider latency. Source image generation, shirt/saree profiles, image
+and catalog APIs remain unchanged. Saved jobs retain their frozen older profiles.
 
-New kurta requests use `video_motion=kurta_commercial` or omit video_motion for
-that default; saved jobs use their frozen older profiles. Cuts are allowed, so the
-locked-frame continuity heuristic is not presented as a visual identity check.
-The tester loads the single option from video-options after deployment/refresh.
-Image/catalog generation and all other garment prompts remain unchanged.
+### Inspected user job
 
-### Verification of the supplied external review (2026-11-27)
+`f1106634-c139-4a29-b011-ec0a2f7bc160` is completed and byte-matches local
+`video_0039.mp4`. It is 8s, 24fps and shows a complete back view around 6s, despite
+the expected frontal sequence. Its saved timing response reports 75.19s video
+generation and 93.49s worker-start-to-completion. The public compact response does
+not expose the saved prompt version; live deployment alone does not prove which
+profile a saved job used. The first reported fabric-changing job was not supplied,
+so its precise fabric change/cause has not been established. No new paid generation
+or visual certification of the v3 candidate was performed.
 
-- The supplied detailed and short prompts are 1268 and 650 characters respectively;
-  neither fits this photo-animation route's 300-character limit. They were not
-  pasted or silently truncated into production.
-- Our route is POST `/api/v0/edits` with `recipe.aiEdit.idea` and `animate=true`.
-  `idea` was already correct; no parameter rename or provider migration was needed.
-- The documentation lists Veo/Grok/Seedance IDs in generation comparisons, not a
-  selectable model field for our current photo-animation request. We cannot infer
-  which underlying model executes this route, or claim model-specific validation.
-- Generation-from-idea is a different endpoint. Its 500-character idea contract
-  and model comparison behavior must not be confused with photo animation.
-- Official motion-focused guidance informed the clearer wording; it does not prove
-  the generated output will obey all instructions. No new paid visual test ran.
+### Provider and prompt limitations
 
-Primary sources checked:
+Our current API is POST `/api/v0/edits`, `recipe.aiEdit.idea` (3-300 characters),
+`animate=true`, 4/6/8 seconds. Generation-from-idea and model-comparison endpoints
+are different contracts; no selected underlying model can be inferred for this
+photo-animation call. Google motion-prompting guidance is general supporting
+advice, not evidence that Gimmeclip executes a particular Google model.
+
+A full-body source image may still appear as the first frame; prompting alone does
+not guarantee an immediate fabric close-up. Motion, fabric identity and background
+must be visually reviewed. One take may reduce scene-change risk but does not
+eliminate generative variation or guarantee identical styles across new videos.
+The supplied long and short alternatives exceed the 300-character animation limit
+and were not pasted or silently truncated into production.
+
+Primary references checked:
 https://gimmeclip.com/openapi.json
-https://gimmeclip.com/docs/
 https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/video/best-practice
