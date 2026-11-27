@@ -370,61 +370,67 @@ https://docs.djangoproject.com/en/4.2/ref/request-response/
 
 ## Kurta cinematic video style
 
-All kurta image styles (`plain`, `sherwani`, `pathani`, `jodhpuri`) use one
-8-second `kurta_commercial` style. Current version: `fabric-gimme-kurta-commercial-v4`.
+All kurta image styles (`plain`, `sherwani`, `pathani`, `jodhpuri`) use the single
+8-second `kurta_commercial` option, version `fabric-gimme-kurta-commercial-v5`.
+The previously inspected frontal clip still omitted the close-ups; framing is now
+performed by a small kurta-only renderer rather than relying on camera prompts.
 
-The previous v3 request for a limited 30-degree turn was removed after unwanted
-back views persisted. The requested sequence is now strictly frontal:
+### One AI animation, three framed views
 
-- 0-2s: chest fabric close-up.
-- 2-4s: widen to show the complete kurta and bottom hem.
-- 4-6s: two slow steps **toward the lens**; camera stays in front and tracks away.
-- 6-8s: stop facing the lens. Chest and shoulders face the lens throughout.
+1. Seconds 0-2: crop the moving clip around the right sleeve/forearm; prompt asks
+   the left fingers to lightly straighten that sleeve edge once.
+2. Seconds 2-3.5: neckline/placket detail from the same moving clip.
+3. Seconds 3.5-8: front walking shot, digitally widening over its first three
+   seconds, then keeping the complete garment/hem visible.
 
-The complete provider prompt (299 characters):
+AI provides body and hand movement; local rendering provides the camera framing.
+The exact 300-character motion prompt is:
 
 ```text
-One frontal take. 0-2s chest fabric close-up; 2-4s widen to full kurta/hem. 4-6s TWO slow steps TOWARD LENS; 6-8s stop facing lens. Camera stays IN FRONT, tracking away. Chest/shoulders face lens always; arms relaxed. Exact source fabric colour/print scale/texture/details, person, background/light.
+0-2s stand facing lens; left fingers lightly straighten right sleeve edge once. 2-3.5s hands rest. 3.5-8s take TWO slow small steps TOWARD lens. Chest faces lens throughout. Keep framing steady, full kurta/hem visible. Exact source fabric colour/print scale/texture/details, person, background/light.
 ```
 
-All references to a subject turn, angles, reverse walking or back views have been
-removed from the model prompt. Directions specify the subject and camera
-separately. Fabric colour, print scale, texture and details are anchored to the
-source. These instructions reduce ambiguity; they do not enforce pixel identity
-or guarantee the model obeys the direction. The first generated frame may still
-match the full source image instead of immediately showing a fabric close-up.
+`kurta_details.py` uses the existing face detector to estimate sleeve and neckline
+regions, not a garment/hand segmentation or pose-tracking model. The sleeve view
+is wide enough for small arm movement, but an unusually posed person or large AI
+motion can still move the hands outside it. Clear front source photos with full
+sleeves/hem are required. Preflight checks source framing and FFmpeg before a new
+paid video submission. Rendering samples the actual clip at 0s and 2s to anchor
+its views; if usable face framing is absent it reports an error instead of
+silently substituting a full-body shot.
 
-`allow_cuts` remains false, `camera_motion=zoom_out`, renderer=passthrough. Existing
-moving-camera QA remains advisory/unverified, not an accessory, orientation or
-fabric-identity detector. No extra provider call, retry, model switch, crop or
-local rendering is introduced. One 8s animation remains; latency reduction has
-not been demonstrated. Image/catalog generation and other garment prompts are
-unchanged. Saved jobs retain their original profiles; this affects new requests.
+Verified black padding matching the source aspect ratio is removed. The output
+preserves that active-picture ratio at 540px width, 24fps, eight seconds; the
+source photo is not modified. There is no extra AI generation, no speed change,
+no colour grading and no invented source detail. Close-ups magnify the provider's
+available resolution, so small or blurred input details can remain soft. Cuts
+between the two detail views and walking shot are deliberate. No side/back view
+or body rotation is requested; AI compliance and garment identity still require
+visual review. Existing quality status remains unverified/advisory.
 
-### Existing output inspection
+Local framing preview reused the existing `e5782c80-a984-4232-ab88-5bf55b4cad1c`
+clip (103.61s processing, 80.84s provider generation). The preview's framing was
+viewed and checked at sleeve, neckline and widening-walk timestamps. It rendered
+in about 4.72s on the local laptop; this is not a Render latency measurement.
+The old clip does not contain the newly requested sleeve adjustment; that motion
+has not been visually validated with a new paid generation. Framing success must
+not be reported as proof of the AI hand action or universal fabric preservation.
 
-- `f1106634-c139-4a29-b011-ec0a2f7bc160` matched local video_0039.mp4 and showed
-  a back view around 6s. Previously measured generation: 75.19s; processing: 93.49s.
-- `607e6438-c880-4ed9-8367-89bd42528c47` returned 200/completed and byte-matched
-  video_0041.mp4. The source is frontal green kurta; output shows the back around
-  3-4s and returns to the front near 6s. Generation: 80.36s; processing: 97.01s.
-- `256f1a8b-8bc5-4b17-b944-f96d12bf876d` returned HTTP 404 during inspection.
-  Its precise saved profile/media could not be recovered from that endpoint.
-- Local video_0040.mp4 visibly changes from the green source to navy fabric at
-  about 1s and also shows a back view. It was not matched to the unavailable ID.
-- The compact public response does not identify the saved prompt version, so the
-  currently live commit alone is not proof of which profile created a saved job.
-- These are inspections of existing media, not proof of v4 output quality. No new
-  paid AI generation or visual certification of this candidate was performed.
+The existing rendering dispatcher gets a kurta-only renderer name. Shirt's collar
+composition, saree/pant/blazer/kurti profiles and image/catalog logic are unchanged.
+No new dependencies or AI calls are introduced. Saved jobs retain their original
+profiles, so a new request from the saved image is needed to use v5. Storage retries
+reuse the existing provider clip, without a second generation.
 
-### Provider limitations
+### Earlier inspected outputs
 
-POST `/api/v0/edits` uses `recipe.aiEdit.idea` (3-300 chars), `animate=true`,
-4/6/8 seconds. The generation-from-idea and comparison endpoints are separate;
-we cannot infer the underlying model for this photo-animation request. The 300
-character constraint is enforced rather than truncating a longer prompt. Four
-phases in eight seconds and unseen garment reconstruction remain model demands,
-not guaranteed instructions. Inspect future output against its own source image.
+- `607e6438-c880-4ed9-8367-89bd42528c47` matched video_0041.mp4 and showed a back
+  view around 3-4s. Processing 97.01s; provider generation 80.36s.
+- `256f1a8b-8bc5-4b17-b944-f96d12bf876d` returned 404 during inspection.
+- Local video_0040.mp4 changes green fabric to navy; not matched to that missing ID.
+- `f1106634-c139-4a29-b011-ec0a2f7bc160` matched video_0039.mp4 with a back view.
 
-https://gimmeclip.com/openapi.json
-https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/video/best-practice
+Our Gimmeclip photo-animation route uses `recipe.aiEdit.idea` (3-300 characters)
+and `animate=true`; model-comparison/generation-from-idea are separate contracts.
+Underlying model, seed and full fabric consistency cannot be inferred or enforced
+through this prompt-only interface. https://gimmeclip.com/openapi.json

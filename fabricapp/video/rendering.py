@@ -5,12 +5,16 @@ from .errors import VideoError
 def renderer_name(profile):
     # Jobs created before the registry used only this boolean. Keep retries stable.
     name = profile.get('renderer') or ('shirt_collar' if profile.get('source_collar_opening') else 'passthrough')
-    if name not in ('passthrough', 'shirt_collar'):
+    if name not in ('passthrough', 'shirt_collar', 'kurta_details'):
         raise VideoError('invalid_motion_profile', 'This saved video renderer is not supported.')
     return name
 
 
 def preflight(profile, source_bytes):
+    if renderer_name(profile) == 'kurta_details':
+        from .kurta_details import preflight as prepare
+        prepare(source_bytes)
+        return
     if renderer_name(profile) == 'shirt_collar':
         from .collar import prepare_collar, ffmpeg_path
         prepare_collar(source_bytes)
@@ -18,6 +22,9 @@ def preflight(profile, source_bytes):
 
 
 def render(profile, provider_path, source_bytes, directory):
+    if renderer_name(profile) == 'kurta_details':
+        from .kurta_details import render as compose
+        return compose(provider_path, source_bytes, directory)
     if renderer_name(profile) == 'shirt_collar':
         from .collar import render_commercial
         return render_commercial(provider_path, source_bytes, directory)

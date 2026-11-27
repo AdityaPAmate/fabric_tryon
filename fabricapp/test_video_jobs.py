@@ -392,6 +392,7 @@ class VideoJobTests(TestCase):
         self.assertEqual(profile['motion'],'kurta_commercial')
         with patch('fabricapp.video.service.generate_image', return_value=GenerationResult(image_bytes(),19)) as generate, \
              patch('fabricapp.video.service.upload_generated_image', return_value={'url':'https://cdn.example/photo.png'}), \
+             patch('fabricapp.video.service.preflight') as prepare, \
              patch('fabricapp.video.service.select_profile', side_effect=AssertionError('Do not change saved motion')), \
              patch('fabricapp.video.service.GimmeclipClient') as provider, \
              patch('fabricapp.video.service.store_video', return_value={'url':'https://cdn.example/video.mp4'}):
@@ -405,6 +406,7 @@ class VideoJobTests(TestCase):
             self.assertEqual(data[key],value)
         self.assertEqual(data['options'],{'draft_mode':False,'fabric_crop_box':[0,0,32,64]})
         self.assertEqual(provider.return_value.submit.call_args.args[1],profile)
+        prepare.assert_called_once_with(profile, image_bytes())
         self.assertEqual(job.status,'completed')
 
     def test_legacy_motion_choices_do_not_override_the_fixed_mirror_flow(self):

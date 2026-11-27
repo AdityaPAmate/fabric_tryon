@@ -19,10 +19,12 @@ class VideoStyle:
             raise ValueError('A video style needs an ID, version and 3–300 character prompt.')
         if self.seconds not in (4, 6, 8):
             raise ValueError('Gimmeclip animation supports 4, 6 or 8 seconds.')
-        if self.renderer not in ('passthrough', 'shirt_collar'):
+        if self.renderer not in ('passthrough', 'shirt_collar', 'kurta_details'):
             raise ValueError('Unknown video renderer.')
         if self.renderer == 'shirt_collar' and (self.seconds != 8 or not self.allow_cuts):
             raise ValueError('The existing shirt collar composition needs eight seconds and cuts.')
+        if self.renderer == 'kurta_details' and (self.seconds != 8 or not self.allow_cuts):
+            raise ValueError('Kurta detail composition needs eight seconds and cuts.')
         if self.camera_motion not in ('locked', 'zoom_out'):
             raise ValueError('Unknown camera motion.')
 
@@ -61,6 +63,8 @@ class GarmentVideoDefinition:
             raise ValueError('Style IDs must be unique and include the default.')
         if self.garment_type != 'shirt' and any(s.renderer == 'shirt_collar' for s in self.all_styles):
             raise ValueError('A collar composition belongs to shirts only.')
+        if self.garment_type != 'kurta' and any(s.renderer == 'kurta_details' for s in self.all_styles):
+            raise ValueError('Kurta detail composition belongs to kurtas only.')
 
     @property
     def all_styles(self):

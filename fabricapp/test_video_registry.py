@@ -27,7 +27,7 @@ class VideoRegistryTests(SimpleTestCase):
                     self.assertEqual(profile['garment_type'], garment)
                     self.assertLessEqual(len(profile['prompt']), 300)
                     if garment != 'shirt':
-                        self.assertEqual(profile['renderer'], 'passthrough')
+                        self.assertEqual(profile['renderer'], 'kurta_details' if garment == 'kurta' else 'passthrough')
                         self.assertNotIn('source_collar_opening', profile)
                 profiles.append(definition.resolve().prompt)
         self.assertEqual(len(set(profiles)), 6)
@@ -40,9 +40,10 @@ class VideoRegistryTests(SimpleTestCase):
         self.assertEqual([s.id for s in kurta.all_styles], ['kurta_commercial'])
         self.assertNotEqual(kurta.resolve().prompt, shirt.resolve('mirror_check').prompt)
         self.assertNotEqual(kurta.resolve().prompt, shirt.resolve('shirt_commercial').prompt)
-        for phrase in ('One frontal take.', '0-2s chest fabric close-up', '2-4s widen to full kurta/hem',
-                       '4-6s TWO slow steps TOWARD LENS', '6-8s stop facing lens', 'Camera stays IN FRONT',
-                       'Chest/shoulders face lens always', 'Exact source fabric colour/print scale/texture/details'):
+        for phrase in ('0-2s stand facing lens', 'lightly straighten right sleeve edge once',
+                       '2-3.5s hands rest', '3.5-8s take TWO slow small steps TOWARD lens',
+                       'Chest faces lens throughout', 'full kurta/hem visible',
+                       'Exact source fabric colour/print scale/texture/details'):
             self.assertIn(phrase, kurta.resolve().prompt)
         self.assertNotIn('30deg', kurta.resolve().prompt)
         self.assertNotRegex(kurta.resolve().prompt.lower(), r'\b(turn|rotation|spin|back)\b')
@@ -50,9 +51,9 @@ class VideoRegistryTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             kurta.resolve('walking')
         saved = select_profile({'garment_type': 'kurta'})
-        self.assertNotIn('multi_shot', saved)
+        self.assertTrue(saved['multi_shot'])
         self.assertEqual(saved['camera_motion'], 'zoom_out')
-        self.assertEqual(saved['renderer'], 'passthrough')
+        self.assertEqual(saved['renderer'], 'kurta_details')
         self.assertNotIn('source_collar_opening', saved)
         changed = replace(shirt, styles=(replace(shirt.styles[0], prompt='A different shirt action'), shirt.styles[1]))
         with patch('fabricapp.video.garments.shirt.DEFINITION', changed):
